@@ -1,20 +1,42 @@
+/*
+ * Copyright (c) 2019 ubirch GmbH.
+ *
+ * ```
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ```
+ */
+
 package ubirch
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/paypal/go.crypto/keystore"
 	"math/big"
 )
 
+// This crypto context contains the key store, a mapping for names -> UUIDs
+// and the last generated signature per UUID.
 type CryptoContext struct {
-	Keystore      *keystore.Keystore
-	LastSignature []byte
+	Keystore   *keystore.Keystore
+	Names      map[string]uuid.UUID
 }
 
 func encodePriv(privateKey *ecdsa.PrivateKey) ([]byte, error) {
@@ -67,7 +89,12 @@ func signatureToPoints(signature []byte) (r, s *big.Int, err error) {
 	return r, s, nil
 }
 
-func (c *CryptoContext) AddPublicKey(id uuid.UUID, k *ecdsa.PublicKey) error {
+func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
+	if c.Names == nil {
+		c.Names = make(map[string]uuid.UUID, 1)
+	}
+	c.Names[name] = id
+
 	pubKeyBytes, err := encodePub(k)
 	if err != nil {
 		return err
@@ -76,20 +103,65 @@ func (c *CryptoContext) AddPublicKey(id uuid.UUID, k *ecdsa.PublicKey) error {
 	return c.Keystore.Set("_"+id.String(), pubKeyBytes, pph)
 }
 
-func (c *CryptoContext) AddKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
-	err := c.AddPublicKey(id, &k.PublicKey)
-	if err != nil {
-		return err
+func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+	if c.Names == nil {
+		c.Names = make(map[string]uuid.UUID, 1)
 	}
+	c.Names[name] = id
 
-	pubKeyBytes, err := encodePriv(k)
+	privKeyBytes, err := encodePriv(k)
 	if err != nil {
 		return err
 	}
 	pph, _ := id.MarshalBinary()
-	return c.Keystore.Set(id.String(), pubKeyBytes, pph)
+	return c.Keystore.Set(id.String(), privKeyBytes, pph)
 }
 
+func (c *CryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+	err := c.storePublicKey(name, id, &k.PublicKey)
+	if err != nil {
+		return err
+	}
+	return c.storePrivateKey(name, id, k)
+}
+
+// Get the uuid that is related the given name.
+func (c *CryptoContext) GetUUID(name string) (uuid.UUID, error) {
+	id, found := c.Names[name]
+	if !found {
+		return uuid.Nil, errors.New(fmt.Sprintf("no uuid/key entry for '%s'", name))
+	}
+	return id, nil
+}
+
+// Generate a new key pair and store it using the given name and associated UUID.
+func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
+	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return err
+	}
+	return c.storeKey(name, id, k)
+}
+
+// Get a certificate signing request.
+func (c *CryptoContext) GetCSR(name string) ([]byte, error) { return nil, nil }
+
+// Get the public key bytes for the given name.
+func (c *CryptoContext) GetKey(name string) ([]byte, error) {
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
+	pph, _ := id.MarshalBinary()
+	pubKeyBytes, err := c.Keystore.Get("_"+id.String(), pph)
+	if err != nil {
+		return nil, err
+	}
+	return pubKeyBytes, nil
+}
+
+// Sign a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	pph, _ := id.MarshalBinary()
 	privKeyBytes, err := c.Keystore.Get(id.String(), pph)
@@ -104,9 +176,13 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	return append(r.Bytes(), s.Bytes()...), nil
 }
 
+// Verify a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Verify(id uuid.UUID, data []byte) ([]byte, error) {
 	pph, _ := id.MarshalBinary()
 	pubKeyBytes, err := c.Keystore.Get("_"+id.String(), pph)
+	if err != nil {
+		return nil, err
+	}
 
 	pub, err := decodePub(pubKeyBytes)
 	if err != nil {
