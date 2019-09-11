@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/ugorji/go/codec"
+	"math/rand"
+	"time"
 )
 
 type ProtocolType uint8
@@ -33,17 +35,21 @@ const (
 )
 
 type Crypto interface {
-	Sign(name string, value []byte) ([]byte, error)
-	Verify(name string, value []byte) ([]byte, error)
-	SaveSignature(id uuid.UUID, signature []byte) error
-	LoadSignature(id uuid.UUID) ([]byte, error)
+	GetUUID(name string) (uuid.UUID, error)
+	GenerateKey(name string, id uuid.UUID) error
+	GetCSR(name string) ([]byte, error)
+	GetKey(name string) ([]byte, error)
+
+	Sign(id uuid.UUID, value []byte) ([]byte, error)
+	Verify(id uuid.UUID, value []byte) ([]byte, error)
 }
 
 type Protocol struct {
 	Crypto
+	Signatures map[uuid.UUID][]byte
 }
 
-type simple struct {
+type signed struct {
 	Version   ProtocolType
 	Uuid      uuid.UUID
 	Hint      uint8
@@ -79,15 +85,7 @@ func appendSignature(encoded []byte, signature []byte) []byte {
 	return encoded
 }
 
-func (upp simple) sign(p *Protocol) ([]byte, error) {
-	encoded, err := encode(upp)
-	if err != nil {
-		return nil, err
-	}
-	signature, err := p.Crypto.Sign(upp.Uuid, encoded[:len(encoded)-1])
-}
-
-func (upp chained) sign(p *Protocol) ([]byte, error) {
+func (upp signed) sign(p *Protocol) ([]byte, error) {
 	encoded, err := encode(upp)
 	if err != nil {
 		return nil, err
@@ -96,41 +94,52 @@ func (upp chained) sign(p *Protocol) ([]byte, error) {
 	return appendSignature(encoded, signature), nil
 }
 
-// Create and sign a ubirch-protocol message using the given data.
-// This method allows adding a hint value with the data.
-// Returns a fully signed ubirch-protocol packet (UPP).
-func (p *Protocol) SignExt(name string, hint uint8, value []byte, protocol ProtocolType) ([]byte, error) {
-	switch protocol {
-	case Signed:
-		return simple{
-			protocol,
-			p.getUUID(name),
-			hint,
-			value,
-			nil,
-		}.sign(p)
-	case Chained:
-		return chained{
-			protocol,
-			p.getUUID(name),
-			make([]byte, 64),
-			hint,
-			value,
-			nil,
-		}.sign(p)
-	default:
-		return nil, errors.New(fmt.Sprintf("unknown protocol type: 0x%02x", protocol))
+func (upp chained) sign(p *Protocol) ([]byte, error) {
+	encoded, err := encode(upp)
+	if err != nil {
+		return nil, err
 	}
+	signature, err := p.Crypto.Sign(upp.Uuid, encoded[:len(encoded)-1])
+	p.Signatures[upp.Uuid] = signature
+	return appendSignature(encoded, signature), nil
+}
+
+func (p *Protocol) Init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
+
+func (p *Protocol) Random(len int) ([]byte, error) {
+	bytes := make([]byte, len)
+	for i := 0; i < len; i++ {
+		bytes[i] = byte(rand.Intn(255))
+	}
+	return bytes, nil
 }
 
 // Create and sign a ubirch-protocol message using the given data and the protocol type.
 // The method expects a hash as input data for the value.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
 func (p *Protocol) Sign(name string, value []byte, protocol ProtocolType) ([]byte, error) {
-	return p.SignExt(name, 0x00, value, protocol)
+	id, err := p.Crypto.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
+	switch protocol {
+	case Signed:
+		return signed{protocol, id, 0x00, value, nil,}.sign(p)
+	case Chained:
+		signature, found := p.Signatures[id]
+		if !found {
+			signature = make([]byte, 64)
+		}
+		return chained{protocol, id, signature, 0x00, value, nil,}.sign(p)
+	default:
+		return nil, errors.New(fmt.Sprintf("unknown protocol type: 0x%02x", protocol))
+	}
 }
 
 // Verify a ubirch-protocol message and return the payload.
-func (p *Protocol) Verify(name string, value []byte, protocol int) ([]byte, error) {
-	return nil, nil
+func (p *Protocol) Verify(name string, value []byte, protocol int) (bool, error) {
+	return true, nil
 }

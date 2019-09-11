@@ -19,9 +19,6 @@
 package main
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"github.com/google/uuid"
@@ -34,8 +31,8 @@ import (
 	"syscall"
 )
 
-func saveProtocolContext(v interface{}) error {
-	contextBytes, _ := json.Marshal(v)
+func saveProtocolContext(p *ubirch.Protocol) error {
+	contextBytes, _ := json.Marshal(p)
 	err := ioutil.WriteFile("protocol.json", contextBytes, 444)
 	if err != nil {
 		log.Printf("unable to store protocol context: %v", err)
@@ -46,13 +43,13 @@ func saveProtocolContext(v interface{}) error {
 	}
 }
 
-func loadProtocolContext(v interface{}) error {
+func loadProtocolContext(p *ubirch.Protocol) error {
 	contextBytes, err := ioutil.ReadFile("protocol.json")
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(contextBytes, &v)
+	err = json.Unmarshal(contextBytes, p)
 	if err != nil {
 		log.Fatalf("unable to deserialize context: %v", err)
 		return err
@@ -65,32 +62,26 @@ func loadProtocolContext(v interface{}) error {
 func main() {
 	name := "A"
 
-	context := &ubirch.CryptoContext{
-		Keystore:      &keystore.Keystore{},
-		LastSignature: nil,
-	}
+	context := &ubirch.CryptoContext{&keystore.Keystore{}, map[string]uuid.UUID{}}
 	p := ubirch.Protocol{
-		Crypto: context,
+		Crypto:     context,
+		Signatures: map[uuid.UUID][]byte{},
 	}
 
-	err := loadProtocolContext(p)
+	err := loadProtocolContext(&p)
 	if err != nil {
-		log.Printf("keystore not found, or unable to loadProtocolContext: %v", err)
-		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			log.Fatalf("unable to create signing key: %v", err)
-		}
+		log.Printf("keystore not found, or unable to load: %v", err)
 		uid, _ := uuid.NewRandom()
-		err = context.AddKey(name, uid, priv)
+		err = p.GenerateKey(name, uid)
 		if err != nil {
 			log.Fatalf("can't add key to key store: %v", err)
 		}
 	}
 
 	data, _ := hex.DecodeString("010203040506070809FF")
-	encoded, err := p.Sign("A", data, 0x22)
+	encoded, err := p.Sign(name, data, ubirch.Chained)
 	if err != nil {
-		log.Fatal("creating signed upp failed: %v", err)
+		log.Fatalf("creating signed upp failed: %v", err)
 	}
 	log.Print(hex.EncodeToString(encoded))
 
@@ -100,5 +91,5 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	}()
 
-	_ = saveProtocolContext(p)
+	_ = saveProtocolContext(&p)
 }

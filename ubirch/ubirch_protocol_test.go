@@ -19,6 +19,7 @@
 package ubirch
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
@@ -32,6 +33,7 @@ import (
 
 // test fixtures
 const (
+	testName = "A"
 	testUUID = "6eac4d0b-16e6-4508-8c46-22e7451ea5a1"
 	testPriv = "8f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937"
 
@@ -48,16 +50,16 @@ var expectedChained = [...]string{
 
 var context = &CryptoContext{
 	Keystore:      &keystore.Keystore{},
-	LastSignature: nil,
+	Names:         map[string]uuid.UUID{},
 }
 
 var protocol = Protocol{
 	Crypto: context,
-	Uuid:   uuid.MustParse(testUUID),
+	Signatures: map[uuid.UUID][]byte{},
 }
 
 func (c *CryptoContext) GetLastSignature() ([]byte, error) {
-
+	return nil, nil
 }
 
 func bytesToPrivateKey(bytes []byte) *ecdsa.PrivateKey {
@@ -70,11 +72,12 @@ func bytesToPrivateKey(bytes []byte) *ecdsa.PrivateKey {
 }
 
 func init() {
+	id := uuid.MustParse(testUUID)
 	privBytes, err := hex.DecodeString(testPriv)
 	if err != nil {
 		panic(err)
 	}
-	err = context.AddKey(protocol.Uuid, bytesToPrivateKey(privBytes))
+	err = context.storePrivateKey(testName, id, bytesToPrivateKey(privBytes))
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +85,7 @@ func init() {
 
 func TestCreateSignedMessage(t *testing.T) {
 	digest := sha256.Sum256([]byte{'1'})
-	upp, err := protocol.Sign(protocol.Uuid.String(), digest[:], Signed)
+	upp, err := protocol.Sign(testName, digest[:], Signed)
 	if err != nil {
 		t.Errorf("signing failed: %v", err)
 	}
@@ -97,18 +100,19 @@ func TestCreateChainedMessage(t *testing.T) {
 	previousSignature := make([]byte, 64)
 	for i := 0; i < 3; i++ {
 		digest := sha256.Sum256([]byte{byte(i + 1)})
-		upp, err := protocol.Sign(protocol.Uuid.String(), digest[:], Chained)
+		upp, err := protocol.Sign(testName, digest[:], Chained)
 		if err != nil {
 			t.Errorf("signing failed: %v", err)
 		}
 		expected, _ := hex.DecodeString(expectedChained[i])
 		copy(expected[22:22+64], previousSignature)
 		previousSignature = upp[len(upp)-64:]
-		log.Printf("%d S: %s", i, hex.EncodeToString(previousSignature))
-		log.Printf("%d E: %s", i, hex.EncodeToString(expected))
-		log.Printf("%d R: %s", i, hex.EncodeToString(upp[:len(upp)-64]))
-		if hex.EncodeToString(expected) != hex.EncodeToString(upp[:len(upp)-64]) {
-			t.Errorf("chain: %d: upp encoding wrong", i+1)
+		//log.Printf("%d S: %s", i, hex.EncodeToString(previousSignature))
+		log.Printf("%d E: (%d) %s", i, len(expected), hex.EncodeToString(expected))
+		log.Printf("%d R: (%d) %s", i, len(upp[:len(upp)-64]), hex.EncodeToString(upp[:len(upp)-64]))
+		if !bytes.Equal(expected, upp[:len(upp)-64]) {
+			t.Errorf("chain: %d: upp encoding wrong", i)
+			return
 		}
 	}
 }
