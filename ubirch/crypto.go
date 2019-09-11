@@ -1,3 +1,21 @@
+/*
+ * Copyright (c) 2019 ubirch GmbH.
+ *
+ * ```
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ```
+ */
+
 package ubirch
 
 import (
@@ -7,12 +25,14 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/paypal/go.crypto/keystore"
 	"math/big"
 )
 
 type CryptoContext struct {
+	Names         map[string]uuid.UUID
 	Keystore      *keystore.Keystore
 	LastSignature []byte
 }
@@ -67,7 +87,19 @@ func signatureToPoints(signature []byte) (r, s *big.Int, err error) {
 	return r, s, nil
 }
 
-func (c *CryptoContext) AddPublicKey(id uuid.UUID, k *ecdsa.PublicKey) error {
+func (c *CryptoContext) GetUUID(name string) (*uuid.UUID, error) {
+	id, found := c.Names[name]
+	if !found {
+		return nil, errors.New(fmt.Sprintf("no uuid/key entry for '%s'", name))
+	}
+	return &id, nil
+}
+
+func (c *CryptoContext) AddPublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
+	if c.Names == nil {
+		c.Names = make(map[string]uuid.UUID, 1)
+	}
+	c.Names[name] = id
 	pubKeyBytes, err := encodePub(k)
 	if err != nil {
 		return err
@@ -76,8 +108,8 @@ func (c *CryptoContext) AddPublicKey(id uuid.UUID, k *ecdsa.PublicKey) error {
 	return c.Keystore.Set("_"+id.String(), pubKeyBytes, pph)
 }
 
-func (c *CryptoContext) AddKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
-	err := c.AddPublicKey(id, &k.PublicKey)
+func (c *CryptoContext) AddKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+	err := c.AddPublicKey(name, id, &k.PublicKey)
 	if err != nil {
 		return err
 	}
@@ -90,7 +122,12 @@ func (c *CryptoContext) AddKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
 	return c.Keystore.Set(id.String(), pubKeyBytes, pph)
 }
 
-func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
+func (c *CryptoContext) Sign(name string, data []byte) ([]byte, error) {
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
 	pph, _ := id.MarshalBinary()
 	privKeyBytes, err := c.Keystore.Get(id.String(), pph)
 	priv, err := decodePriv(privKeyBytes)
@@ -104,7 +141,12 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	return append(r.Bytes(), s.Bytes()...), nil
 }
 
-func (c *CryptoContext) Verify(id uuid.UUID, data []byte) ([]byte, error) {
+func (c *CryptoContext) Verify(name string, data []byte) ([]byte, error) {
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
 	pph, _ := id.MarshalBinary()
 	pubKeyBytes, err := c.Keystore.Get("_"+id.String(), pph)
 
@@ -123,4 +165,12 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte) ([]byte, error) {
 		return value, nil
 	}
 	return nil, errors.New("signature verification failed")
+}
+
+func (c *CryptoContext) SaveSignature(id uuid.UUID, signature []byte) error {
+	return nil
+}
+
+func (c *CryptoContext) LoadSignature(id uuid.UUID) ([]byte, error) {
+	return nil, nil
 }

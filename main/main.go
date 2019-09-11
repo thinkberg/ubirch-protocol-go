@@ -1,3 +1,21 @@
+/*
+ * Copyright (c) 2019 ubirch GmbH.
+ *
+ * ```
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ```
+ */
+
 package main
 
 import (
@@ -16,8 +34,36 @@ import (
 	"syscall"
 )
 
+func saveProtocolContext(v interface{}) error {
+	contextBytes, _ := json.Marshal(v)
+	err := ioutil.WriteFile("protocol.json", contextBytes, 444)
+	if err != nil {
+		log.Printf("unable to store protocol context: %v", err)
+		return err
+	} else {
+		log.Printf("saved protocol context")
+		return nil
+	}
+}
+
+func loadProtocolContext(v interface{}) error {
+	contextBytes, err := ioutil.ReadFile("protocol.json")
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(contextBytes, &v)
+	if err != nil {
+		log.Fatalf("unable to deserialize context: %v", err)
+		return err
+	} else {
+		log.Printf("loaded protocol context")
+		return nil
+	}
+}
+
 func main() {
-	uid, _ := uuid.NewRandom()
+	name := "A"
 
 	context := &ubirch.CryptoContext{
 		Keystore:      &keystore.Keystore{},
@@ -25,17 +71,17 @@ func main() {
 	}
 	p := ubirch.Protocol{
 		Crypto: context,
-		Uuid:   uid,
 	}
 
-	ksbytes, err := ioutil.ReadFile("ubirch.ks")
+	err := loadProtocolContext(p)
 	if err != nil {
-		log.Printf("keystore not found, or unable to load: %v", err)
+		log.Printf("keystore not found, or unable to loadProtocolContext: %v", err)
 		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			log.Fatalf("unable to create signing key: %v", err)
 		}
-		err = context.AddKey(p.Uuid, priv)
+		uid, _ := uuid.NewRandom()
+		err = context.AddKey(name, uid, priv)
 		if err != nil {
 			log.Fatalf("can't add key to key store: %v", err)
 		}
@@ -54,9 +100,5 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	}()
 
-	ksbytes, _ = json.Marshal(context.Keystore)
-	err = ioutil.WriteFile("ubirch.ks", ksbytes, 444)
-	if err != nil {
-		log.Printf("unable to store keystore: %v", err)
-	}
+	_ = saveProtocolContext(p)
 }
