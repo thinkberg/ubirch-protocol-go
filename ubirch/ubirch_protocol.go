@@ -30,6 +30,7 @@ import (
 type ProtocolType uint8
 
 const (
+	Plain   ProtocolType = 0x00
 	Signed  ProtocolType = 0x22
 	Chained ProtocolType = 0x23
 )
@@ -126,14 +127,16 @@ func (p *Protocol) Sign(name string, value []byte, protocol ProtocolType) ([]byt
 	}
 
 	switch protocol {
+	case Plain:
+		return p.Crypto.Sign(id, value)
 	case Signed:
-		return signed{protocol, id, 0x00, value, nil,}.sign(p)
+		return signed{protocol, id, 0x00, value, nil}.sign(p)
 	case Chained:
 		signature, found := p.Signatures[id]
 		if !found {
 			signature = make([]byte, 64)
 		}
-		return chained{protocol, id, signature, 0x00, value, nil,}.sign(p)
+		return chained{protocol, id, signature, 0x00, value, nil}.sign(p)
 	default:
 		return nil, errors.New(fmt.Sprintf("unknown protocol type: 0x%02x", protocol))
 	}

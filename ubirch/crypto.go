@@ -23,7 +23,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -73,21 +72,21 @@ func decodePub(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
-func signatureToPoints(signature []byte) (r, s *big.Int, err error) {
-	r, s = &big.Int{}, &big.Int{}
-
-	data := asn1.RawValue{}
-	_, err = asn1.Unmarshal(signature, &data)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	rLen := data.Bytes[1]
-	r.SetBytes(data.Bytes[2 : rLen+2])
-	s.SetBytes(data.Bytes[rLen+4:])
-
-	return r, s, nil
-}
+//func signatureToPoints(signature []byte) (r, s *big.Int, err error) {
+//	r, s = &big.Int{}, &big.Int{}
+//
+//	data := asn1.RawValue{}
+//	_, err = asn1.Unmarshal(signature, &data)
+//	if err != nil {
+//		return nil, nil, err
+//	}
+//
+//	rLen := data.Bytes[1]
+//	r.SetBytes(data.Bytes[2 : rLen+2])
+//	s.SetBytes(data.Bytes[rLen+4:])
+//
+//	return r, s, nil
+//}
 
 func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
 	if c.Names == nil {
@@ -189,12 +188,16 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	r, s, err := signatureToPoints(data[len(data)-66:])
-	if err != nil {
-		return nil, err
-	}
+	r, s := &big.Int{}, &big.Int{}
 
-	value := data[0 : len(data)-64]
+	r.SetBytes(data[len(data)-64 : len(data)-32])
+	s.SetBytes(data[len(data)-32:])
+	//r, s, err := signatureToPoints(data[len(data)-66:])
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	value := data[0 : len(data)-66]
 	if ecdsa.Verify(pub, value, r, s) {
 		return value, nil
 	}
