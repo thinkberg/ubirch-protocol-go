@@ -176,7 +176,7 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 }
 
 // Verify a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
-func (c *CryptoContext) Verify(id uuid.UUID, data []byte) ([]byte, error) {
+func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) ([]byte, error) {
 	pph, _ := id.MarshalBinary()
 	pubKeyBytes, err := c.Keystore.Get("_"+id.String(), pph)
 	if err != nil {
@@ -189,17 +189,11 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte) ([]byte, error) {
 	}
 
 	r, s := &big.Int{}, &big.Int{}
+	r.SetBytes(signature[:32])
+	s.SetBytes(signature[32:])
 
-	r.SetBytes(data[len(data)-64 : len(data)-32])
-	s.SetBytes(data[len(data)-32:])
-	//r, s, err := signatureToPoints(data[len(data)-66:])
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	value := data[0 : len(data)-66]
-	if ecdsa.Verify(pub, value, r, s) {
-		return value, nil
+	if ecdsa.Verify(pub, data, r, s) {
+		return data, nil
 	}
 	return nil, errors.New("signature verification failed")
 }

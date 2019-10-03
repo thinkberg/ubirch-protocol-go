@@ -42,7 +42,7 @@ type Crypto interface {
 	GetKey(name string) ([]byte, error)
 
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
-	Verify(id uuid.UUID, value []byte) ([]byte, error)
+	Verify(id uuid.UUID, value []byte, signature []byte) ([]byte, error)
 }
 
 type Protocol struct {
@@ -79,6 +79,28 @@ func encode(v interface{}) ([]byte, error) {
 	}
 	return encoded, nil
 }
+
+//func decode(upp []byte) (interface{}, error) {
+//	var mh codec.MsgpackHandle
+//	mh.StructToArray = true
+//	mh.WriteExt = true
+//
+//	decoder := codec.NewDecoderBytes(upp, &mh)
+//	var msg interface{}
+//	switch upp[0] {
+//	case 0x95:
+//		msg = signed{}
+//	case 0x96:
+//		msg = chained{}
+//	default:
+//		return nil, errors.New(fmt.Sprintf("corrupt UPP: array len=%d", upp[0]))
+//	}
+//
+//	if err := decoder.Decode(msg); err != nil {
+//		return nil, err
+//	}
+//	return msg, nil
+//}
 
 func appendSignature(encoded []byte, signature []byte) []byte {
 	encoded = append(encoded[:len(encoded)-1], 0xC4, byte(len(signature)))
@@ -143,6 +165,19 @@ func (p *Protocol) Sign(name string, value []byte, protocol ProtocolType) ([]byt
 }
 
 // Verify a ubirch-protocol message and return the payload.
-func (p *Protocol) Verify(name string, value []byte, protocol int) (bool, error) {
+func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (bool, error) {
+	id, err := p.Crypto.GetUUID(name)
+	if err != nil {
+		return false, err
+	}
+
+	// extract signed data and signature from structure
+	data := value[:len(value)-66]
+	signature := value[len(value)-64:]
+
+	_, err = p.Crypto.Verify(id, data, signature)
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
