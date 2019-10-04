@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"github.com/google/uuid"
 	"github.com/paypal/go.crypto/keystore"
@@ -114,5 +115,28 @@ func TestCreateChainedMessage(t *testing.T) {
 			t.Errorf("chain: %d: upp encoding wrong", i)
 			return
 		}
+	}
+}
+
+func TestVerifyHashedMessage(t *testing.T) {
+	vkb, _ := base64.StdEncoding.DecodeString("o71ufIY0rP4GXQELZcXlm6t2s/LB29jzGfmheG3q8dJecxrGc/bqIODYcfROx6ofgunyarvG4lFiP+7p18qZqg==")
+	hsh, _ := base64.StdEncoding.DecodeString("T2v511D0Upfr7Vl0DY5xnganDXlUCILCfZvetExHgzQ=")
+	sig,_ := base64.StdEncoding.DecodeString("WQ/xDF7LVU/CVFzqGwopleefBe5xMLFrnkyEUzE08s0pxZgbtudReaWw70FSPvf2f83kgMvd5gfLNBd1V3AGng==")
+
+	x := &big.Int{}
+	x.SetBytes(vkb[0:32])
+	y := &big.Int{}
+	y.SetBytes(vkb[32:64])
+
+	vk := ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+
+	r, s := &big.Int{}, &big.Int{}
+	r.SetBytes(sig[:32])
+	s.SetBytes(sig[32:])
+
+	if ecdsa.Verify(&vk, hsh, r, s) {
+		log.Printf("signature okay")
+	} else {
+		t.Fatalf("signature not okay")
 	}
 }

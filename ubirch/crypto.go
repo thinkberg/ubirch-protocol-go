@@ -22,6 +22,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -168,7 +169,10 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, s, err := ecdsa.Sign(rand.Reader, priv, data)
+
+	// ecdsa in go does not automatically apply the hashing
+	hash := sha256.Sum256(data)
+	r, s, err := ecdsa.Sign(rand.Reader, priv, hash[:])
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +196,8 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) ([]b
 	r.SetBytes(signature[:32])
 	s.SetBytes(signature[32:])
 
-	if ecdsa.Verify(pub, data, r, s) {
+	hash := sha256.Sum256(data)
+	if ecdsa.Verify(pub, hash[:], r, s) {
 		return data, nil
 	}
 	return nil, errors.New("signature verification failed")

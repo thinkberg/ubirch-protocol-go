@@ -180,4 +180,24 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 		return false, err
 	}
 	return true, nil
+
+	// TODO: fix and implement automatic UPP decoding to structs
+	//switch protocol {
+	//case Plain:
+	//	return data, nil
+	//case Signed:
+	//	upp, err := decode(value)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	return upp.(signed), nil
+	//case Chained:
+	//	upp, err := decode(value)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	return upp.(chained), nil
+	//default:
+	//	return nil, errors.New(fmt.Sprintf("unknown message type: %d", protocol))
+	//}
 }
