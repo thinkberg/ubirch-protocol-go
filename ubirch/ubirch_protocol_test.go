@@ -50,12 +50,12 @@ var expectedChained = [...]string{
 }
 
 var context = &CryptoContext{
-	Keystore:      &keystore.Keystore{},
-	Names:         map[string]uuid.UUID{},
+	Keystore: &keystore.Keystore{},
+	Names:    map[string]uuid.UUID{},
 }
 
 var protocol = Protocol{
-	Crypto: context,
+	Crypto:     context,
 	Signatures: map[uuid.UUID][]byte{},
 }
 
@@ -81,6 +81,23 @@ func init() {
 	err = context.storePrivateKey(testName, id, bytesToPrivateKey(privBytes))
 	if err != nil {
 		panic(err)
+	}
+}
+
+func TestDecodeArrayToStruct(t *testing.T) {
+	upp, _ := hex.DecodeString("9623c4104f6b64a7a5c9483786c00d32bc8e03c0c440936a6658ac8c83421c455088f744a5c6f6634ef6e442784da0d6c3f2666b33b3a80a1fb027ebbd07dbc2498ddb614e7dd1e3d0b4c515a4293efa6c6cd42857ca00c4208eac931f0b8e3ace01d901c75511ebc1f63fe66ab4c1dc2c9977897c378c021dc440bfdd69f9cb951f47b8455732404aefbae71662c0ab425986d8afbfbaeb128f63521486c04a258da8150f318c752899b7cae3cd9de67080d0636b8b07dcd286bd")
+	o, err := Decode(upp)
+	if err != nil {
+		t.Errorf("upp can't be decoded: %v", err)
+	}
+
+	c := o.(*ChainedUPP)
+	if uuid.MustParse("4f6b64a7-a5c9-4837-86c0-0d32bc8e03c0") != c.Uuid {
+		t.Errorf("uuid does not match")
+	}
+	hash, _ := base64.StdEncoding.DecodeString("lmjNczf0vBzd+pi6WL9eWllxZ4ate8Ju0uOxWx83SjA=")
+	if bytes.Compare(hash, c.Payload) == 0 {
+		t.Errorf("hash does not match")
 	}
 }
 
@@ -121,7 +138,7 @@ func TestCreateChainedMessage(t *testing.T) {
 func TestVerifyHashedMessage(t *testing.T) {
 	vkb, _ := base64.StdEncoding.DecodeString("o71ufIY0rP4GXQELZcXlm6t2s/LB29jzGfmheG3q8dJecxrGc/bqIODYcfROx6ofgunyarvG4lFiP+7p18qZqg==")
 	hsh, _ := base64.StdEncoding.DecodeString("T2v511D0Upfr7Vl0DY5xnganDXlUCILCfZvetExHgzQ=")
-	sig,_ := base64.StdEncoding.DecodeString("WQ/xDF7LVU/CVFzqGwopleefBe5xMLFrnkyEUzE08s0pxZgbtudReaWw70FSPvf2f83kgMvd5gfLNBd1V3AGng==")
+	sig, _ := base64.StdEncoding.DecodeString("WQ/xDF7LVU/CVFzqGwopleefBe5xMLFrnkyEUzE08s0pxZgbtudReaWw70FSPvf2f83kgMvd5gfLNBd1V3AGng==")
 
 	x := &big.Int{}
 	x.SetBytes(vkb[0:32])

@@ -39,7 +39,7 @@ type CryptoContext struct {
 	Names      map[string]uuid.UUID
 }
 
-func encodePriv(privateKey *ecdsa.PrivateKey) ([]byte, error) {
+func encodePrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	x509Encoded, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func encodePriv(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-func encodePub(publicKey *ecdsa.PublicKey) ([]byte, error) {
+func encodePublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
 	x509EncodedPub, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
 		return nil, err
@@ -58,13 +58,13 @@ func encodePub(publicKey *ecdsa.PublicKey) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-func decodePriv(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
+func decodePrivateKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	x509Encoded := block.Bytes
 	return x509.ParseECPrivateKey(x509Encoded)
 }
 
-func decodePub(pemEncoded []byte) (*ecdsa.PublicKey, error) {
+func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	genericPublicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
@@ -95,7 +95,7 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	}
 	c.Names[name] = id
 
-	pubKeyBytes, err := encodePub(k)
+	pubKeyBytes, err := encodePublicKey(k)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 	}
 	c.Names[name] = id
 
-	privKeyBytes, err := encodePriv(k)
+	privKeyBytes, err := encodePrivateKey(k)
 	if err != nil {
 		return err
 	}
@@ -143,11 +143,41 @@ func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
 	return c.storeKey(name, id, k)
 }
 
+func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error {
+	if len(pubKeyBytes) < 64 {
+		return errors.New(fmt.Sprintf("public key length wrong: %d != 64", len(pubKeyBytes)))
+	}
+
+	pubKey := new(ecdsa.PublicKey)
+	pubKey.Curve = elliptic.P256()
+	pubKey.X = &big.Int{}
+	pubKey.X.SetBytes(pubKeyBytes[0:32])
+	pubKey.Y = &big.Int{}
+	pubKey.Y.SetBytes(pubKeyBytes[32:64])
+
+	return c.storePublicKey(name, id, pubKey)
+}
+
+func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) error {
+	if len(privKeyBytes) < 64 {
+		return errors.New(fmt.Sprintf("private key lenght wrong: %d < 64", len(privKeyBytes)))
+	}
+
+	privKey := new(ecdsa.PrivateKey)
+	privKey.D = new(big.Int)
+	privKey.D.SetBytes(privKeyBytes)
+	privKey.PublicKey.Curve = elliptic.P256()
+	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
+
+	return c.storeKey(name, id, privKey)
+}
+
+
 // Get a certificate signing request.
 func (c *CryptoContext) GetCSR(name string) ([]byte, error) { return nil, nil }
 
 // Get the public key bytes for the given name.
-func (c *CryptoContext) GetKey(name string) ([]byte, error) {
+func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 	id, err := c.GetUUID(name)
 	if err != nil {
 		return nil, err
@@ -165,7 +195,11 @@ func (c *CryptoContext) GetKey(name string) ([]byte, error) {
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	pph, _ := id.MarshalBinary()
 	privKeyBytes, err := c.Keystore.Get(id.String(), pph)
-	priv, err := decodePriv(privKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	priv, err := decodePrivateKey(privKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -180,16 +214,16 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 }
 
 // Verify a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
-func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) ([]byte, error) {
+func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
 	pph, _ := id.MarshalBinary()
 	pubKeyBytes, err := c.Keystore.Get("_"+id.String(), pph)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	pub, err := decodePub(pubKeyBytes)
+	pub, err := decodePublicKey(pubKeyBytes)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
 	r, s := &big.Int{}, &big.Int{}
@@ -198,7 +232,7 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) ([]b
 
 	hash := sha256.Sum256(data)
 	if ecdsa.Verify(pub, hash[:], r, s) {
-		return data, nil
+		return true, nil
 	}
-	return nil, errors.New("signature verification failed")
+	return false, errors.New("signature verification failed")
 }

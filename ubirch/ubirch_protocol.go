@@ -39,10 +39,12 @@ type Crypto interface {
 	GetUUID(name string) (uuid.UUID, error)
 	GenerateKey(name string, id uuid.UUID) error
 	GetCSR(name string) ([]byte, error)
-	GetKey(name string) ([]byte, error)
+	GetPublicKey(name string) ([]byte, error)
+	SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error
+	SetKey(name string, id uuid.UUID, privKeyBytes []byte) error
 
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
-	Verify(id uuid.UUID, value []byte, signature []byte) ([]byte, error)
+	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
 }
 
 type Protocol struct {
@@ -50,7 +52,7 @@ type Protocol struct {
 	Signatures map[uuid.UUID][]byte
 }
 
-type signed struct {
+type SignedUPP struct {
 	Version   ProtocolType
 	Uuid      uuid.UUID
 	Hint      uint8
@@ -58,7 +60,7 @@ type signed struct {
 	Signature []byte
 }
 
-type chained struct {
+type ChainedUPP struct {
 	Version       ProtocolType
 	Uuid          uuid.UUID
 	PrevSignature []byte
@@ -67,7 +69,7 @@ type chained struct {
 	Signature     []byte
 }
 
-func encode(v interface{}) ([]byte, error) {
+func Encode(v interface{}) ([]byte, error) {
 	var mh codec.MsgpackHandle
 	mh.StructToArray = true
 	mh.WriteExt = true
@@ -80,27 +82,31 @@ func encode(v interface{}) ([]byte, error) {
 	return encoded, nil
 }
 
-//func decode(upp []byte) (interface{}, error) {
-//	var mh codec.MsgpackHandle
-//	mh.StructToArray = true
-//	mh.WriteExt = true
-//
-//	decoder := codec.NewDecoderBytes(upp, &mh)
-//	var msg interface{}
-//	switch upp[0] {
-//	case 0x95:
-//		msg = signed{}
-//	case 0x96:
-//		msg = chained{}
-//	default:
-//		return nil, errors.New(fmt.Sprintf("corrupt UPP: array len=%d", upp[0]))
-//	}
-//
-//	if err := decoder.Decode(msg); err != nil {
-//		return nil, err
-//	}
-//	return msg, nil
-//}
+func Decode(upp []byte) (interface{}, error) {
+	var mh codec.MsgpackHandle
+	mh.StructToArray = true
+	mh.WriteExt = true
+
+	decoder := codec.NewDecoderBytes(upp, &mh)
+	switch upp[0] {
+	case 0x95:
+		msg := new(SignedUPP)
+		err := decoder.Decode(msg)
+		if err != nil {
+			return nil, err
+		}
+		return msg, nil
+	case 0x96:
+		msg := new(ChainedUPP)
+		err := decoder.Decode(msg)
+		if err != nil {
+			return nil, err
+		}
+		return msg, nil
+	default:
+		return nil, errors.New(fmt.Sprintf("corrupt UPP: array len=%d", upp[0]))
+	}
+}
 
 func appendSignature(encoded []byte, signature []byte) []byte {
 	encoded = append(encoded[:len(encoded)-1], 0xC4, byte(len(signature)))
@@ -108,8 +114,8 @@ func appendSignature(encoded []byte, signature []byte) []byte {
 	return encoded
 }
 
-func (upp signed) sign(p *Protocol) ([]byte, error) {
-	encoded, err := encode(upp)
+func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
+	encoded, err := Encode(upp)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +123,8 @@ func (upp signed) sign(p *Protocol) ([]byte, error) {
 	return appendSignature(encoded, signature), nil
 }
 
-func (upp chained) sign(p *Protocol) ([]byte, error) {
-	encoded, err := encode(upp)
+func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
+	encoded, err := Encode(upp)
 	if err != nil {
 		return nil, err
 	}
@@ -152,13 +158,13 @@ func (p *Protocol) Sign(name string, value []byte, protocol ProtocolType) ([]byt
 	case Plain:
 		return p.Crypto.Sign(id, value)
 	case Signed:
-		return signed{protocol, id, 0x00, value, nil}.sign(p)
+		return SignedUPP{protocol, id, 0x00, value, nil}.sign(p)
 	case Chained:
 		signature, found := p.Signatures[id]
 		if !found {
 			signature = make([]byte, 64)
 		}
-		return chained{protocol, id, signature, 0x00, value, nil}.sign(p)
+		return ChainedUPP{protocol, id, signature, 0x00, value, nil}.sign(p)
 	default:
 		return nil, errors.New(fmt.Sprintf("unknown protocol type: 0x%02x", protocol))
 	}
@@ -171,32 +177,39 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 		return false, err
 	}
 
-	// extract signed data and signature from structure
-	data := value[:len(value)-66]
-	signature := value[len(value)-64:]
-
-	_, err = p.Crypto.Verify(id, data, signature)
-	if err != nil {
-		return false, err
+	if len(value) <= 64 {
+		return false, errors.New(fmt.Sprintf("data must contain signature: len %d < 64+2 bytes", len(value)))
 	}
-	return true, nil
+
+	switch protocol {
+	case Plain:
+		return p.Crypto.Verify(id, value[:len(value)-64], value[len(value)-64:])
+	case Signed:
+		fallthrough
+	case Chained:
+		data := value[:len(value)-66]
+		signature := value[len(value)-64:]
+		return p.Crypto.Verify(id, data, signature)
+	default:
+		return false, errors.New(fmt.Sprintf("unknown protocol type: %d", protocol))
+	}
 
 	// TODO: fix and implement automatic UPP decoding to structs
 	//switch protocol {
 	//case Plain:
 	//	return data, nil
 	//case Signed:
-	//	upp, err := decode(value)
+	//	upp, err := Decode(value)
 	//	if err != nil {
 	//		return nil, err
 	//	}
-	//	return upp.(signed), nil
+	//	return upp.(SignedUPP), nil
 	//case Chained:
-	//	upp, err := decode(value)
+	//	upp, err := Decode(value)
 	//	if err != nil {
 	//		return nil, err
 	//	}
-	//	return upp.(chained), nil
+	//	return upp.(ChainedUPP), nil
 	//default:
 	//	return nil, errors.New(fmt.Sprintf("unknown message type: %d", protocol))
 	//}
