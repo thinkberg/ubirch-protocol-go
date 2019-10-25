@@ -1,4 +1,4 @@
-module github.com/ubirch/ubirch-protocol-go/ubirch
+module github.com/ubirch/ubirch-protocol-go/ubirch/v2
 
 go 1.12
 
