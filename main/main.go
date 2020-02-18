@@ -21,14 +21,15 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
-	"github.com/thinkberg/ubirch-protocol-go/ubirch"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/google/uuid"
+	"github.com/paypal/go.crypto/keystore"
+	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 )
 
 func saveProtocolContext(p *ubirch.Protocol) error {
