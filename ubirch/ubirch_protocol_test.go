@@ -25,11 +25,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
 	"log"
 	"math/big"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/paypal/go.crypto/keystore"
 )
 
 // test fixtures
@@ -37,6 +38,7 @@ const (
 	testName = "A"
 	testUUID = "6eac4d0b-16e6-4508-8c46-22e7451ea5a1"
 	testPriv = "8f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937"
+	testPub  = "55f0feac4f2bcf879330eff348422ab3abf5237a24acaf0aef3bb876045c4e532fbd6cd8e265f6cf28b46e7e4512cd06ba84bcd3300efdadf28750f43dafd771"
 
 	// expected messages
 	expectedSigned = "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440"
