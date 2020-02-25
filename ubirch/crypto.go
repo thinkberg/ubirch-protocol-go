@@ -144,9 +144,11 @@ func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
 	return c.storeKey(name, id, k)
 }
 
+//SetPublicKey sets the public key (64 bytes)
 func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error {
-	if len(pubKeyBytes) != 64 {
-		return errors.New(fmt.Sprintf("public key length wrong: %d != 64", len(pubKeyBytes)))
+	const expectedKeyLength = 64
+	if len(pubKeyBytes) != expectedKeyLength {
+		return errors.New(fmt.Sprintf("public key length wrong: %d != %d", len(pubKeyBytes), expectedKeyLength))
 	}
 
 	pubKey := new(ecdsa.PublicKey)
@@ -159,9 +161,11 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 	return c.storePublicKey(name, id, pubKey)
 }
 
+//SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
 func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) error {
-	if len(privKeyBytes) != 32 {
-		return errors.New(fmt.Sprintf("private key lenght wrong: %d != 32", len(privKeyBytes)))
+	const expectedKeyLength = 32
+	if len(privKeyBytes) != expectedKeyLength {
+		return errors.New(fmt.Sprintf("private key lenght wrong: %d != %d", len(privKeyBytes), expectedKeyLength))
 	}
 
 	privKey := new(ecdsa.PrivateKey)
