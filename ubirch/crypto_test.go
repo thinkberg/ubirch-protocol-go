@@ -32,8 +32,8 @@ func TestSetKey(t *testing.T) {
 		Keystore: &keystore.Keystore{},
 		Names:    map[string]uuid.UUID{},
 	}
-	id := uuid.MustParse(testUUID)
-	privBytesCorrect, err := hex.DecodeString(testPriv)
+	id := uuid.MustParse(defaultUUID)
+	privBytesCorrect, err := hex.DecodeString(defaultPriv)
 	if err != nil {
 		panic(err)
 	}
@@ -41,15 +41,15 @@ func TestSetKey(t *testing.T) {
 	privBytesTooShort := privBytesCorrect[1:]
 
 	//Test valid key length
-	err = context.SetKey(testName, id, privBytesCorrect)
+	err = context.SetKey(defaultName, id, privBytesCorrect)
 	if err != nil {
 		t.Errorf("SetKey() failed with error: %v", err)
 	}
-	err = context.SetKey(testName, id, privBytesTooShort)
+	err = context.SetKey(defaultName, id, privBytesTooShort)
 	if err == nil {
 		t.Errorf("SetKey() accepts too short keys.")
 	}
-	err = context.SetKey(testName, id, privBytesTooLong)
+	err = context.SetKey(defaultName, id, privBytesTooLong)
 	if err == nil {
 		t.Errorf("SetKey() accepts too long keys")
 	}
@@ -61,8 +61,8 @@ func TestSetPublicKey(t *testing.T) {
 		Keystore: &keystore.Keystore{},
 		Names:    map[string]uuid.UUID{},
 	}
-	id := uuid.MustParse(testUUID)
-	pubBytesCorrect, err := hex.DecodeString(testPub)
+	id := uuid.MustParse(defaultUUID)
+	pubBytesCorrect, err := hex.DecodeString(defaultPub)
 	if err != nil {
 		panic(err)
 	}
@@ -70,15 +70,15 @@ func TestSetPublicKey(t *testing.T) {
 	pubBytesTooShort := pubBytesCorrect[1:]
 
 	//Test valid key length
-	err = context.SetPublicKey(testName, id, pubBytesCorrect)
+	err = context.SetPublicKey(defaultName, id, pubBytesCorrect)
 	if err != nil {
 		t.Errorf("SetPublicKey() failed with error: %v", err)
 	}
-	err = context.SetPublicKey(testName, id, pubBytesTooShort)
+	err = context.SetPublicKey(defaultName, id, pubBytesTooShort)
 	if err == nil {
 		t.Errorf("SetPublicKey() accepts too short keys.")
 	}
-	err = context.SetPublicKey(testName, id, pubBytesTooLong)
+	err = context.SetPublicKey(defaultName, id, pubBytesTooLong)
 	if err == nil {
 		t.Errorf("SetPublicKey() accepts too long keys")
 	}
