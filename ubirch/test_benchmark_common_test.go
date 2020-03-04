@@ -81,17 +81,17 @@ func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, L
 	//Set private key (public key will automatically be calculated and set)
 	privBytes, err := hex.DecodeString(PrivKey)
 	if err != nil {
-		panic(err)
+		log.Fatalf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
 	}
 	err = p.Crypto.SetKey(Name, id, privBytes)
 	if err != nil {
-		panic(err)
+		log.Fatalf("setProtocolContext: Error setting private key bytes: : %v,", err)
 	}
 
 	//Set last Signature
 	lastSigBytes, err := hex.DecodeString(LastSignature)
 	if err != nil {
-		panic(err)
+		log.Fatalf("setProtocolContext: Error decoding last signature string: : %v, string was: %v", err, LastSignature)
 	}
 	p.Signatures[id] = lastSigBytes
 
