@@ -21,10 +21,9 @@ package ubirch
 import (
 	"errors"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/ugorji/go/codec"
-	"math/rand"
-	"time"
 )
 
 type ProtocolType uint8
@@ -134,15 +133,7 @@ func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
 }
 
 func (p *Protocol) Init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
-
-func (p *Protocol) Random(len int) ([]byte, error) {
-	bytes := make([]byte, len)
-	for i := 0; i < len; i++ {
-		bytes[i] = byte(rand.Intn(255))
-	}
-	return bytes, nil
+	//Keep this function for compatibility in ubirch/ubirch-go-udp-client
 }
 
 // Create and sign a ubirch-protocol message using the given data and the protocol type.
