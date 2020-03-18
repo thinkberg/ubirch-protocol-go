@@ -32,6 +32,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/paypal/go.crypto/keystore"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 //TestDecodeArrayToStruct decodes a 'Chained' type UPP and checks expected UUID
@@ -93,25 +94,28 @@ func TestDecodeArrayToStruct(t *testing.T) {
 //non-deterministic) is compared to the expected values
 func TestCreateSignedMessage(t *testing.T) {
 	var tests = []struct {
-		testName               string
-		privateKey             string
-		deviceUUID             string
-		dataToHash             string
-		expectedUPPNoSignature string
+		testName    string
+		privateKey  string
+		publicKey   string
+		deviceUUID  string
+		userData    string //this is not a hash but the data that the user wants to be sealed/ubirchified
+		expectedUPP string //signature contained in expected UPP is only placeholder, instead, actual created signature is checked
 	}{
 		{
-			testName:               "Data='1'",
-			privateKey:             "6f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937",
-			deviceUUID:             "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
-			dataToHash:             "31", //equals the character "1" string
-			expectedUPPNoSignature: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440",
+			testName:    "Data='1'",
+			privateKey:  defaultPriv,
+			publicKey:   defaultPub,
+			deviceUUID:  "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			userData:    "31", //equals the character "1" string
+			expectedUPP: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
-			testName:               "Data='Hello World!'",
-			privateKey:             "6f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937",
-			deviceUUID:             "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
-			dataToHash:             "48656c6c6f20576f726c6421", //"Hello World!"
-			expectedUPPNoSignature: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440",
+			testName:    "Data='Hello World!'",
+			privateKey:  defaultPriv,
+			publicKey:   defaultPub,
+			deviceUUID:  "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			userData:    "48656c6c6f20576f726c6421", //"Hello World!"
+			expectedUPP: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		},
 	}
 
@@ -119,35 +123,37 @@ func TestCreateSignedMessage(t *testing.T) {
 	for _, currTest := range tests {
 		t.Run(currTest.testName, func(t *testing.T) {
 			asserter := assert.New(t)
+			requirer := require.New(t)
+
 			//Create new crypto context
-			context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
-			protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
-			//Load reference data into context
-			setProtocolOk := asserter.NoError(setProtocolContext(protocol, defaultName, currTest.deviceUUID, currTest.privateKey, defaultLastSig))
-			if !setProtocolOk {
-				return
-			}
-			//Create hash of input data
-			dataToHashBytes, err := hex.DecodeString(currTest.dataToHash)
-			decodeDataToHashOk := asserter.NoErrorf(err, "Test configuration string can't be decoded.\nString was: %v", currTest.dataToHash)
-			if !decodeDataToHashOk {
-				return
-			}
-			hash := sha256.Sum256(dataToHashBytes)
-			//Create 'Signed' type UPP packet
-			upp, err := protocol.Sign(defaultName, hash[:], Signed)
-			if err != nil {
-				t.Errorf("signing failed: %v", err)
-			}
-			//Check created UPP (without signature at the end, as it's non-deterministic)
-			expectedUPPBytesNoSignature, err := hex.DecodeString(currTest.expectedUPPNoSignature)
-			if err != nil {
-				t.Fatalf("Error decoding UPP data string: %v, string was: %v", err, currTest.expectedUPPNoSignature)
-			}
-			UPPBytesNoSignature := upp[:len(upp)-64]
-			if !(bytes.Equal(expectedUPPBytesNoSignature, UPPBytesNoSignature)) {
-				t.Errorf("UPP data comparison (without signature) failed:\nexpected: %x\ngot:      %x", expectedUPPBytesNoSignature, UPPBytesNoSignature)
-			}
+			protocol, err := newProtocolContext(defaultName, currTest.deviceUUID, currTest.privateKey, defaultLastSig)
+			requirer.NoError(err, "Creating protocol context failed")
+
+			//Create 'Signed' type UPP with user data
+			userDataBytes, err := hex.DecodeString(currTest.userData)
+			requirer.NoErrorf(err, "Test configuration string (input data) can't be decoded.\nString was: %v", currTest.userData)
+			//TODO: This hashing should be removed as soon as a proper
+			// "Create UPP from data" is implemented in the library
+			hash := sha256.Sum256(userDataBytes)
+			createdUpp, err := protocol.Sign(defaultName, hash[:], Signed)
+			requirer.NoError(err, "Protocol.Sign() failed")
+
+			//Check created UPP (data/structure only, signature is checked later)
+			expectedUPPBytes, err := hex.DecodeString(currTest.expectedUPP)
+			requirer.NoErrorf(err, "Test configuration string (expected UPP) can't be decoded.\nString was: %v", currTest.expectedUPP)
+
+			createdUppNoSignature := createdUpp[:len(createdUpp)-64]
+			expectedUppNoSignature := expectedUPPBytes[:len(expectedUPPBytes)-64]
+			asserter.Equal(createdUppNoSignature, expectedUppNoSignature, "Created UPP data is not as expected")
+
+			//Check signature
+			pubkeyBytes, err := hex.DecodeString(currTest.publicKey)
+			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", currTest.publicKey)
+
+			verifyOK, err := verifyUPPSignature(t, createdUpp, pubkeyBytes)
+			fmt.Printf("****** UPP: %v ", hex.EncodeToString(createdUpp))
+			requirer.NoError(err, "Signature verification could not be performed due to errors")
+			asserter.True(verifyOK, "Signature is not OK")
 		})
 	}
 }
@@ -214,6 +220,7 @@ func TestCreateChainedMessage(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Error decoding input data string: %v, string was: %v", err, currTest.dataInputs[i])
 				}
+				//TODO: The hashing should be removed as soon as a proper "Create UPP from data" is implemented in the library
 				hash := sha256.Sum256(dataInputBytes)
 				//Create UPP packet with hash as payload
 				upp, err := protocol.Sign(defaultName, hash[:], Chained)
@@ -257,43 +264,49 @@ func TestVerifyHashedMessage(t *testing.T) {
 
 func TestProtocol_Verify(t *testing.T) {
 	var tests = []struct {
-		testName       string
-		UUID           string
-		pubKey         string
-		inputUPP       string
-		expectedResult bool
+		testName   string
+		UUID       string
+		pubKey     string
+		testInput  string
+		protoType  ProtocolType
+		verifiable bool
 	}{
 		{
-			testName:       "",
-			UUID:           "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
-			pubKey:         "",
-			inputUPP:       "",
-			expectedResult: true,
+			testName:   "signed UPP",
+			UUID:       "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			pubKey:     defaultPub,
+			testInput:  "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType:  Signed,
+			verifiable: true,
 		},
 	}
 
 	//Iterate over all tests
 	for _, currTest := range tests {
 		t.Run(currTest.testName, func(t *testing.T) {
-			asserter := assert.New(t)
-			// Create new crypto context
+			requirer := require.New(t)
+
+			// Create new context
 			context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
 			protocol := &Protocol{Crypto: context, Signatures: nil}
+
 			// Load reference data into context
 			id, err := uuid.Parse(currTest.UUID)
-			if err != nil {
-				t.Fatalf("Error parsing UUID from string: %v, string was: %v", err, currTest.pubKey)
-			}
-			// Set public key for verification
-			pubKeyBytes, err := hex.DecodeString(currTest.pubKey)
-			if err != nil {
-				t.Fatalf("Error decoding public key from string: %v, string was: %v", err, currTest.pubKey)
-			}
-			err = protocol.Crypto.SetPublicKey(defaultName, id, pubKeyBytes)
-			if err != nil {
-				t.Fatalf("Error setting public key bytes in crypto context: : %v,", err)
-			}
+			requirer.NoErrorf(err, "Parsing UUID from string failed: %v, string was: %v", err, currTest.UUID)
 
+			pubKeyBytes, err := hex.DecodeString(currTest.pubKey)
+			requirer.NoErrorf(err, "Decoding public key from string failed: %v, string was: %v", err, currTest.pubKey)
+
+			err = protocol.Crypto.SetPublicKey(defaultName, id, pubKeyBytes)
+			requirer.NoErrorf(err, "Setting public key bytes in crypto context failed: : %v,", err)
+
+			inputBytes, err := hex.DecodeString(currTest.testInput)
+			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.testInput)
+
+			// verify test input
+			verified, err := protocol.Verify(defaultName, inputBytes, currTest.protoType)
+			requirer.NoErrorf(err, "Verify() returned: %v", err)
+			requirer.Equal(currTest.verifiable, verified)
 		})
 	}
 }
