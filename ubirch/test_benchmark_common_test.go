@@ -19,10 +19,16 @@
 package ubirch
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"math/big"
+	"testing"
 
 	"github.com/google/uuid"
 )
@@ -108,4 +114,35 @@ func deterministicPseudoRandomBytes(seed int32, size int) []byte {
 		block[index] = byte(seed)
 	}
 	return block
+}
+
+//Do a verification of the UPP signature with the go ecdsa library
+func verifyUPPSignature(t *testing.T, uppBytes []byte, pubkeyBytes []byte) (bool, error) {
+	//Check that UPP data is OK in general
+	if len(pubkeyBytes) != 64 {
+		return false, fmt.Errorf("pubkey is not 64 bytes long")
+	}
+	if len(uppBytes) <= 66 { //check for minimal UPP packet size
+		return false, fmt.Errorf("UPP data is too short (%v bytes)", len(uppBytes))
+	}
+
+	//Extract signature, data, and hash of data from UPP
+	signature := uppBytes[len(uppBytes)-64:]
+	dataToHash := uppBytes[:len(uppBytes)-66]
+	hash := sha256.Sum256(dataToHash)
+
+	//Set variables so they are in the format the ecdsa lib expects them
+	x := &big.Int{}
+	x.SetBytes(pubkeyBytes[0:32])
+	y := &big.Int{}
+	y.SetBytes(pubkeyBytes[32:64])
+	pubkey := ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+
+	r, s := &big.Int{}, &big.Int{}
+	r.SetBytes(signature[:32])
+	s.SetBytes(signature[32:])
+
+	//Do the verification and return result
+	verifyOK := ecdsa.Verify(&pubkey, hash[:], r, s)
+	return verifyOK, nil
 }
