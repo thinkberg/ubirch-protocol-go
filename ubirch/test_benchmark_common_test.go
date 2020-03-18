@@ -81,6 +81,9 @@ func saveProtocolContext(p *Protocol, filename string) error {
 
 //Sets the passed protocol context to the passed values (name, UUID, private Key, last signature), passed as hex strings
 func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, LastSignature string) error {
+	if p == nil {
+		return fmt.Errorf("Protocol is nil")
+	}
 
 	id := uuid.MustParse(UUID)
 
