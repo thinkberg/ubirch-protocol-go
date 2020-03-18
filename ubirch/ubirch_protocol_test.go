@@ -25,7 +25,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -151,7 +150,6 @@ func TestCreateSignedMessage(t *testing.T) {
 			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", currTest.publicKey)
 
 			verifyOK, err := verifyUPPSignature(t, createdUpp, pubkeyBytes)
-			fmt.Printf("****** UPP: %v ", hex.EncodeToString(createdUpp))
 			requirer.NoError(err, "Signature verification could not be performed due to errors")
 			asserter.True(verifyOK, "Signature is not OK")
 		})
