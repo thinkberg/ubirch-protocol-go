@@ -25,6 +25,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -143,7 +144,7 @@ func TestCreateSignedMessage(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error decoding UPP data string: %v, string was: %v", err, currTest.expectedUPPNoSignature)
 			}
-			UPPBytesNoSignature := (upp[:len(upp)-64])
+			UPPBytesNoSignature := upp[:len(upp)-64]
 			if !(bytes.Equal(expectedUPPBytesNoSignature, UPPBytesNoSignature)) {
 				t.Errorf("UPP data comparison (without signature) failed:\nexpected: %x\ngot:      %x", expectedUPPBytesNoSignature, UPPBytesNoSignature)
 			}
@@ -252,4 +253,47 @@ func TestVerifyHashedMessage(t *testing.T) {
 	s.SetBytes(sig[32:])
 
 	asserter.True(ecdsa.Verify(&vk, hsh, r, s), "ecdsa.Verify() failed to verify known-good signature")
+}
+
+func TestProtocol_Verify(t *testing.T) {
+	var tests = []struct {
+		testName       string
+		UUID           string
+		pubKey         string
+		inputUPP       string
+		expectedResult bool
+	}{
+		{
+			testName:       "",
+			UUID:           "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			pubKey:         "",
+			inputUPP:       "",
+			expectedResult: true,
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			// Create new crypto context
+			context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			protocol := &Protocol{Crypto: context, Signatures: nil}
+			// Load reference data into context
+			id, err := uuid.Parse(currTest.UUID)
+			if err != nil {
+				t.Fatalf("Error parsing UUID from string: %v, string was: %v", err, currTest.pubKey)
+			}
+			// Set public key for verification
+			pubKeyBytes, err := hex.DecodeString(currTest.pubKey)
+			if err != nil {
+				t.Fatalf("Error decoding public key from string: %v, string was: %v", err, currTest.pubKey)
+			}
+			err = protocol.Crypto.SetPublicKey(defaultName, id, pubKeyBytes)
+			if err != nil {
+				t.Fatalf("Error setting public key bytes in crypto context: : %v,", err)
+			}
+
+		})
+	}
 }
