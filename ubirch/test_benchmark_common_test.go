@@ -31,6 +31,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/paypal/go.crypto/keystore"
 )
 
 ////Default Values////
@@ -77,6 +78,15 @@ func saveProtocolContext(p *Protocol, filename string) error {
 	log.Printf("saved protocol context")
 	return nil
 
+}
+
+//Creates a new protocol context configured according to the passed values
+func newProtocolContext(Name string, UUID string, PrivKey string, LastSignature string) (*Protocol, error) {
+	context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	//Load reference data into context
+	err := setProtocolContext(protocol, Name, UUID, PrivKey, LastSignature)
+	return protocol, err
 }
 
 //Sets the passed protocol context to the passed values (name, UUID, private Key, last signature), passed as hex strings
