@@ -80,27 +80,27 @@ func saveProtocolContext(p *Protocol, filename string) error {
 }
 
 //Sets the passed protocol context to the passed values (name, UUID, private Key, last signature), passed as hex strings
-func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, LastSignature string) {
+func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, LastSignature string) error {
 
 	id := uuid.MustParse(UUID)
 
 	//Set private key (public key will automatically be calculated and set)
 	privBytes, err := hex.DecodeString(PrivKey)
 	if err != nil {
-		log.Fatalf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
+		return fmt.Errorf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
 	}
 	err = p.Crypto.SetKey(Name, id, privBytes)
 	if err != nil {
-		log.Fatalf("setProtocolContext: Error setting private key bytes: : %v,", err)
+		return fmt.Errorf("setProtocolContext: Error setting private key bytes: : %v,", err)
 	}
 
 	//Set last Signature
 	lastSigBytes, err := hex.DecodeString(LastSignature)
 	if err != nil {
-		log.Fatalf("setProtocolContext: Error decoding last signature string: : %v, string was: %v", err, LastSignature)
+		return fmt.Errorf("setProtocolContext: Error decoding last signature string: : %v, string was: %v", err, LastSignature)
 	}
 	p.Signatures[id] = lastSigBytes
-
+	return nil
 }
 
 //Generates reproducible pseudorandom data using a simple linear congruental generator.

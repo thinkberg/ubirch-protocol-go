@@ -30,6 +30,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paypal/go.crypto/keystore"
+	"github.com/stretchr/testify/assert"
 )
 
 //TestDecodeArrayToStruct decodes a 'Chained' type UPP and checks expected UUID
@@ -98,33 +99,38 @@ func TestCreateSignedMessage(t *testing.T) {
 		expectedUPPNoSignature string
 	}{
 		{
-			"Data='1'",
-			"6f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937",
-			"6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
-			"31", //equals the character "1" string
-			"9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440",
+			testName:               "Data='1'",
+			privateKey:             "6f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937",
+			deviceUUID:             "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			dataToHash:             "31", //equals the character "1" string
+			expectedUPPNoSignature: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440",
 		},
 		{
-			"Data='Hello World!'",
-			"6f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937",
-			"6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
-			"48656c6c6f20576f726c6421", //"Hello World!"
-			"9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440",
+			testName:               "Data='Hello World!'",
+			privateKey:             "6f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937",
+			deviceUUID:             "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			dataToHash:             "48656c6c6f20576f726c6421", //"Hello World!"
+			expectedUPPNoSignature: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440",
 		},
 	}
 
 	//Iterate over all tests
 	for _, currTest := range tests {
 		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
 			//Create new crypto context
 			context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
 			protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 			//Load reference data into context
-			setProtocolContext(protocol, defaultName, currTest.deviceUUID, currTest.privateKey, defaultLastSig)
+			setProtocolOk := asserter.NoError(setProtocolContext(protocol, defaultName, currTest.deviceUUID, currTest.privateKey, defaultLastSig))
+			if !setProtocolOk {
+				return
+			}
 			//Create hash of input data
 			dataToHashBytes, err := hex.DecodeString(currTest.dataToHash)
-			if err != nil {
-				t.Fatalf("Error decoding input data string: %v, string was: %v", err, currTest.dataToHash)
+			decodeDataToHashOk := asserter.NoErrorf(err, "Test configuration string can't be decoded.\nString was: %v", currTest.dataToHash)
+			if !decodeDataToHashOk {
+				return
 			}
 			hash := sha256.Sum256(dataToHashBytes)
 			//Create 'Signed' type UPP packet
@@ -228,6 +234,8 @@ func TestCreateChainedMessage(t *testing.T) {
 
 //TestVerifyHashedMessage in its current state only tests if the ECDSA library behaves as expected
 func TestVerifyHashedMessage(t *testing.T) {
+	asserter := assert.New(t)
+
 	vkb, _ := base64.StdEncoding.DecodeString("o71ufIY0rP4GXQELZcXlm6t2s/LB29jzGfmheG3q8dJecxrGc/bqIODYcfROx6ofgunyarvG4lFiP+7p18qZqg==")
 	hsh, _ := base64.StdEncoding.DecodeString("T2v511D0Upfr7Vl0DY5xnganDXlUCILCfZvetExHgzQ=")
 	sig, _ := base64.StdEncoding.DecodeString("WQ/xDF7LVU/CVFzqGwopleefBe5xMLFrnkyEUzE08s0pxZgbtudReaWw70FSPvf2f83kgMvd5gfLNBd1V3AGng==")
@@ -243,7 +251,5 @@ func TestVerifyHashedMessage(t *testing.T) {
 	r.SetBytes(sig[:32])
 	s.SetBytes(sig[32:])
 
-	if !(ecdsa.Verify(&vk, hsh, r, s)) {
-		t.Errorf("ecdsa.Verify() failed to verify known-good signature")
-	}
+	asserter.True(ecdsa.Verify(&vk, hsh, r, s), "ecdsa.Verify() failed to verify known-good signature")
 }
