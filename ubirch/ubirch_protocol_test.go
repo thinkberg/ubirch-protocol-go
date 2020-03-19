@@ -125,7 +125,7 @@ func TestCreateSignedMessage(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			protocol, err := newProtocolContext(defaultName, currTest.deviceUUID, currTest.privateKey, defaultLastSig)
+			protocol, err := newProtocolContextSigner(defaultName, currTest.deviceUUID, currTest.privateKey, defaultLastSig)
 			requirer.NoError(err, "Creating protocol context failed")
 
 			//Create 'Signed' type UPP with user data
@@ -194,7 +194,7 @@ func TestCreateChainedMessage(t *testing.T) {
 			context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
 			protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 			//Load reference data into context
-			setProtocolContext(protocol, defaultName, currTest.deviceUUID, currTest.privateKey, currTest.lastSignature)
+			setProtocolContext(protocol, defaultName, currTest.deviceUUID, currTest.privateKey, "", currTest.lastSignature)
 			//Set 'last signature' variable according to test parameters
 			lastSignatureBytes, err := hex.DecodeString(currTest.lastSignature)
 			if err != nil {
