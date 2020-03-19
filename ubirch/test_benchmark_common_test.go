@@ -238,7 +238,7 @@ func verifyUPPChain(t *testing.T, uppsArray [][]byte, startSignature []byte) err
 		//TODO use library defines instead of magic numbers for signature length and position as soon as they are available
 		currUppLastSig := currUppData[22 : 22+64]
 		if !bytes.Equal(expectedUPPlastSig, currUppLastSig) {
-			return fmt.Errorf("Signature mismatch between UPPs at index %v and %v", currUppIndex, currUppIndex-1)
+			return fmt.Errorf("Signature chain mismatch between UPPs at index %v and %v", currUppIndex, currUppIndex-1)
 		}
 		//save signature of this packet as expected "lastSig" for next packet
 		expectedUPPlastSig = currUppData[len(currUppData)-64:]
