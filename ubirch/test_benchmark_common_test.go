@@ -80,39 +80,91 @@ func saveProtocolContext(p *Protocol, filename string) error {
 
 }
 
-//Creates a new protocol context configured according to the passed values
-func newProtocolContext(Name string, UUID string, PrivKey string, LastSignature string) (*Protocol, error) {
+//Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
+func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*Protocol, error) {
 	context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
 	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	//Load reference data into context
-	err := setProtocolContext(protocol, Name, UUID, PrivKey, LastSignature)
+	err := setProtocolContext(protocol, Name, UUID, PrivKey, "", LastSignature)
+	return protocol, err
+}
+
+//Creates a new protocol context for a UPP verifier (only pubkey is needed)
+func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*Protocol, error) {
+	context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	//Load reference data into context
+	err := setProtocolContext(protocol, Name, UUID, "", PubKey, "")
 	return protocol, err
 }
 
 //Sets the passed protocol context to the passed values (name, UUID, private Key, last signature), passed as hex strings
-func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, LastSignature string) error {
+//If a value is an empty string ("") it will not be set. If privkey is given, pubkey will be calculated, but
+//directly overwritten if an explicit pubkey is passed in
+func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, PubKey string, LastSignature string) error {
 	if p == nil {
 		return fmt.Errorf("Protocol is nil")
 	}
 
-	id := uuid.MustParse(UUID)
-
-	//Set private key (public key will automatically be calculated and set)
-	privBytes, err := hex.DecodeString(PrivKey)
-	if err != nil {
-		return fmt.Errorf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
-	}
-	err = p.Crypto.SetKey(Name, id, privBytes)
-	if err != nil {
-		return fmt.Errorf("setProtocolContext: Error setting private key bytes: : %v,", err)
+	id := uuid.Nil
+	if UUID != "" {
+		id = uuid.MustParse(UUID)
 	}
 
-	//Set last Signature
-	lastSigBytes, err := hex.DecodeString(LastSignature)
-	if err != nil {
-		return fmt.Errorf("setProtocolContext: Error decoding last signature string: : %v, string was: %v", err, LastSignature)
+	if PrivKey != "" {
+		//Catch errors
+		if UUID == "" {
+			return fmt.Errorf("Need UUID to set private key")
+		}
+		if Name == "" {
+			return fmt.Errorf("Need name to set private key")
+		}
+		//Set private key (public key will automatically be calculated and set but can be overwritten later with explicit pubkey
+		privBytes, err := hex.DecodeString(PrivKey)
+		if err != nil {
+			return fmt.Errorf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
+		}
+		err = p.Crypto.SetKey(Name, id, privBytes)
+		if err != nil {
+			return fmt.Errorf("setProtocolContext: Error setting private key bytes: : %v,", err)
+		}
 	}
-	p.Signatures[id] = lastSigBytes
+
+	if PubKey != "" {
+		//Catch errors
+		if UUID == "" {
+			return fmt.Errorf("Need UUID to set public key")
+		}
+		if Name == "" {
+			return fmt.Errorf("Need name to set public key")
+		}
+		//Set public key (public key will automatically be calculated and set)
+		pubBytes, err := hex.DecodeString(PubKey)
+		if err != nil {
+			return fmt.Errorf("setProtocolContext: Error decoding public key string: : %v, string was: %v", err, PubKey)
+		}
+		err = p.Crypto.SetPublicKey(Name, id, pubBytes)
+		if err != nil {
+			return fmt.Errorf("setProtocolContext: Error setting public key bytes: : %v,", err)
+		}
+	}
+
+	if LastSignature != "" {
+		//catch errors
+		if UUID == "" {
+			return fmt.Errorf("Need UUID to set last signature")
+		}
+		//Set last Signature
+		lastSigBytes, err := hex.DecodeString(LastSignature)
+		if err != nil {
+			return fmt.Errorf("setProtocolContext: Error decoding last signature string: : %v, string was: %v", err, LastSignature)
+		}
+		if len(lastSigBytes) != 64 {
+			return fmt.Errorf("Last signature to set is != 64 bytes")
+		}
+		p.Signatures[id] = lastSigBytes
+	}
+
 	return nil
 }
 
