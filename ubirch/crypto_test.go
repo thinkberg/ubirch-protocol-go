@@ -54,7 +54,7 @@ func TestLoadKeystore(t *testing.T) {
 		Crypto:     context,
 		Signatures: map[uuid.UUID][]byte{},
 	}
-	asserter.NoErrorf(loadProtocolContext(&p, "../test.json"), "Failed loading")
+	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(context.GenerateKey(defaultName, id), "Failed to generate Key")
 }
