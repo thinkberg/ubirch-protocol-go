@@ -40,6 +40,7 @@ func TestCreateKeystore(t *testing.T) {
 
 // TODO saveProtocolContext why is this function in the main
 // TODO loadProtocolContext, why is this function in the main
+// TODO: Answer, the load and store functions are outside, to keep the protocol outside the keystore
 
 func TestLoadKeystore(t *testing.T) {
 	asserter := assert.New(t)
@@ -53,12 +54,13 @@ func TestLoadKeystore(t *testing.T) {
 		Crypto:     context,
 		Signatures: map[uuid.UUID][]byte{},
 	}
-	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
+	asserter.NoErrorf(loadProtocolContext(&p, "../test.json"), "Failed loading")
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(context.GenerateKey(defaultName, id), "Failed to generate Key")
 }
 
 func TestSetKey(t *testing.T) {
+	asserter := assert.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{
 		Keystore: &keystore.Keystore{},
@@ -73,18 +75,11 @@ func TestSetKey(t *testing.T) {
 	privBytesTooShort := privBytesCorrect[1:]
 
 	//Test valid key length
-	err = context.SetKey(defaultName, id, privBytesCorrect)
-	if err != nil {
-		t.Errorf("SetKey() failed with error: %v", err)
-	}
-	err = context.SetKey(defaultName, id, privBytesTooShort)
-	if err == nil {
-		t.Errorf("SetKey() accepts too short keys.")
-	}
-	err = context.SetKey(defaultName, id, privBytesTooLong)
-	if err == nil {
-		t.Errorf("SetKey() accepts too long keys")
-	}
+	asserter.Nilf(context.SetKey(defaultName, id, privBytesCorrect), "SetKey() failed with error: %v", err)
+	// test to short key
+	asserter.Errorf(context.SetKey(defaultName, id, privBytesTooShort), "SetKey() accepts too short keys.")
+	// test too long key
+	asserter.Errorf(context.SetKey(defaultName, id, privBytesTooLong), "SetKey() accepts too long keys")
 }
 
 func TestSetPublicKey(t *testing.T) {
