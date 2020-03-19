@@ -141,8 +141,8 @@ func TestCreateSignedMessage(t *testing.T) {
 			expectedUPPBytes, err := hex.DecodeString(currTest.expectedUPP)
 			requirer.NoErrorf(err, "Test configuration string (expected UPP) can't be decoded.\nString was: %v", currTest.expectedUPP)
 
-			createdUppNoSignature := (createdUpp[:len(createdUpp)-64])
-			expectedUppNoSignature := (expectedUPPBytes[:len(expectedUPPBytes)-64])
+			createdUppNoSignature := createdUpp[:len(createdUpp)-64]
+			expectedUppNoSignature := expectedUPPBytes[:len(expectedUPPBytes)-64]
 			asserter.Equal(createdUppNoSignature, expectedUppNoSignature, "Created UPP data is not as expected")
 
 			//Check signature
@@ -258,4 +258,53 @@ func TestVerifyHashedMessage(t *testing.T) {
 	s.SetBytes(sig[32:])
 
 	asserter.True(ecdsa.Verify(&vk, hsh, r, s), "ecdsa.Verify() failed to verify known-good signature")
+}
+
+func TestProtocol_Verify(t *testing.T) {
+	var tests = []struct {
+		testName   string
+		UUID       string
+		pubKey     string
+		testInput  string
+		protoType  ProtocolType
+		verifiable bool
+	}{
+		{
+			testName:   "signed UPP",
+			UUID:       "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			pubKey:     defaultPub,
+			testInput:  "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType:  Signed,
+			verifiable: true,
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		t.Run(currTest.testName, func(t *testing.T) {
+			requirer := require.New(t)
+
+			// Create new context
+			context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			protocol := &Protocol{Crypto: context, Signatures: nil}
+
+			// Load reference data into context
+			id, err := uuid.Parse(currTest.UUID)
+			requirer.NoErrorf(err, "Parsing UUID from string failed: %v, string was: %v", err, currTest.UUID)
+
+			pubKeyBytes, err := hex.DecodeString(currTest.pubKey)
+			requirer.NoErrorf(err, "Decoding public key from string failed: %v, string was: %v", err, currTest.pubKey)
+
+			err = protocol.Crypto.SetPublicKey(defaultName, id, pubKeyBytes)
+			requirer.NoErrorf(err, "Setting public key bytes in crypto context failed: : %v,", err)
+
+			inputBytes, err := hex.DecodeString(currTest.testInput)
+			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.testInput)
+
+			// verify test input
+			verified, err := protocol.Verify(defaultName, inputBytes, currTest.protoType)
+			requirer.NoErrorf(err, "Verify() returned: %v", err)
+			requirer.Equal(currTest.verifiable, verified)
+		})
+	}
 }
