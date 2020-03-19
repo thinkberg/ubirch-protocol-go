@@ -1,0 +1,14 @@
+{
+    "Crypto": {
+        "Keystore": {
+            "6eac4d0b-16e6-4508-8c46-22e7451ea5a1": "TiCeq2WIfINS/idWuUa1FuDIJohD1zdIXgJz+MXaNtFXzR78fTsIpgmgOTee5buQnS7zuN9/WxCT3kgaclV6glTM4mLgMwuFFItXoQFBX3vYinohm9+aJVLcBTeJbG57OVrJ7SBCNTYsN8uCmRm4YrL1O+51X6Gqsk6fQ3cbO1lWKWJLgU0QIsgPJHBIf42v3Jg9060+bFid00cQMehC3RZA/WBgQDW8gWFFA89SbqFITLfq0ow3m23fGm+M/i5nZ+BiWcYoxXqcrIwq7dQtRrdbfmR71hutQ8EuneEPPamwg2yUHPA/Vw==",
+            "_6eac4d0b-16e6-4508-8c46-22e7451ea5a1": "JYbtpJfuTvI3vQ/rcQpBK0duycM9j0E93l8B5Xgt2AqVtPJN3In2lJQNmgo3BzsKmlwLWrIig9KQaoy826ki3WCmyD9Sesdq5+ALuarHw4IrXwfULSXZAhogkBalgMukJfkIQjhITyZisQi88f6UppcU5kknPXWf28SYQISn356Qsm+74B5hg3GbYhCNZJk/Fq0GwgWFMJbITWvzn0B2L+wxLFQCf8uQpRpHaWb++nWEG4i7y/57FytosCp7Qtqz"
+        },
+        "Names": {
+            "A": "6eac4d0b-16e6-4508-8c46-22e7451ea5a1"
+        }
+    },
+    "Signatures": {
+        "6eac4d0b-16e6-4508-8c46-22e7451ea5a1": "wDgh4bur6841EEQWjFAWGHgpvPYJiIafTQvT6KkF04+gvekmkEKtBiJi3WgpzI3vnnHhDQpSdnHKVwekNrHyCQ=="
+    }
+}
