@@ -25,6 +25,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -109,7 +110,11 @@ func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, P
 
 	id := uuid.Nil
 	if UUID != "" {
-		id = uuid.MustParse(UUID)
+		err := errors.New("")
+		id, err = uuid.Parse(UUID)
+		if err != nil {
+			return err
+		}
 	}
 
 	if PrivKey != "" {
