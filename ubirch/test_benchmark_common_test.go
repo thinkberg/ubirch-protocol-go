@@ -230,10 +230,12 @@ func verifyUPPChain(t *testing.T, uppsArray [][]byte, startSignature []byte) err
 	//iterate over all UPPs in array
 	for currUppIndex, currUppData := range uppsArray {
 		//Check that this UPP's data is OK in general
+		//TODO use library defines instead of magic numbers for signature length and position as soon as they are available
 		if len(currUppData) < (1 + 16 + 64 + 1 + 0 + 64) { //check for minimal UPP packet size (VERSION|UUID|PREV-SIGNATURE|TYPE|PAYLOAD|SIGNATURE)
 			return fmt.Errorf("UPP data is too short (%v bytes) at UPP index %v", len(currUppData), currUppIndex)
 		}
 		//copy "last signature" field of current UPP and compare to expectation
+		//TODO use library defines instead of magic numbers for signature length and position as soon as they are available
 		currUppLastSig := currUppData[22 : 22+64]
 		if !bytes.Equal(expectedUPPlastSig, currUppLastSig) {
 			return fmt.Errorf("Signature mismatch between UPPs at index %v and %v", currUppIndex, currUppIndex-1)
