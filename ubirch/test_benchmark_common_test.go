@@ -19,6 +19,7 @@
 package ubirch
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
@@ -210,4 +211,31 @@ func verifyUPPSignature(t *testing.T, uppBytes []byte, pubkeyBytes []byte) (bool
 	//Do the verification and return result
 	verifyOK := ecdsa.Verify(&pubkey, hash[:], r, s)
 	return verifyOK, nil
+}
+
+//Do a verification of the UPP chain ("lastSignature" in "chained" packets must be the signature of previous UPP)
+//data is passed in as an array of byte arrays, each representing one UPP in correct order
+//startSignature is the signature before the first packet in the array (=lastSignature in first UPP)
+//returns no error if chain verification passes
+func verifyUPPChain(t *testing.T, uppsArray [][]byte, startSignature []byte) error {
+	if len(uppsArray) == 0 {
+		return fmt.Errorf("UPP array is empty")
+	}
+	expectedUPPlastSig := startSignature
+	//iterate over all UPPs in array
+	for currUppIndex, currUppData := range uppsArray {
+		//Check that this UPP's data is OK in general
+		if len(currUppData) < (1 + 16 + 64 + 1 + 0 + 64) { //check for minimal UPP packet size (VERSION|UUID|PREV-SIGNATURE|TYPE|PAYLOAD|SIGNATURE)
+			return fmt.Errorf("UPP data is too short (%v bytes) at UPP index %v", len(currUppData), currUppIndex)
+		}
+		//copy "last signature" field of current UPP and compare to expectation
+		currUppLastSig := currUppData[22 : 22+64]
+		if !bytes.Equal(expectedUPPlastSig, currUppLastSig) {
+			return fmt.Errorf("Signature mismatch between UPPs at index %v and %v", currUppIndex, currUppIndex-1)
+		}
+		//save signature of this packet as expected "lastSig" for next packet
+		expectedUPPlastSig = currUppData[len(currUppData)-64:]
+	}
+	//If we reach this, everything was checked without errors
+	return nil
 }
