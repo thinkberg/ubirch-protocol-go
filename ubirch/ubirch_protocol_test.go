@@ -89,8 +89,9 @@ func TestDecodeArrayToStruct(t *testing.T) {
 }
 
 //TestCreateSignedMessage tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
-//used as UPP payload and then the created encoded UPP data (without the signature, as its
-//non-deterministic) is compared to the expected values
+//used as UPP payload and then the created encoded UPP data is compared to the expected values,
+//the signature is also checked. as it's non-deterministic, signature in expected UPPs are ignored,
+//instead a proper verification with the public key is performed
 func TestCreateSignedMessage(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -162,27 +163,46 @@ func TestCreateSignedMessage(t *testing.T) {
 //expected data, as ECDSA is non-deterministic, thus only testing if the basic UPP encoding works.
 func TestCreateChainedMessage(t *testing.T) {
 	var tests = []struct {
-		testName                   string
-		privateKey                 string
-		deviceUUID                 string
-		lastSignature              string
-		dataInputs                 []string
-		expectedChainedNoSignature []string
+		testName            string
+		privateKey          string
+		publicKey           string
+		deviceUUID          string
+		lastSignature       string   // last signature before first packet in array of expected packets
+		UserDataInputs      []string // array of user data input (not a hash) for hashing and UPP creation
+		expectedChainedUpps []string //signature in expected UPPs is only placeholder, instead, actual created signature is checked
 	}{
 		{
-			"Test1",
-			"8f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937",
-			"6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
-			"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-			[]string{
+			testName:      "dontSetLastSignature",
+			privateKey:    defaultPriv,
+			publicKey:     defaultPub,
+			deviceUUID:    "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			lastSignature: "", //""=don't set signature
+			UserDataInputs: []string{
 				"01",
 				"02",
 				"03",
 			},
-			[]string{
-				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4204bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459ac440",
-				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440",
-				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c420084fed08b978af4d7d196a7446a86b58009e636b611db16211b65a9aadff29c5c440",
+			expectedChainedUpps: []string{
+				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4204bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459ac44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c420084fed08b978af4d7d196a7446a86b58009e636b611db16211b65a9aadff29c5c44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+			},
+		},
+		{
+			testName:      "SpecificPrivAndPubKey",
+			privateKey:    "10a0bef246575ea219e15bffbb6704d2a58b0e4aa99f101f12f0b1ce7a143559",
+			publicKey:     "92bbd65d59aecbdf7b497fb4dcbdffa22833613868ddf35b44f5bd672496664a2cc1d228550ae36a1d0210a3b42620b634dc5d22ecde9e12f37d66eeedee3e6a",
+			deviceUUID:    "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			lastSignature: defaultLastSig,
+			UserDataInputs: []string{
+				"01",
+				"02",
+				"03",
+			},
+			expectedChainedUpps: []string{
+				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4204bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459ac44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+				"9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c420084fed08b978af4d7d196a7446a86b58009e636b611db16211b65a9aadff29c5c44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 			},
 		},
 	}
@@ -190,49 +210,73 @@ func TestCreateChainedMessage(t *testing.T) {
 	//Iterate over all tests
 	for _, currTest := range tests {
 		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
 			//Create new crypto context
-			context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
-			protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
-			//Load reference data into context
-			setProtocolContext(protocol, defaultName, currTest.deviceUUID, currTest.privateKey, "", currTest.lastSignature)
-			//Set 'last signature' variable according to test parameters
-			lastSignatureBytes, err := hex.DecodeString(currTest.lastSignature)
-			if err != nil {
-				t.Fatalf("Error decoding input data string: %v, string was: %v", err, currTest.lastSignature)
-			}
-			if len(lastSignatureBytes) != 64 {
-				t.Fatalf("Error: wrong size for last signature, expected 64 bytes but got: %v bytes", len(lastSignatureBytes))
-			}
-			//Loop over input data and expected UPP packets
-			for i := 0; i < len(currTest.dataInputs); i++ {
-				//Load expected UPP data
-				expectedUPPBytesNoSignature, err := hex.DecodeString(currTest.expectedChainedNoSignature[i])
-				if err != nil {
-					t.Fatalf("Error decoding expected data string: %v, string was: %v", err, currTest.expectedChainedNoSignature[i])
-				}
-				//Overwrite 'last signature' field in expected UPP data with signature of last packet
-				copy(expectedUPPBytesNoSignature[22:22+64], lastSignatureBytes)
+			protocol, err := newProtocolContextSigner(defaultName, currTest.deviceUUID, currTest.privateKey, currTest.lastSignature)
+			requirer.NoError(err, "Creating protocol context failed")
 
-				//Create hash of input data for the payload
-				dataInputBytes, err := hex.DecodeString(currTest.dataInputs[i])
-				if err != nil {
-					t.Fatalf("Error decoding input data string: %v, string was: %v", err, currTest.dataInputs[i])
-				}
-				//TODO: The hashing should be removed as soon as a proper "Create UPP from data" is implemented in the library
-				hash := sha256.Sum256(dataInputBytes)
-				//Create UPP packet with hash as payload
-				upp, err := protocol.Sign(defaultName, hash[:], Chained)
-				if err != nil {
-					t.Errorf("signing failed: %v", err)
-				}
-				//Save signature from newly created UPP for next round
-				lastSignatureBytes = upp[len(upp)-64:]
+			requirer.Equal(len(currTest.UserDataInputs), len(currTest.expectedChainedUpps), "Number of input data sets does not match number of expected UPPs")
 
-				//Check if created UPP data is same as expected, not comparing the signature
-				UPPBytesNoSignature := upp[:len(upp)-64]
-				if !bytes.Equal(expectedUPPBytesNoSignature, UPPBytesNoSignature) {
-					t.Errorf("UPP data comparison (without signature) failed:\nexpected: %x\ngot:      %x", expectedUPPBytesNoSignature, UPPBytesNoSignature)
-				}
+			createdUpps := make([][]byte, len(currTest.UserDataInputs))
+			//Loop over input data and create all UPP packets for this test
+			for currInputIndex, currInputData := range currTest.UserDataInputs {
+				//Create 'chained' type UPP with user data
+				userDataBytes, err := hex.DecodeString(currInputData)
+				requirer.NoErrorf(err, "Test configuration string (input data) can't be decoded for input %v. String was: %v", currInputIndex, currInputData)
+				//TODO: This hashing should be removed as soon as a proper
+				// "Create UPP from data" is implemented in the library
+				hash := sha256.Sum256(userDataBytes)
+				createdUppData, err := protocol.Sign(defaultName, hash[:], Chained)
+				requirer.NoErrorf(err, "Protocol.Sign() failed for input data at index %v", currInputIndex)
+				//Save UPP into array of all created UPPs
+				createdUpps[currInputIndex] = createdUppData
+			}
+
+			//Check all created UPPs (data/structure only, signature and lastSignature are ignored and are checked later)
+			for currCreatedUppIndex, currCreatedUppData := range createdUpps {
+				//Decode expected UPP data
+				expectedUppString := currTest.expectedChainedUpps[currCreatedUppIndex]
+				expectedUPPBytes, err := hex.DecodeString(expectedUppString)
+				requirer.NoErrorf(err, "Test configuration string (expected UPP) can't be decoded for input %v.\nString was: %v", currCreatedUppIndex, expectedUppString)
+
+				//Overwrite lastSignature and signature with zeroes (these are checked separately later)
+				//we need to copy into a new slice for this, so we don't modify the array with the created UPPs
+				//TODO use library defines instead of magic numbers for signature length and position as soon as they are available
+				//create new slicesby appending to an empty slice all source slice elements
+				createdUppNoSignatures := append([]byte{}, currCreatedUppData...)
+				expectedUppNoSignatures := append([]byte{}, expectedUPPBytes...)
+				//zeroize signature
+				copy(createdUppNoSignatures[len(createdUppNoSignatures)-64:], make([]byte, 64))
+				copy(expectedUppNoSignatures[len(expectedUppNoSignatures)-64:], make([]byte, 64))
+				//zeroize lastSignature
+				copy(createdUppNoSignatures[22:22+64], make([]byte, 64))
+				copy(expectedUppNoSignatures[22:22+64], make([]byte, 64))
+
+				//Do the check
+				asserter.Equalf(createdUppNoSignatures, expectedUppNoSignatures, "Created UPP data is not as expected for UPP at index %v", currCreatedUppIndex)
+			}
+
+			//check chaining of created UPPs
+			var lastSignatureBytes []byte
+			if currTest.lastSignature == "" { //check if no signature was set
+				lastSignatureBytes = make([]byte, 64) //in that case, chain should start with 00...00 in lastSignature field
+			} else { //else decode last signature string
+				lastSignatureBytes, err = hex.DecodeString(currTest.lastSignature)
+				requirer.NoErrorf(err, "Test configuration string (last Signature) can't be decoded . String was: %v", currTest.lastSignature)
+			}
+			err = verifyUPPChain(t, createdUpps, lastSignatureBytes)
+			asserter.NoError(err, "Chain verification failed")
+
+			//Check signatures of the created UPPs
+			for currCreatedUppIndex, currCreatedUppData := range createdUpps {
+				pubkeyBytes, err := hex.DecodeString(currTest.publicKey)
+				requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded for input %v. String was: %v", currCreatedUppIndex, currTest.publicKey)
+
+				verifyOK, err := verifyUPPSignature(t, currCreatedUppData, pubkeyBytes)
+				requirer.NoErrorf(err, "Signature verification could not be performed due to errors for created UPP at index %v", currCreatedUppIndex)
+				asserter.Truef(verifyOK, "Signature is not OK for created UPP at index %v", currCreatedUppIndex)
 			}
 		})
 	}
