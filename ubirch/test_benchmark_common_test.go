@@ -14,6 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * ```
+ * NOTE:
+ * These testing functions include tests, which will fail, because the
+ * tested libraries do not yet support the functionality.
+ * To perform tests on the already implemented modules, use:
+ *
+ * `go test -v -test.run=.*([^N].....|[^O]....|[^T]...|[^R]..|[^D].|[^Y])$`
+ *
+ * which will skip all test with the name `Test...NOTRDY()`
  */
 //This file contains common test and benchmark functions as well as defaults
 package ubirch
@@ -30,6 +38,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -78,6 +87,29 @@ func saveProtocolContext(p *Protocol, filename string) error {
 	}
 
 	log.Printf("saved protocol context")
+	return nil
+
+}
+
+func deleteFile(filename string) error {
+	// delete file
+	var err = os.Remove(filename)
+	if err != nil {
+		log.Printf("unable to delete file")
+		return err
+	}
+	log.Println("==> done deleting file")
+	return nil
+}
+
+//deletes a protocol context to a json file
+func deleteProtocolContext(filename string) error {
+	tmpfile, err := ioutil.TempFile("", filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer os.Remove(tmpfile.Name()) // clean up
 	return nil
 
 }

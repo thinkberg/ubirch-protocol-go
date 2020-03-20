@@ -14,6 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * ```
+ * NOTE:
+ * These testing functions include tests, which will fail, because the
+ * tested libraries do not yet support the functionality.
+ * To perform tests on the already implemented modules, use:
+ *
+ * `go test -v -test.run=.*([^N].....|[^O]....|[^T]...|[^R]..|[^D].|[^Y])$`
+ *
+ * which will skip all test with the name `Test...NOTRDY()`
  */
 
 package ubirch
