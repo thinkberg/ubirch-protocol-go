@@ -20,6 +20,7 @@ package ubirch
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 
@@ -59,7 +60,7 @@ func TestLoadKeystore(t *testing.T) {
 	asserter.Nilf(context.GenerateKey(defaultName, id), "Failed to generate Key")
 }
 
-func TestSetKey(t *testing.T) {
+func TestSetPrivateKey(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{
@@ -68,21 +69,23 @@ func TestSetKey(t *testing.T) {
 	}
 	id := uuid.MustParse(defaultUUID)
 	privBytesCorrect, err := hex.DecodeString(defaultPriv)
-	if err != nil {
-		panic(err)
-	}
+	asserter.NoErrorf(err, "Decoding private Key Bytes failed")
+
 	privBytesTooLong := append(privBytesCorrect, 0xFF)
 	privBytesTooShort := privBytesCorrect[1:]
 
-	//Test valid key length
-	asserter.Nilf(context.SetKey(defaultName, id, privBytesCorrect), "SetKey() failed with error: %v", err)
-	// test to short key
-	asserter.Errorf(context.SetKey(defaultName, id, privBytesTooShort), "SetKey() accepts too short keys.")
-	// test too long key
-	asserter.Errorf(context.SetKey(defaultName, id, privBytesTooLong), "SetKey() accepts too long keys")
+	// Test valid key length
+	asserter.Nilf(context.SetKey(defaultName, id, privBytesCorrect), "set key with correct length failed")
+	// Test a key, which is too short
+	asserter.Errorf(context.SetKey(defaultName, id, privBytesTooShort), "not recognized too short key")
+	// Test a key, which is too long
+	asserter.Errorf(context.SetKey(defaultName, id, privBytesTooLong), "not recognized too long key")
+	// Test a key, which is empty
+	asserter.Errorf(context.SetKey(defaultName, id, nil), "not recognized empty key")
 }
 
 func TestSetPublicKey(t *testing.T) {
+	asserter := assert.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{
 		Keystore: &keystore.Keystore{},
@@ -90,23 +93,47 @@ func TestSetPublicKey(t *testing.T) {
 	}
 	id := uuid.MustParse(defaultUUID)
 	pubBytesCorrect, err := hex.DecodeString(defaultPub)
-	if err != nil {
-		panic(err)
-	}
+	asserter.NoErrorf(err, "Decoding public key failed")
 	pubBytesTooLong := append(pubBytesCorrect, 0xFF)
 	pubBytesTooShort := pubBytesCorrect[1:]
 
-	//Test valid key length
-	err = context.SetPublicKey(defaultName, id, pubBytesCorrect)
-	if err != nil {
-		t.Errorf("SetPublicKey() failed with error: %v", err)
+	// Test valid key length
+	asserter.Nilf(context.SetPublicKey(defaultName, id, pubBytesCorrect), "set key with correct length failed")
+	// Test a key, which is too short
+	asserter.Errorf(context.SetPublicKey(defaultName, id, pubBytesTooShort), "not recognized too short key")
+	// Test a key, which is too long
+	asserter.Errorf(context.SetPublicKey(defaultName, id, pubBytesTooLong), "not recognized too long key")
+	// Test a key, which is empty
+	asserter.Errorf(context.SetPublicKey(defaultName, id, nil), "not recognized empty key")
+}
+
+func TestGenerateKey(t *testing.T) {
+	asserter := assert.New(t)
+	var context = &CryptoContext{
+		Keystore: &keystore.Keystore{},
+		Names:    map[string]uuid.UUID{},
 	}
-	err = context.SetPublicKey(defaultName, id, pubBytesTooShort)
-	if err == nil {
-		t.Errorf("SetPublicKey() accepts too short keys.")
-	}
-	err = context.SetPublicKey(defaultName, id, pubBytesTooLong)
-	if err == nil {
-		t.Errorf("SetPublicKey() accepts too long keys")
-	}
+	id := uuid.MustParse(defaultUUID)
+
+	asserter.Nilf(context.GenerateKey(defaultName, id), "Generating key failed")
+	pph, _ := id.MarshalBinary()
+	pubKeyBytes, err := context.Keystore.Get("_"+id.String(), pph)
+	asserter.Nilf(err, "Getting key failed")
+	fmt.Print(hex.Dump(pubKeyBytes))
+
+	name := ""
+	asserter.Errorf(context.GenerateKey(name, id), "Generating key without name")
+	pph, _ = id.MarshalBinary()
+	pubKeyBytes, err = context.Keystore.Get("_"+id.String(), pph)
+	asserter.Nilf(err, "Getting key failed")
+	fmt.Print(hex.Dump(pubKeyBytes))
+
+	id = uuid.Nil
+	asserter.Errorf(context.GenerateKey(defaultName, id), "Generating key without id")
+	pph, _ = id.MarshalBinary()
+	pubKeyBytes, err = context.Keystore.Get("_"+id.String(), pph)
+	asserter.Nilf(err, "Getting key failed")
+	fmt.Print(hex.Dump(pubKeyBytes))
+	//asserter.Lenf(len(pubKeyBytes), 64, "the key is not in the right format")
+
 }
