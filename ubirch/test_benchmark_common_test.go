@@ -117,23 +117,14 @@ func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, P
 		}
 	}
 
-	if PrivKey != "" {
-		//Catch errors
-		if UUID == "" {
-			return fmt.Errorf("Need UUID to set private key")
-		}
-		if Name == "" {
-			return fmt.Errorf("Need name to set private key")
-		}
-		//Set private key (public key will automatically be calculated and set but can be overwritten later with explicit pubkey
-		privBytes, err := hex.DecodeString(PrivKey)
-		if err != nil {
-			return fmt.Errorf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
-		}
-		err = p.Crypto.SetKey(Name, id, privBytes)
-		if err != nil {
-			return fmt.Errorf("setProtocolContext: Error setting private key bytes: : %v,", err)
-		}
+	//Set private key (public key will automatically be calculated and set)
+	privBytes, err := hex.DecodeString(PrivKey)
+	if err != nil {
+		return fmt.Errorf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
+	}
+	err = p.Crypto.SetKey(Name, id, privBytes)
+	if err != nil {
+		return fmt.Errorf("setProtocolContext: Error setting private key bytes: : %v,", err)
 	}
 
 	if PubKey != "" {

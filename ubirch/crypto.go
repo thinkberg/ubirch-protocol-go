@@ -104,6 +104,7 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	return c.Keystore.Set("_"+id.String(), pubKeyBytes, pph)
 }
 
+// storePrivateKey stores the private Key, returns 'nil', if successful
 func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
 	if c.Names == nil {
 		c.Names = make(map[string]uuid.UUID, 1)
