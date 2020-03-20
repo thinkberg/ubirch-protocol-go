@@ -25,6 +25,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -88,11 +89,147 @@ func TestDecodeArrayToStruct(t *testing.T) {
 	}
 }
 
-//TestCreateSignedMessage tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
+//TestSignFails tests the cases where the Sign function must return an error
+//it tests the defined inputs for each of the protocols defined in protocolsToTest(per case)
+func TestSignFails(t *testing.T) {
+	var tests = []struct {
+		testName             string
+		nameForContext       string
+		UUIDForContext       string
+		privateKeyForContext string
+		lastSigForContext    string
+		nameForSign          string
+		hashForSign          string
+		protocolsToTest      []ProtocolType
+	}{
+		{
+			testName:             "NameNotPresent",
+			nameForContext:       "name",
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    "",
+			nameForSign:          "naamee",
+			hashForSign:          defaultHash,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "ContextNotInitializedEmptyName",
+			nameForContext:       "",
+			UUIDForContext:       "",
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          "",
+			hashForSign:          defaultHash,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "ContextNotInitializedNonEmptyName",
+			nameForContext:       "",
+			UUIDForContext:       "",
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          "a",
+			hashForSign:          defaultHash,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "EmptyName",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    defaultLastSig,
+			nameForSign:          "",
+			hashForSign:          defaultHash,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "UUIDNotSet",
+			nameForContext:       defaultName,
+			UUIDForContext:       "",
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    "",
+			nameForSign:          defaultName,
+			hashForSign:          defaultHash,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "PrivkeyNotSet",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          defaultName,
+			hashForSign:          defaultHash,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "EmptyHash",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    defaultLastSig,
+			nameForSign:          defaultName,
+			hashForSign:          "",
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "33ByteHash",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    defaultLastSig,
+			nameForSign:          defaultName,
+			hashForSign:          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "31ByteHash",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    defaultLastSig,
+			nameForSign:          defaultName,
+			hashForSign:          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Run each test for each protocol that should be tested
+		for _, currProtocolToTest := range currTest.protocolsToTest {
+			//Create identifier to append to test name
+			protocolTypeString := fmt.Sprintf("(ProtocolType=%v)", currProtocolToTest)
+			t.Run(currTest.testName+protocolTypeString, func(t *testing.T) {
+				asserter := assert.New(t)
+				requirer := require.New(t)
+
+				//Create new crypto context
+				protocol, err := newProtocolContextSigner(currTest.nameForContext, currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
+				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+
+				//Check created UPP (data/structure only, signature is checked later)
+				hashBytes, err := hex.DecodeString(currTest.hashForSign)
+				requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
+
+				//Call Sign() and assert error
+				_, err = protocol.Sign(currTest.nameForSign, hashBytes, currProtocolToTest)
+				asserter.Error(err, "Sign() did not return an error for invalid input")
+			})
+		}
+	}
+}
+
+//TestCreateMessageFails tests the cases where the create message function must return an error
+func TestCreateMessageFailsNOTRDY(t *testing.T) {
+	t.Error("Creating a message from user data not implemented")
+}
+
+//TestCreateMessageSigned tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
 //used as UPP payload and then the created encoded UPP data is compared to the expected values,
 //the signature is also checked. as it's non-deterministic, signature in expected UPPs are ignored,
 //instead a proper verification with the public key is performed
-func TestCreateSignedMessage(t *testing.T) {
+func TestCreateMessageSigned(t *testing.T) {
 	var tests = []struct {
 		testName    string
 		privateKey  string
@@ -161,7 +298,7 @@ func TestCreateSignedMessage(t *testing.T) {
 //used as UPP payload and then the created encoded UPP data (without the signature, as its
 //non-deterministic) is compared to the expected values. During this, the signature of the last UPP is manually copied into the
 //expected data, as ECDSA is non-deterministic, thus only testing if the basic UPP encoding works.
-func TestCreateChainedMessage(t *testing.T) {
+func TestCreateMessageChained(t *testing.T) {
 	var tests = []struct {
 		testName            string
 		privateKey          string
