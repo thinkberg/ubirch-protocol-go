@@ -89,6 +89,18 @@ func TestDecodeArrayToStruct(t *testing.T) {
 	}
 }
 
+func TestGetLastSignatureNOTRDY(t *testing.T) {
+	t.Error("GetLastSignature() not implemented")
+}
+
+func TestSetLastSignatureNOTRDY(t *testing.T) {
+	t.Error("SetLastSignature() not implemented")
+}
+
+func TestResettLastSignatureNOTRDY(t *testing.T) {
+	t.Error("ResetLastSignature() not implemented")
+}
+
 //TestSignFails tests the cases where the Sign function must return an error
 //it tests the defined inputs for each of the protocols defined in protocolsToTest(per case)
 func TestSignFails(t *testing.T) {
