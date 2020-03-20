@@ -225,6 +225,10 @@ func TestCreateMessageFailsNOTRDY(t *testing.T) {
 	t.Error("Creating a message from user data not implemented")
 }
 
+func TestCreateMessageDataInputLengthNOTRDY(t *testing.T) {
+	t.Error("Creating a message from user data not implemented")
+}
+
 //TestCreateMessageSigned tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
 //used as UPP payload and then the created encoded UPP data is compared to the expected values,
 //the signature is also checked. as it's non-deterministic, signature in expected UPPs are ignored,
