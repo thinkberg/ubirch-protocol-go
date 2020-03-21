@@ -36,7 +36,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"os"
 	"testing"
@@ -64,54 +63,22 @@ func loadProtocolContext(p *Protocol, filename string) error {
 	if err != nil {
 		return err
 	}
-
 	err = json.Unmarshal(contextBytes, p)
-	if err != nil {
-		log.Fatalf("unable to deserialize context: %v", err)
-		return err
-	}
-
-	log.Printf("loaded protocol context")
-
-	return nil
-
+	return err
 }
 
 //saves a protocol context to a json file
 func saveProtocolContext(p *Protocol, filename string) error {
 	contextBytes, _ := json.Marshal(p)
 	err := ioutil.WriteFile(filename, contextBytes, 0666)
-	if err != nil {
-		log.Printf("unable to store protocol context: %v", err)
-		return err
-	}
-
-	log.Printf("saved protocol context")
-	return nil
-
+	return err
 }
 
-func deleteFile(filename string) error {
+// deleteProtocolContext deletes the file, which holds the protocol Context
+func deleteProtocolContext(filename string) error {
 	// delete file
 	var err = os.Remove(filename)
-	if err != nil {
-		log.Printf("unable to delete file")
-		return err
-	}
-	log.Println("==> done deleting file")
-	return nil
-}
-
-//deletes a protocol context to a json file
-func deleteProtocolContext(filename string) error {
-	tmpfile, err := ioutil.TempFile("", filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer os.Remove(tmpfile.Name()) // clean up
-	return nil
-
+	return err
 }
 
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)

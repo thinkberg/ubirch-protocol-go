@@ -51,7 +51,7 @@ func TestCreateKeystore(t *testing.T) {
 // TestTestLoadKeystore uses saveProtocolContext and loadProtocolContext to use the underlying functions
 // to set and get content from the Keystore. The content is compared to check if these methods work.
 // At the end the temporary file is deleted
-func TestLoadKeystore(t *testing.T) {
+func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
@@ -72,34 +72,7 @@ func TestLoadKeystore(t *testing.T) {
 	asserter.NotNilf(pubKeyBytesLoad, "Public Key for existing Key empty")
 
 	asserter.Equalf(pubKeyBytesNew, pubKeyBytesLoad, "Loading failed, because the keys are not equal")
-	deleteFile("temp.json")
-}
-
-// TestTestLoadKeystore uses saveProtocolContext and loadProtocolContext to use the underlying functions
-// to set and get content from the Keystore. The content is compared to check if these methods work.
-// At the end the temporary file is deleted. TODO this is the same as TestLoadKeystore
-func TestSaveKeystore(t *testing.T) {
-	asserter := assert.New(t)
-	//Set up test objects and parameters
-	var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
-	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
-
-	id := uuid.MustParse(defaultUUID)
-	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
-	pubKeyBytesNew, err := p.GetPublicKey(defaultName)
-	asserter.Nilf(err, "Getting key failed")
-	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
-	asserter.NoErrorf(saveProtocolContext(&p, "temp.json"), "Failed Saving protocol context")
-
-	context2 := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
-	p2 := Protocol{Crypto: context2, Signatures: map[uuid.UUID][]byte{}}
-	asserter.NoErrorf(loadProtocolContext(&p2, "temp.json"), "Failed loading protocol context")
-	pubKeyBytesLoad, err := p2.GetPublicKey(defaultName)
-	asserter.Nilf(err, "Getting Public key failed")
-	asserter.NotNilf(pubKeyBytesLoad, "Public Key for existing Key empty")
-
-	asserter.Equalf(pubKeyBytesNew, pubKeyBytesLoad, "Loading failed, because the keys are not equal")
-	deleteFile("temp.json")
+	deleteProtocolContext("temp.json")
 }
 
 // TestCryptoContext_GetUUID gets the UUID for a specific name
@@ -132,6 +105,11 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	asserter.Equalf(id, uuid.Nil, "the uuid is not Nil")
 }
 
+// TestCryptoContext_SetPublicKey Tests the set function for a public key
+//		Set a public key with correct length
+//		Set a public key, which is too long
+//		Set a public key, which is too short
+//		Set a public key, which is nil
 func TestCryptoContext_SetKey(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
@@ -154,6 +132,11 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	asserter.Errorf(context.SetKey(defaultName, id, nil), "not recognized empty key")
 }
 
+// TestCryptoContext_SetPublicKey Tests the set function for a public key
+//		Set a public key with correct length
+//		Set a public key, which is too long
+//		Set a public key, which is too short
+//		Set a public key, which is nil
 func TestCryptoContext_SetPublicKey(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
@@ -175,10 +158,11 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 	asserter.Errorf(context.SetPublicKey(defaultName, id, nil), "not recognized empty key")
 }
 
-// TestGenerateKeyEmpty Generates a Keypair with empty name or id
-//		Generate key with empty name
-//		Generate Key
-func TestCryptoContext_GenerateKey(t *testing.T) {
+// TestCryptoContext_GenerateKey tests the generation of a KeyPair
+//		Generate key with name
+//		Generate Key with empty name
+//		Generate Key with no uuid
+func TestCryptoContext_GenerateKey_NOTRDY(t *testing.T) {
 	asserter := assert.New(t)
 	var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
@@ -191,21 +175,11 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	pubKeyBytes, err := p.GetPublicKey(defaultName)
 	asserter.Nilf(err, "Getting key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
-}
-
-func TestCryptoContext_GenerateKey_Empty_NOTRDY(t *testing.T) {
-	asserter := assert.New(t)
-	var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
-	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
-
-	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
-	id := uuid.MustParse(defaultUUID)
-
 	// TODO find out how to chek, if a new key was generated
 	// generate key with empty name
 	name := ""
 	asserter.Errorf(p.GenerateKey(name, id), "Generating key without name")
-	pubKeyBytes, err := p.GetPublicKey(name)
+	pubKeyBytes, err = p.GetPublicKey(name)
 	asserter.Nilf(err, "Getting Public without name failed")
 	asserter.Nilf(pubKeyBytes, "Public Key for existing Key empty")
 	// generate Keypair with uuid = 00000000-0000-0000-0000-000000000000
