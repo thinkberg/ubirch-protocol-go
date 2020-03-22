@@ -621,7 +621,7 @@ func TestDecode(t *testing.T) {
 }
 
 // test random numbers from package "crypto/rand"
-func TestRandom(t *testing.T) {
+func TestRandomNOTRDY(t *testing.T) {
 	requirer := require.New(t)
 
 	//Frequency (Monobit) Test
