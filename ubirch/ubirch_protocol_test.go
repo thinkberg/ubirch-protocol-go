@@ -30,11 +30,16 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"log"
+	"math"
 	"math/big"
+	"math/bits"
 	"testing"
 
 	"github.com/google/uuid"
@@ -613,4 +618,36 @@ func TestDecode(t *testing.T) {
 			}
 		})
 	}
+}
+
+// test random numbers from package "crypto/rand"
+func TestRandom(t *testing.T) {
+	requirer := require.New(t)
+
+	//Frequency (Monobit) Test
+	r := rand.Reader                         // the RNG under test
+	n := 100                                 // the length of the random number to be tested for randomness
+	randomNumberUnderTest := make([]byte, n) // the random number to be tested for randomness
+	_, err := io.ReadFull(r, randomNumberUnderTest)
+	requirer.NoError(err, "generating random number failed: %v", err)
+
+	//calculate the frequency of ones and zeros in the random number
+	s := 0
+	for i := 0; i < n; i++ {
+		// get number of one bits (population count)
+		ones := bits.OnesCount8(randomNumberUnderTest[i])
+		// count +1 for every one bit and -1 for every zero bit
+		s += (2 * ones) - 8
+	}
+	log.Printf("s: %v", s)
+
+	// calculate the test statistic
+	s_obs := math.Abs(float64(s)) / math.Sqrt(float64(n))
+
+	pValue := math.Erfc(s_obs / math.Sqrt2)
+	log.Printf("pValue: %v", pValue)
+
+	//Decision Rule at the 1% Level: If the computed P-value is < 0.01, then conclude that the sequence is non-random.
+	//Otherwise, conclude that the sequence is random.
+	requirer.Greater(pValue, 0.01, "random number did not pass Frequency (Monobit) Test: %v", randomNumberUnderTest)
 }
