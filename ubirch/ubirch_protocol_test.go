@@ -464,7 +464,7 @@ func TestVerifyHashedMessage(t *testing.T) {
 	asserter.True(ecdsa.Verify(&vk, hsh, r, s), "ecdsa.Verify() failed to verify known-good signature")
 }
 
-func TestProtocolVerify(t *testing.T) {
+func TestVerify(t *testing.T) {
 	var tests = []struct {
 		testName   string
 		UUID       string
@@ -502,6 +502,61 @@ func TestProtocolVerify(t *testing.T) {
 			requirer.Equal(currTest.verifiable, verified,
 				"test input was verifiable = %v, but protocol.Verify() returned %v. Input was %s",
 				currTest.verifiable, verified, currTest.input)
+		})
+	}
+}
+
+// TestDecode tests the Decode function of the ubirch package.
+// To test invalid input, set the `protoType`-attribute of the test-struct to nil. If the invalid input is
+// decoded successfully in that case, the test fails.
+func TestDecode(t *testing.T) {
+	var tests = []struct {
+		testName      string
+		UPP           string
+		protoType     ProtocolType
+		UUID          string
+		PrevSignature string
+		Hint          uint8
+		Payload       string
+		Signature     string
+	}{
+		{
+			testName:      "signed UPP",
+			UPP:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType:     Signed,
+			UUID:          "6eac4d0b16e645088c4622e7451ea5a1",
+			PrevSignature: "",
+			Hint:          0x00,
+			Payload:       "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+			Signature:     "ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		t.Run(currTest.testName, func(t *testing.T) {
+			requirer := require.New(t)
+
+			// convert test input string to bytes
+			UPPBytes, err := hex.DecodeString(currTest.UPP)
+			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.UPP)
+
+			// decode test input
+			decoded, err := Decode(UPPBytes)
+
+			// check if decoded UPP has expected attributes
+			switch currTest.protoType {
+			case Signed:
+				requirer.IsType(&SignedUPP{}, decoded, "signed UPP input was decoded to type %T", decoded)
+				requirer.NoError(err, "Decode() returned error: %v", err)
+			case Chained:
+				requirer.IsType(&ChainedUPP{}, decoded, "chained UPP input was decoded to type %T", decoded)
+				requirer.NoError(err, "Decode() returned error: %v", err)
+			default:
+				requirer.Nil(decoded, "invalid input was decoded to UPP. input was: %s", currTest.UPP)
+				requirer.Error(err, "Decode() did not return error with invalid input")
+			}
+
 		})
 	}
 }
