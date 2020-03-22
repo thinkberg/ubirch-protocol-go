@@ -94,14 +94,14 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	if c.Names == nil {
 		c.Names = make(map[string]uuid.UUID, 1)
 	}
-	c.Names[name] = id
+	c.Names[name] = id // TODO warn or fail if uuid already exists
 
 	pubKeyBytes, err := encodePublicKey(k)
 	if err != nil {
 		return err
 	}
 	pph, _ := id.MarshalBinary()
-	return c.Keystore.Set("_"+id.String(), pubKeyBytes, pph)
+	return c.Keystore.Set("_"+id.String(), pubKeyBytes, pph) // TODO prefix "_" for private keys
 }
 
 // storePrivateKey stores the private Key, returns 'nil', if successful
