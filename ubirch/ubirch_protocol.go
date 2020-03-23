@@ -146,6 +146,9 @@ func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte
 	if err != nil {
 		return nil, err
 	}
+	if id == uuid.Nil { //catch error if there is an entry but the UUID is nil
+		return nil, fmt.Errorf("Entry for name found but UUID is nil")
+	}
 
 	if len(hash) != expectedHashSize {
 		return nil, fmt.Errorf("Invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
