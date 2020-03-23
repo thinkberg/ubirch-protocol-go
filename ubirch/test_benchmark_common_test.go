@@ -107,19 +107,14 @@ func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, P
 	if p == nil {
 		return fmt.Errorf("Protocol is nil")
 	}
-	if Name == "" {
-		return fmt.Errorf("Need name to set protocol context")
-	}
 
 	id := uuid.Nil
 	if UUID != "" {
 		err := errors.New("")
 		id, err = uuid.Parse(UUID)
 		if err != nil {
-			return fmt.Errorf("Parsing UUID from string failed: %v, string was: %v", err, UUID)
+			return err
 		}
-	} else {
-		return fmt.Errorf("Need UUID to set protocol context")
 	}
 
 	if PrivKey != "" {
@@ -135,6 +130,13 @@ func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, P
 	}
 
 	if PubKey != "" {
+		//Catch errors
+		if UUID == "" {
+			return fmt.Errorf("Need UUID to set public key")
+		}
+		if Name == "" {
+			return fmt.Errorf("Need name to set public key")
+		}
 		//Set public key (public key will automatically be calculated and set)
 		pubBytes, err := hex.DecodeString(PubKey)
 		if err != nil {
@@ -147,6 +149,10 @@ func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, P
 	}
 
 	if LastSignature != "" {
+		//catch errors
+		if UUID == "" {
+			return fmt.Errorf("Need UUID to set last signature")
+		}
 		//Set last Signature
 		lastSigBytes, err := hex.DecodeString(LastSignature)
 		if err != nil {
