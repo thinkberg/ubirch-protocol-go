@@ -215,7 +215,16 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(r.Bytes(), s.Bytes()...), nil
+
+	//convert r and s to zero-byte padded byte slices
+	bytesR := r.Bytes()
+	bytesS := s.Bytes()
+	paddedR := make([]byte, 32)
+	paddedS := make([]byte, 32)
+	copy(paddedR[32-len(bytesR):], bytesR)
+	copy(paddedS[32-len(bytesS):], bytesS)
+
+	return append(paddedR, paddedS...), nil
 }
 
 // Verify a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().

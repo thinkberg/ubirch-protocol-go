@@ -236,11 +236,45 @@ func TestSignFails(t *testing.T) {
 				hashBytes, err := hex.DecodeString(currTest.hashForSign)
 				requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
 
-				//Call Sign() and assert error
-				_, err = protocol.Sign(currTest.nameForSign, hashBytes, currProtocolToTest)
-				asserter.Error(err, "Sign() did not return an error for invalid input")
+				//Call SignHash() and assert error
+				_, err = protocol.SignHash(currTest.nameForSign, hashBytes, currProtocolToTest)
+				asserter.Error(err, "SignHash() did not return an error for invalid input")
 			})
 		}
+	}
+}
+
+//TestSignHash tests if SignHash can correctly create the UPP signature
+// for a random input hash for the signed protocol type
+func TestSignHashRandomInput(t *testing.T) {
+	const numberOfTests = 1000
+	inputHash := make([]byte, 32)
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//Create new crypto context
+	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	requirer.NoError(err, "Creating protocol context failed")
+
+	//decode pubkey
+	pubkeyBytes, err := hex.DecodeString(defaultPub)
+	requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
+
+	//test the random input
+	for i := 0; i < numberOfTests; i++ {
+		//generate new input
+		_, err := rand.Read(inputHash)
+		requirer.NoError(err, "Could not generate random hash")
+
+		//Create 'Signed' type UPP with hash
+		createdSignedUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
+		requirer.NoErrorf(err, "Protocol.SignHash() failed for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
+
+		//Check signature on Signed UPP
+		verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
+		requirer.NoError(err, "Signature verification could not be performed due to errors")
+		asserter.True(verifyOK, "Signature is not OK for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
 	}
 }
 
@@ -300,8 +334,8 @@ func TestCreateMessageSigned(t *testing.T) {
 			//TODO: This hashing should be removed as soon as a proper
 			// "Create UPP from data" is implemented in the library
 			hash := sha256.Sum256(userDataBytes)
-			createdUpp, err := protocol.Sign(defaultName, hash[:], Signed)
-			requirer.NoError(err, "Protocol.Sign() failed")
+			createdUpp, err := protocol.SignHash(defaultName, hash[:], Signed)
+			requirer.NoError(err, "Protocol.SignHash() failed")
 
 			//Check created UPP (data/structure only, signature is checked later)
 			expectedUPPBytes, err := hex.DecodeString(currTest.expectedUPP)
@@ -324,8 +358,7 @@ func TestCreateMessageSigned(t *testing.T) {
 
 //TestCreateChainedMessage tests 'Chained' type UPP creation across multiple chained packets. Each input is hashed, hash is
 //used as UPP payload and then the created encoded UPP data (without the signature, as its
-//non-deterministic) is compared to the expected values. During this, the signature of the last UPP is manually copied into the
-//expected data, as ECDSA is non-deterministic, thus only testing if the basic UPP encoding works.
+//non-deterministic) is compared to the expected values. Each UPP signature and the signature chain are also verified.
 func TestCreateMessageChained(t *testing.T) {
 	var tests = []struct {
 		testName            string
@@ -393,8 +426,8 @@ func TestCreateMessageChained(t *testing.T) {
 				//TODO: This hashing should be removed as soon as a proper
 				// "Create UPP from data" is implemented in the library
 				hash := sha256.Sum256(userDataBytes)
-				createdUppData, err := protocol.Sign(defaultName, hash[:], Chained)
-				requirer.NoErrorf(err, "Protocol.Sign() failed for input data at index %v", currInputIndex)
+				createdUppData, err := protocol.SignHash(defaultName, hash[:], Chained)
+				requirer.NoErrorf(err, "Protocol.SignHash() failed for input data at index %v", currInputIndex)
 				//Save UPP into array of all created UPPs
 				createdUpps[currInputIndex] = createdUppData
 			}
