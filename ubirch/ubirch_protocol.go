@@ -136,10 +136,16 @@ func (p *Protocol) Init() {
 	//Keep this function for compatibility in ubirch/ubirch-go-udp-client
 }
 
-// Create and sign a ubirch-protocol message using the given data and the protocol type.
+//Wrapper for backwards compatibility with Sign() calls, will be removed in the future
+func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
+	fmt.Println("Warning: Sign() is deprecated, please use SignHash() or SignData() as appropriate")
+	return p.SignHash(name, hash, protocol)
+}
+
+// Create and sign a ubirch-protocol message using the given hash and the protocol type.
 // The method expects a hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
-func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
+func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
 	const expectedHashSize = 32
 
 	id, err := p.Crypto.GetUUID(name)
