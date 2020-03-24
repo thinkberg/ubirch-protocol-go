@@ -244,10 +244,10 @@ func TestSignFails(t *testing.T) {
 	}
 }
 
-//TestSignHash tests if SignHash can correctly create the UPP signature/signature+chain
-// for a random input hash for the signed/chained protocol type
+//TestSignHash tests if SignHash can correctly create the UPP signature
+// for a random input hash for the signed protocol type
 func TestSignHashRandomInput(t *testing.T) {
-	const numberOfTests = 100
+	const numberOfTests = 1000
 	inputHash := make([]byte, 32)
 
 	asserter := assert.New(t)
