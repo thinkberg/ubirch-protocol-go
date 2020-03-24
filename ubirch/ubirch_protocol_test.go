@@ -268,14 +268,13 @@ func TestSignHashRandomInput(t *testing.T) {
 		requirer.NoError(err, "Could not generate random hash")
 
 		//Create 'Signed' type UPP with hash
-		createdUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
-		requirer.NoErrorf(err, "Protocol.SignHash() failed for Signed UPP with input hash %v", hex.EncodeToString(inputHash))
+		createdSignedUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
+		requirer.NoErrorf(err, "Protocol.SignHash() failed for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
 
 		//Check signature on Signed UPP
-		verifyOK, err := verifyUPPSignature(t, createdUpp, pubkeyBytes)
+		verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
 		requirer.NoError(err, "Signature verification could not be performed due to errors")
-		asserter.True(verifyOK, "Signature is not OK for Signed UPP input hash %v", hex.EncodeToString(inputHash))
-
+		asserter.True(verifyOK, "Signature is not OK for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
 	}
 }
 
