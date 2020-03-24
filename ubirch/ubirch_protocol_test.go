@@ -236,9 +236,9 @@ func TestSignFails(t *testing.T) {
 				hashBytes, err := hex.DecodeString(currTest.hashForSign)
 				requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
 
-				//Call Sign() and assert error
-				_, err = protocol.Sign(currTest.nameForSign, hashBytes, currProtocolToTest)
-				asserter.Error(err, "Sign() did not return an error for invalid input")
+				//Call SignHash() and assert error
+				_, err = protocol.SignHash(currTest.nameForSign, hashBytes, currProtocolToTest)
+				asserter.Error(err, "SignHash() did not return an error for invalid input")
 			})
 		}
 	}
@@ -269,7 +269,7 @@ func TestSignHashRandomInput(t *testing.T) {
 
 		//Create 'Signed' type UPP with hash
 		createdUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
-		requirer.NoErrorf(err, "Protocol.Sign() failed for Signed UPP with input hash %v", hex.EncodeToString(inputHash))
+		requirer.NoErrorf(err, "Protocol.SignHash() failed for Signed UPP with input hash %v", hex.EncodeToString(inputHash))
 
 		//Check signature on Signed UPP
 		verifyOK, err := verifyUPPSignature(t, createdUpp, pubkeyBytes)
@@ -335,8 +335,8 @@ func TestCreateMessageSigned(t *testing.T) {
 			//TODO: This hashing should be removed as soon as a proper
 			// "Create UPP from data" is implemented in the library
 			hash := sha256.Sum256(userDataBytes)
-			createdUpp, err := protocol.Sign(defaultName, hash[:], Signed)
-			requirer.NoError(err, "Protocol.Sign() failed")
+			createdUpp, err := protocol.SignHash(defaultName, hash[:], Signed)
+			requirer.NoError(err, "Protocol.SignHash() failed")
 
 			//Check created UPP (data/structure only, signature is checked later)
 			expectedUPPBytes, err := hex.DecodeString(currTest.expectedUPP)
@@ -427,8 +427,8 @@ func TestCreateMessageChained(t *testing.T) {
 				//TODO: This hashing should be removed as soon as a proper
 				// "Create UPP from data" is implemented in the library
 				hash := sha256.Sum256(userDataBytes)
-				createdUppData, err := protocol.Sign(defaultName, hash[:], Chained)
-				requirer.NoErrorf(err, "Protocol.Sign() failed for input data at index %v", currInputIndex)
+				createdUppData, err := protocol.SignHash(defaultName, hash[:], Chained)
+				requirer.NoErrorf(err, "Protocol.SignHash() failed for input data at index %v", currInputIndex)
 				//Save UPP into array of all created UPPs
 				createdUpps[currInputIndex] = createdUppData
 			}
