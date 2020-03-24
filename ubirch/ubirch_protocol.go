@@ -137,25 +137,34 @@ func (p *Protocol) Init() {
 }
 
 // Create and sign a ubirch-protocol message using the given data and the protocol type.
-// The method expects a hash as input data for the value.
+// The method expects a hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
-func (p *Protocol) Sign(name string, value []byte, protocol ProtocolType) ([]byte, error) {
+func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
+	const expectedHashSize = 32
+
 	id, err := p.Crypto.GetUUID(name)
 	if err != nil {
 		return nil, err
 	}
+	if id == uuid.Nil { //catch error if there is an entry but the UUID is nil
+		return nil, fmt.Errorf("Entry for name found but UUID is nil")
+	}
+
+	if len(hash) != expectedHashSize {
+		return nil, fmt.Errorf("Invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
+	}
 
 	switch protocol {
 	case Plain:
-		return p.Crypto.Sign(id, value)
+		return nil, fmt.Errorf("Plain type packets are deprecated") //p.Crypto.Sign(id, value)
 	case Signed:
-		return SignedUPP{protocol, id, 0x00, value, nil}.sign(p)
+		return SignedUPP{protocol, id, 0x00, hash, nil}.sign(p)
 	case Chained:
 		signature, found := p.Signatures[id]
 		if !found {
 			signature = make([]byte, 64)
 		}
-		return ChainedUPP{protocol, id, signature, 0x00, value, nil}.sign(p)
+		return ChainedUPP{protocol, id, signature, 0x00, hash, nil}.sign(p)
 	default:
 		return nil, errors.New(fmt.Sprintf("unknown protocol type: 0x%02x", protocol))
 	}
