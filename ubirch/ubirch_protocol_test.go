@@ -244,6 +244,41 @@ func TestSignFails(t *testing.T) {
 	}
 }
 
+//TestSignHash tests if SignHash can correctly create the UPP signature/signature+chain
+// for a random input hash for the signed/chained protocol type
+func TestSignHashRandomInput(t *testing.T) {
+	const numberOfTests = 100
+	inputHash := make([]byte, 32)
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//Create new crypto context
+	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	requirer.NoError(err, "Creating protocol context failed")
+
+	//decode pubkey
+	pubkeyBytes, err := hex.DecodeString(defaultPub)
+	requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
+
+	//test the random input
+	for i := 0; i < numberOfTests; i++ {
+		//generate new input
+		_, err := rand.Read(inputHash)
+		requirer.NoError(err, "Could not generate random hash")
+
+		//Create 'Signed' type UPP with hash
+		createdUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
+		requirer.NoErrorf(err, "Protocol.Sign() failed for Signed UPP with input hash %v", hex.EncodeToString(inputHash))
+
+		//Check signature on Signed UPP
+		verifyOK, err := verifyUPPSignature(t, createdUpp, pubkeyBytes)
+		requirer.NoError(err, "Signature verification could not be performed due to errors")
+		asserter.True(verifyOK, "Signature is not OK for Signed UPP input hash %v", hex.EncodeToString(inputHash))
+
+	}
+}
+
 //TestCreateMessageFails tests the cases where the create message function must return an error
 func TestCreateMessageFailsNOTRDY(t *testing.T) {
 	t.Error("Creating a message from user data not implemented")
