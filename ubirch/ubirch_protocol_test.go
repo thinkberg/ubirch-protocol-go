@@ -324,8 +324,7 @@ func TestCreateMessageSigned(t *testing.T) {
 
 //TestCreateChainedMessage tests 'Chained' type UPP creation across multiple chained packets. Each input is hashed, hash is
 //used as UPP payload and then the created encoded UPP data (without the signature, as its
-//non-deterministic) is compared to the expected values. During this, the signature of the last UPP is manually copied into the
-//expected data, as ECDSA is non-deterministic, thus only testing if the basic UPP encoding works.
+//non-deterministic) is compared to the expected values. Each UPP signature and the signature chain are also verified.
 func TestCreateMessageChained(t *testing.T) {
 	var tests = []struct {
 		testName            string
