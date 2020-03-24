@@ -30,13 +30,19 @@ import (
 	"math/big"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
 )
+
+// Keystorer contains the methods that must be implemented by the keystore
+// implementation.
+type Keystorer interface {
+	Get(keyname string, kek []byte) ([]byte, error)
+	Set(keyname string, keyvalue []byte, kek []byte) error
+}
 
 // This crypto context contains the key store, a mapping for names -> UUIDs
 // and the last generated signature per UUID.
 type CryptoContext struct {
-	Keystore *keystore.Keystore
+	Keystore Keystorer
 	Names    map[string]uuid.UUID
 }
 
