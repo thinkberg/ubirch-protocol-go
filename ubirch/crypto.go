@@ -158,6 +158,12 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 	if len(pubKeyBytes) != expectedKeyLength {
 		return errors.New(fmt.Sprintf("public key length wrong: %d != %d", len(pubKeyBytes), expectedKeyLength))
 	}
+	if name == "" {
+		return errors.New(fmt.Sprintf("Setting key for empty name not possible"))
+	}
+	if id == uuid.Nil {
+		return errors.New(fmt.Sprintf("Setting key for uuid = \"Nil\" not possible"))
+	}
 
 	pubKey := new(ecdsa.PublicKey)
 	pubKey.Curve = elliptic.P256()

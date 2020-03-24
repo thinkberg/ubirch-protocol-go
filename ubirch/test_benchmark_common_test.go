@@ -82,6 +82,21 @@ func deleteProtocolContext(filename string) error {
 	return err
 }
 
+// Get the public key bytes for the given name.
+func getPrivateKey(c *CryptoContext, name string) ([]byte, error) {
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
+	pph, _ := id.MarshalBinary()
+	privKeyBytes, err := c.Keystore.Get(id.String(), pph)
+	if err != nil {
+		return nil, err
+	}
+	return privKeyBytes, nil
+}
+
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
 func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*Protocol, error) {
 	context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
