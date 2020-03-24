@@ -8,6 +8,6 @@ in our SIM card implementation.
 go mod tidy
 git tag ubirch/vx.y.z
 git push origin ubirch/vx.y.z
-http://github.com/ubirch/ubirch-protocol-go/ubirch/vx@vx.y.z
+go list -m github.com/ubirch/ubirch-protocol-go/ubirch/vx@vx.y.z
 ```
 > where x.y.z is the version number
