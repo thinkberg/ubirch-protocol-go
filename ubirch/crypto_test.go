@@ -162,7 +162,7 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 //		Generate key with name
 //		Generate Key with empty name
 //		Generate Key with no uuid
-func TestCryptoContext_GenerateKey_NOTRDY(t *testing.T) {
+func TestCryptoContext_GenerateKey(t *testing.T) {
 	asserter := assert.New(t)
 	var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
@@ -173,20 +173,20 @@ func TestCryptoContext_GenerateKey_NOTRDY(t *testing.T) {
 	// TODO find out how to chek, if a new key was generated
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
 	pubKeyBytes, err := p.GetPublicKey(defaultName)
-	asserter.Nilf(err, "Getting key failed")
+	asserter.NoErrorf(err, "Getting key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
 	// TODO find out how to chek, if a new key was generated
 	// generate key with empty name
 	name := ""
 	asserter.Errorf(p.GenerateKey(name, id), "Generating key without name")
 	pubKeyBytes, err = p.GetPublicKey(name)
-	asserter.Nilf(err, "Getting Public without name failed")
+	asserter.Errorf(err, "Getting Public without name failed")
 	asserter.Nilf(pubKeyBytes, "Public Key for existing Key empty")
 	// generate Keypair with uuid = 00000000-0000-0000-0000-000000000000
 	id = uuid.Nil
 	asserter.Errorf(p.GenerateKey(defaultName, id), "Generating key without id")
 	pubKeyBytes, err = p.GetPublicKey(name)
-	asserter.Nilf(err, "Getting Public without name failed")
+	asserter.Errorf(err, "Getting Public without name failed")
 	asserter.Nilf(pubKeyBytes, "Public Key for existing Key empty")
 
 }
