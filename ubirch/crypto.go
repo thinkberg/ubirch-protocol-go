@@ -215,6 +215,7 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	//convert r and s to zero-byte padded byte slices
 	bytesR := r.Bytes()
 	bytesS := s.Bytes()
@@ -222,6 +223,7 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	paddedS := make([]byte, 32)
 	copy(paddedR[32-len(bytesR):], bytesR)
 	copy(paddedS[32-len(bytesS):], bytesS)
+
 	return append(paddedR, paddedS...), nil
 }
 
