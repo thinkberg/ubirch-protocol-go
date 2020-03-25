@@ -28,7 +28,9 @@ package ubirch
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/google/uuid"
@@ -173,22 +175,32 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	// TODO find out how to chek, if a new key was generated
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
 	pubKeyBytes, err := p.GetPublicKey(defaultName)
-	asserter.NoErrorf(err, "Getting key failed")
+	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
+	privKeyBytes, err := getPrivateKey(context, defaultName)
+	asserter.NoErrorf(err, "Getting Private key failed")
+	asserter.NotNilf(privKeyBytes, "Private Key for existing Key empty")
+
 	// TODO find out how to chek, if a new key was generated
 	// generate key with empty name
 	name := ""
 	asserter.Errorf(p.GenerateKey(name, id), "Generating key without name")
 	pubKeyBytes, err = p.GetPublicKey(name)
-	asserter.Errorf(err, "Getting Public without name failed")
-	asserter.Nilf(pubKeyBytes, "Public Key for existing Key empty")
+	asserter.Errorf(err, "Getting Public without name")
+	asserter.Nilf(pubKeyBytes, "Public Key without name not empty")
+	privKeyBytes, err = getPrivateKey(context, name)
+	asserter.Errorf(err, "Getting Private Key without name")
+	asserter.Nilf(privKeyBytes, "Private Key without name not empty")
+
 	// generate Keypair with uuid = 00000000-0000-0000-0000-000000000000
 	id = uuid.Nil
 	asserter.Errorf(p.GenerateKey(defaultName, id), "Generating key without id")
 	pubKeyBytes, err = p.GetPublicKey(name)
-	asserter.Errorf(err, "Getting Public without name failed")
-	asserter.Nilf(pubKeyBytes, "Public Key for existing Key empty")
-
+	asserter.Errorf(err, "Getting Public without uuid")
+	asserter.Nilf(pubKeyBytes, "Public Key without uuid not empty")
+	privKeyBytes, err = getPrivateKey(context, name)
+	asserter.Errorf(err, "Getting Private Key without uuid")
+	asserter.Nilf(privKeyBytes, "Private Key without uuid not empty")
 }
 
 // TestGetPublicKey
@@ -222,6 +234,9 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 }
 
 // TestCryptoContext_GetPrivateKey_NOTRDY the required method is not implemented yet
+//		Get not existing key
+//		Get new generated key
+//		Get Key from file and compare with generated key
 func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	const (
 		unknownName = "NOBODY"
@@ -230,22 +245,22 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	// check for non existing key
-	pubKeyBytes, err := getPrivateKey(context, unknownName)
+	privKeyBytes, err := getPrivateKey(context, unknownName)
 	asserter.Errorf(err, "Getting non exisitng Public key failed")
-	asserter.Nilf(pubKeyBytes, "Public Key for non existing Key not empty")
+	asserter.Nilf(privKeyBytes, "Public Key for non existing Key not empty")
 
 	// check for new generated key
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
-	pubKeyBytesNew, err := getPrivateKey(context, defaultName)
+	privKeyBytesNew, err := getPrivateKey(context, defaultName)
 	asserter.Nilf(err, "Getting Public key failed")
-	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
+	asserter.NotNilf(privKeyBytesNew, "Public Key for existing Key empty")
 
-	// load the protocol and check if the Public key remains the same, as the new generated
+	// load the protocol and check if the Private key remains the same, as the new generated
 	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
-	pubKeyBytesLoad, err := getPrivateKey(context, defaultName)
+	privKeyBytesLoad, err := getPrivateKey(context, defaultName)
 	asserter.Nilf(err, "Getting Public key failed")
-	asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change")
+	asserter.NotEqualf(privKeyBytesLoad, privKeyBytesNew, "the public key did not change")
 }
 
 // TestCryptoContext_GetCSR_NOTRDY the required method is not implemented yet
