@@ -28,7 +28,6 @@ package ubirch
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -272,4 +271,118 @@ func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
 	asserter.Nilf(err, "Getting CSR failed")
 	asserter.NotNilf(certificate, "The Certificate is \"Nil\"")
 	t.Errorf("not implemented")
+}
+
+func TestCryptoContext_Sign(t *testing.T) {
+	var tests = []struct {
+		testName    string
+		name        string
+		UUID        string
+		privateKey  string
+		hashForSign string
+	}{
+		{
+			testName:    "DEFAULT",
+			name:        defaultName,
+			UUID:        defaultUUID,
+			privateKey:  defaultPriv,
+			hashForSign: defaultHash,
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Run each test for each protocol that should be tested
+		//Create identifier to append to test name
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			id := uuid.MustParse(currTest.UUID)
+			privBytes, err := hex.DecodeString(currTest.privateKey)
+			//Check created UPP (data/structure only, signature is checked later)
+			hashBytes, err := hex.DecodeString(currTest.hashForSign)
+			requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
+
+			requirer.NoErrorf(context.SetKey(currTest.name, id, privBytes), "Setting the Private Key failed")
+
+			//Call Sign() and assert error
+			signature, err := context.Sign(id, hashBytes)
+			asserter.NoErrorf(err, "Sign() returned an error for valid input")
+			asserter.NotNilf(signature, "the signature should not be Nil")
+			//fmt.Printf("signature: %v", signature)
+			// Todo this is just to see what happens, will have to be removed later
+			//filename := fmt.Sprintf("Save2_%s.json", currTest.testName)
+			//err = saveProtocolContext(protocol, filename)
+			//asserter.NoErrorf(err,"something went wrong %v", err)
+		})
+	}
+}
+
+func TestCryptoContext_SignFails(t *testing.T) {
+	var tests = []struct {
+		testName    string
+		name        string
+		UUID        uuid.UUID
+		UUIDforKey  uuid.UUID
+		privateKey  string
+		hashForSign string
+	}{
+		{
+			testName:    "uuid.Nil",
+			name:        defaultName,
+			UUID:        uuid.Nil,
+			UUIDforKey:  uuid.MustParse(defaultUUID),
+			privateKey:  defaultPriv,
+			hashForSign: defaultHash,
+		},
+		{
+			testName:    "uuidUnknown",
+			name:        defaultName,
+			UUID:        uuid.MustParse("12345678-1234-1234-1234-123456789abc"),
+			UUIDforKey:  uuid.MustParse(defaultUUID),
+			privateKey:  defaultPriv,
+			hashForSign: defaultHash,
+		},
+		//{
+		//	testName:    "noData",
+		//	name:        defaultName,
+		//	UUID:        uuid.MustParse(defaultUUID),
+		//	UUIDforKey:	 uuid.MustParse(defaultUUID),
+		//	privateKey:  defaultPriv,
+		//	hashForSign: "",
+		//},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Run each test for each protocol that should be tested
+		//Create identifier to append to test name
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			privBytes, err := hex.DecodeString(currTest.privateKey)
+			//Check created UPP (data/structure only, signature is checked later)
+			hashBytes, err := hex.DecodeString(currTest.hashForSign)
+			//fmt.Printf("HASH: %v", hashBytes)
+			requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
+
+			requirer.NoErrorf(context.SetKey(currTest.name, currTest.UUIDforKey, privBytes), "Setting the Private Key failed")
+
+			//Call Sign() and assert error
+			signature, err := context.Sign(currTest.UUID, hashBytes)
+			asserter.Errorf(err, "Sign() did not return an error for invalid input")
+			asserter.Nilf(signature, "the signature should be Nil, but is not")
+			//fmt.Printf("signature: %v", signature)
+			// Todo this is just to see what happens, will have to be removed later
+			//filename := fmt.Sprintf("Save2_%s.json", currTest.testName)
+			//err = saveProtocolContext(protocol, filename)
+			//asserter.NoErrorf(err,"something went wrong %v", err)
+		})
+	}
 }
