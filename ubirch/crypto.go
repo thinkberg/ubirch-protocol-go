@@ -46,6 +46,9 @@ type CryptoContext struct {
 	Names    map[string]uuid.UUID
 }
 
+// Ensure CryptoContext implements the Crypto interface
+var _ Crypto = (*CryptoContext)(nil)
+
 func encodePrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	x509Encoded, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
