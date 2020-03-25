@@ -30,11 +30,16 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"log"
+	"math"
 	"math/big"
+	"math/bits"
 	"testing"
 
 	"github.com/google/uuid"
@@ -232,11 +237,45 @@ func TestSignFails(t *testing.T) {
 				hashBytes, err := hex.DecodeString(currTest.hashForSign)
 				requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
 
-				//Call Sign() and assert error
-				_, err = protocol.Sign(currTest.nameForSign, hashBytes, currProtocolToTest)
-				asserter.Error(err, "Sign() did not return an error for invalid input")
+				//Call SignHash() and assert error
+				_, err = protocol.SignHash(currTest.nameForSign, hashBytes, currProtocolToTest)
+				asserter.Error(err, "SignHash() did not return an error for invalid input")
 			})
 		}
+	}
+}
+
+//TestSignHash tests if SignHash can correctly create the UPP signature
+// for a random input hash for the signed protocol type
+func TestSignHashRandomInput(t *testing.T) {
+	const numberOfTests = 1000
+	inputHash := make([]byte, 32)
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//Create new crypto context
+	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	requirer.NoError(err, "Creating protocol context failed")
+
+	//decode pubkey
+	pubkeyBytes, err := hex.DecodeString(defaultPub)
+	requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
+
+	//test the random input
+	for i := 0; i < numberOfTests; i++ {
+		//generate new input
+		_, err := rand.Read(inputHash)
+		requirer.NoError(err, "Could not generate random hash")
+
+		//Create 'Signed' type UPP with hash
+		createdSignedUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
+		requirer.NoErrorf(err, "Protocol.SignHash() failed for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
+
+		//Check signature on Signed UPP
+		verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
+		requirer.NoError(err, "Signature verification could not be performed due to errors")
+		asserter.True(verifyOK, "Signature is not OK for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
 	}
 }
 
@@ -296,8 +335,8 @@ func TestCreateMessageSigned(t *testing.T) {
 			//TODO: This hashing should be removed as soon as a proper
 			// "Create UPP from data" is implemented in the library
 			hash := sha256.Sum256(userDataBytes)
-			createdUpp, err := protocol.Sign(defaultName, hash[:], Signed)
-			requirer.NoError(err, "Protocol.Sign() failed")
+			createdUpp, err := protocol.SignHash(defaultName, hash[:], Signed)
+			requirer.NoError(err, "Protocol.SignHash() failed")
 
 			//Check created UPP (data/structure only, signature is checked later)
 			expectedUPPBytes, err := hex.DecodeString(currTest.expectedUPP)
@@ -320,8 +359,7 @@ func TestCreateMessageSigned(t *testing.T) {
 
 //TestCreateChainedMessage tests 'Chained' type UPP creation across multiple chained packets. Each input is hashed, hash is
 //used as UPP payload and then the created encoded UPP data (without the signature, as its
-//non-deterministic) is compared to the expected values. During this, the signature of the last UPP is manually copied into the
-//expected data, as ECDSA is non-deterministic, thus only testing if the basic UPP encoding works.
+//non-deterministic) is compared to the expected values. Each UPP signature and the signature chain are also verified.
 func TestCreateMessageChained(t *testing.T) {
 	var tests = []struct {
 		testName            string
@@ -389,8 +427,8 @@ func TestCreateMessageChained(t *testing.T) {
 				//TODO: This hashing should be removed as soon as a proper
 				// "Create UPP from data" is implemented in the library
 				hash := sha256.Sum256(userDataBytes)
-				createdUppData, err := protocol.Sign(defaultName, hash[:], Chained)
-				requirer.NoErrorf(err, "Protocol.Sign() failed for input data at index %v", currInputIndex)
+				createdUppData, err := protocol.SignHash(defaultName, hash[:], Chained)
+				requirer.NoErrorf(err, "Protocol.SignHash() failed for input data at index %v", currInputIndex)
 				//Save UPP into array of all created UPPs
 				createdUpps[currInputIndex] = createdUppData
 			}
@@ -465,12 +503,12 @@ func TestVerifyHashedMessage(t *testing.T) {
 	asserter.True(ecdsa.Verify(&vk, hsh, r, s), "ecdsa.Verify() failed to verify known-good signature")
 }
 
-func TestProtocol_Verify(t *testing.T) {
+func TestVerify(t *testing.T) {
 	var tests = []struct {
 		testName   string
 		UUID       string
 		pubKey     string
-		testInput  string
+		input      string
 		protoType  ProtocolType
 		verifiable bool
 	}{
@@ -478,7 +516,7 @@ func TestProtocol_Verify(t *testing.T) {
 			testName:   "signed UPP",
 			UUID:       "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
 			pubKey:     defaultPub,
-			testInput:  "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			input:      "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
 			protoType:  Signed,
 			verifiable: true,
 		},
@@ -490,32 +528,160 @@ func TestProtocol_Verify(t *testing.T) {
 			requirer := require.New(t)
 
 			// Create new context
-			context := &CryptoContext{
-				Keystore: &EncryptedKeystore{
-					Keystore: &keystore.Keystore{},
-					Secret:   []byte("2234567890123456"),
-				},
-				Names: map[string]uuid.UUID{},
-			}
-			protocol := &Protocol{Crypto: context, Signatures: nil}
+			protocol, err := newProtocolContextVerifier(defaultName, currTest.UUID, currTest.pubKey)
+			requirer.NoError(err, "Creating protocol context failed: %v", err)
 
-			// Load reference data into context
-			id, err := uuid.Parse(currTest.UUID)
-			requirer.NoErrorf(err, "Parsing UUID from string failed: %v, string was: %v", err, currTest.UUID)
-
-			pubKeyBytes, err := hex.DecodeString(currTest.pubKey)
-			requirer.NoErrorf(err, "Decoding public key from string failed: %v, string was: %v", err, currTest.pubKey)
-
-			err = protocol.Crypto.SetPublicKey(defaultName, id, pubKeyBytes)
-			requirer.NoErrorf(err, "Setting public key bytes in crypto context failed: : %v,", err)
-
-			inputBytes, err := hex.DecodeString(currTest.testInput)
-			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.testInput)
+			// convert test input string to bytes
+			inputBytes, err := hex.DecodeString(currTest.input)
+			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.input)
 
 			// verify test input
 			verified, err := protocol.Verify(defaultName, inputBytes, currTest.protoType)
-			requirer.NoErrorf(err, "Verify() returned: %v", err)
-			requirer.Equal(currTest.verifiable, verified)
+			requirer.NoErrorf(err, "protocol.Verify() returned error: %v", err)
+			requirer.Equal(currTest.verifiable, verified,
+				"test input was verifiable = %v, but protocol.Verify() returned %v. Input was %s",
+				currTest.verifiable, verified, currTest.input)
 		})
 	}
+}
+
+// TestDecode tests the Decode function of the ubirch package.
+// To test invalid input, don't set the `protoType`-attribute of the test-struct (defaults to 0).
+// If the input is decoded successfully despite being invalid, the test should fail.
+func TestDecode(t *testing.T) {
+	var tests = []struct {
+		testName      string
+		UPP           string
+		protoType     ProtocolType
+		UUID          string
+		PrevSignature string
+		Hint          uint8
+		Payload       string
+		Signature     string
+	}{
+		{
+			testName:      "signed UPP",
+			UPP:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType:     Signed,
+			UUID:          "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			PrevSignature: "",
+			Hint:          0x00,
+			Payload:       "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+			Signature:     "bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+		},
+		{
+			testName:      "chained UPP",
+			UPP:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+			protoType:     Chained,
+			UUID:          "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			PrevSignature: "bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			Hint:          0x00,
+			Payload:       "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+			Signature:     "62328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid UPP",
+			UPP:      "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+		},
+		{
+			testName: "incomplete UPP",
+			UPP:      "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcda",
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			// parse test parameters into correct types
+			var id uuid.UUID
+			var err error
+			if currTest.UUID != "" {
+				id, err = uuid.Parse(currTest.UUID)
+				requirer.NoErrorf(err, "Parsing UUID from string failed: %v, string was: %v", err, currTest.UUID)
+			}
+
+			prevSigBytes, err := hex.DecodeString(currTest.PrevSignature)
+			requirer.NoErrorf(err, "Decoding test PrevSignature from string failed: %v, string was: %v", err, currTest.PrevSignature)
+
+			payloadBytes, err := hex.DecodeString(currTest.Payload)
+			requirer.NoErrorf(err, "Decoding test Payload from string failed: %v, string was: %v", err, currTest.Payload)
+
+			signatureBytes, err := hex.DecodeString(currTest.Signature)
+			requirer.NoErrorf(err, "Decoding test Signature from string failed: %v, string was: %v", err, currTest.Signature)
+
+			uppBytes, err := hex.DecodeString(currTest.UPP)
+			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.UPP)
+
+			// decode test input
+			decoded, err := Decode(uppBytes)
+
+			switch currTest.protoType {
+			case Signed:
+				// make sure UPP was decoded to correct type and cast type
+				requirer.IsType(&SignedUPP{}, decoded, "signed UPP input was decoded to type %T", decoded)
+				requirer.NoError(err, "Decode() returned error: %v", err)
+				signed := decoded.(*SignedUPP)
+
+				// check if decoded UPP has expected attributes
+				asserter.Equal(currTest.protoType, signed.Version, "decoded incorrect protocol version")
+				asserter.Equal(id, signed.Uuid, "decoded incorrect uuid")
+				asserter.Equal(currTest.Hint, signed.Hint, "decoded incorrect hint")
+				asserter.Equal(payloadBytes, signed.Payload, "decoded incorrect payload")
+				asserter.Equal(signatureBytes, signed.Signature, "decoded incorrect signature")
+
+			case Chained:
+				// make sure UPP was decoded to correct type and cast type
+				requirer.IsType(&ChainedUPP{}, decoded, "chained UPP input was decoded to type %T", decoded)
+				requirer.NoError(err, "Decode() returned error: %v", err)
+				chained := decoded.(*ChainedUPP)
+
+				// check if decoded UPP has expected attributes
+				asserter.Equal(currTest.protoType, chained.Version, "decoded incorrect protocol version")
+				asserter.Equal(id, chained.Uuid, "decoded incorrect uuid")
+				asserter.Equal(prevSigBytes, chained.PrevSignature, "decoded incorrect previous signature")
+				asserter.Equal(currTest.Hint, chained.Hint, "decoded incorrect hint")
+				asserter.Equal(payloadBytes, chained.Payload, "decoded incorrect payload")
+				asserter.Equal(signatureBytes, chained.Signature, "decoded incorrect signature")
+
+			default:
+				requirer.Nil(decoded, "invalid input was decoded to UPP. input was: %s", currTest.UPP)
+				requirer.Error(err, "Decode() did not return error with invalid input")
+			}
+		})
+	}
+}
+
+// test random numbers from package "crypto/rand"
+func TestRandomNOTRDY(t *testing.T) {
+	requirer := require.New(t)
+
+	//Frequency (Monobit) Test
+	r := rand.Reader                         // the RNG under test
+	n := 100                                 // the length of the random number to be tested for randomness
+	randomNumberUnderTest := make([]byte, n) // the random number to be tested for randomness
+	_, err := io.ReadFull(r, randomNumberUnderTest)
+	requirer.NoError(err, "generating random number failed: %v", err)
+
+	//calculate the frequency of ones and zeros in the random number
+	s := 0
+	for i := 0; i < n; i++ {
+		// get number of one bits (population count)
+		ones := bits.OnesCount8(randomNumberUnderTest[i])
+		// count +1 for every one bit and -1 for every zero bit
+		s += (2 * ones) - 8
+	}
+	log.Printf("s: %v", s)
+
+	// calculate the test statistic
+	s_obs := math.Abs(float64(s)) / math.Sqrt(float64(n))
+
+	pValue := math.Erfc(s_obs / math.Sqrt2)
+	log.Printf("pValue: %v", pValue)
+
+	//Decision Rule at the 1% Level: If the computed P-value is < 0.01, then conclude that the sequence is non-random.
+	//Otherwise, conclude that the sequence is random.
+	requirer.Greater(pValue, 0.01, "random number did not pass Frequency (Monobit) Test: %v", randomNumberUnderTest)
 }
