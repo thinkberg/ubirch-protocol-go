@@ -68,7 +68,13 @@ func BenchmarkSign(b *testing.B) {
 	//Iterate over all benchmarks
 	for _, bm := range benchmarks {
 		//Create new crypto context
-		context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+		context := &CryptoContext{
+			Keystore: &EncryptedKeystore{
+				Keystore: &keystore.Keystore{},
+				Secret:   []byte("2234567890123456"),
+			},
+			Names: map[string]uuid.UUID{},
+		}
 		p := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 		//Load reference data into context
 		setProtocolContext(p, bm.deviceName, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
@@ -114,7 +120,13 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 	//Iterate over all benchmarks
 	for _, bm := range benchmarks {
 		//Create new crypto context
-		context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+		context := &CryptoContext{
+			Keystore: &EncryptedKeystore{
+				Keystore: &keystore.Keystore{},
+				Secret:   []byte("2234567890123456"),
+			},
+			Names: map[string]uuid.UUID{},
+		}
 		p := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 		//Load reference data into context
 		setProtocolContext(p, bm.deviceName, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
