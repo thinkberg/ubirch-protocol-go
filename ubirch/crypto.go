@@ -138,6 +138,13 @@ func (c *CryptoContext) GetUUID(name string) (uuid.UUID, error) {
 
 // Generate a new key pair and store it using the given name and associated UUID.
 func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
+	// check for empty name
+	if name == "" {
+		return errors.New(fmt.Sprintf("generating key for empty name not possible"))
+	}
+	if id == uuid.Nil {
+		return errors.New(fmt.Sprintf("generating key for uuid = \"Nil\" not possible"))
+	}
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
@@ -150,6 +157,12 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 	const expectedKeyLength = 64
 	if len(pubKeyBytes) != expectedKeyLength {
 		return errors.New(fmt.Sprintf("public key length wrong: %d != %d", len(pubKeyBytes), expectedKeyLength))
+	}
+	if name == "" {
+		return errors.New(fmt.Sprintf("Setting key for empty name not possible"))
+	}
+	if id == uuid.Nil {
+		return errors.New(fmt.Sprintf("Setting key for uuid = \"Nil\" not possible"))
 	}
 
 	pubKey := new(ecdsa.PublicKey)
@@ -167,6 +180,12 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 	const expectedKeyLength = 32
 	if len(privKeyBytes) != expectedKeyLength {
 		return errors.New(fmt.Sprintf("private key lenght wrong: %d != %d", len(privKeyBytes), expectedKeyLength))
+	}
+	if name == "" {
+		return errors.New(fmt.Sprintf("Setting key for empty name not possible"))
+	}
+	if id == uuid.Nil {
+		return errors.New(fmt.Sprintf("Setting key for uuid = \"Nil\" not possible"))
 	}
 
 	privKey := new(ecdsa.PrivateKey)
