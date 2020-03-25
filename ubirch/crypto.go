@@ -45,10 +45,23 @@ type EncryptedKeystore struct {
 	Secret []byte
 }
 
+// Ensure EncryptedKeystore implements the Keystorer interface
+var _ Keystorer = (*EncryptedKeystore)(nil)
+
+// NewEncryptedKeystore returns a new freshly initialized Keystore
+func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
+	return &EncryptedKeystore{
+		Keystore: &keystore.Keystore{},
+		Secret:   []byte("2234567890123456"),
+	}
+}
+
+// GetKey returns a Key from the Keystore
 func (enc *EncryptedKeystore) GetKey(keyname string) ([]byte, error) {
 	return enc.Keystore.Get(keyname, enc.Secret)
 }
 
+// SetKey sets a key in the Keystore
 func (enc *EncryptedKeystore) SetKey(keyname string, keyvalue []byte) error {
 	return enc.Keystore.Set(keyname, keyvalue, enc.Secret)
 }
