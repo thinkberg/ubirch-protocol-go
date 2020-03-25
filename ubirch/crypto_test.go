@@ -28,8 +28,9 @@ package ubirch
 
 import (
 	"encoding/hex"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/google/uuid"
 	"github.com/paypal/go.crypto/keystore"
@@ -77,7 +78,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	context2 := &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
+			Secret:   []byte("1234567890123456"),
 		},
 		Names: map[string]uuid.UUID{},
 	}

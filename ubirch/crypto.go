@@ -30,43 +30,9 @@ import (
 	"math/big"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
 )
 
-// Keystorer contains the methods that must be implemented by the keystore
-// implementation.
-type Keystorer interface {
-	GetKey(keyname string) ([]byte, error)
-	SetKey(keyname string, keyvalue []byte) error
-}
-
-type EncryptedKeystore struct {
-	*keystore.Keystore
-	Secret []byte
-}
-
-// Ensure EncryptedKeystore implements the Keystorer interface
-var _ Keystorer = (*EncryptedKeystore)(nil)
-
-// NewEncryptedKeystore returns a new freshly initialized Keystore
-func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
-	return &EncryptedKeystore{
-		Keystore: &keystore.Keystore{},
-		Secret:   []byte("2234567890123456"),
-	}
-}
-
-// GetKey returns a Key from the Keystore
-func (enc *EncryptedKeystore) GetKey(keyname string) ([]byte, error) {
-	return enc.Keystore.Get(keyname, enc.Secret)
-}
-
-// SetKey sets a key in the Keystore
-func (enc *EncryptedKeystore) SetKey(keyname string, keyvalue []byte) error {
-	return enc.Keystore.Set(keyname, keyvalue, enc.Secret)
-}
-
-// This crypto context contains the key store, a mapping for names -> UUIDs
+// CryptoContext contains the key store, a mapping for names -> UUIDs
 // and the last generated signature per UUID.
 type CryptoContext struct {
 	Keystore Keystorer
