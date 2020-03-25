@@ -490,7 +490,13 @@ func TestProtocol_Verify(t *testing.T) {
 			requirer := require.New(t)
 
 			// Create new context
-			context := &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			context := &CryptoContext{
+				Keystore: &EncryptedKeystore{
+					Keystore: &keystore.Keystore{},
+					Secret:   []byte("2234567890123456"),
+				},
+				Names: map[string]uuid.UUID{},
+			}
 			protocol := &Protocol{Crypto: context, Signatures: nil}
 
 			// Load reference data into context
