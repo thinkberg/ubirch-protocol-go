@@ -217,6 +217,9 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 
 // Sign a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, errors.New("empty data cannot be signed")
+	}
 	pph, _ := id.MarshalBinary()
 	privKeyBytes, err := c.Keystore.Get(id.String(), pph)
 	if err != nil {
@@ -248,6 +251,13 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 
 // Verify a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
+	const expectedSignatureLength = 64
+	if len(data) == 0 {
+		return false, errors.New("empty data cannot be verified")
+	}
+	if len(signature) != expectedSignatureLength {
+		return false, errors.New(fmt.Sprintf("signature lenght wrong: %d != %d", len(signature), expectedSignatureLength))
+	}
 	pph, _ := id.MarshalBinary()
 	pubKeyBytes, err := c.Keystore.Get("_"+id.String(), pph)
 	if err != nil {

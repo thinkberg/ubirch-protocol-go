@@ -28,6 +28,7 @@ package ubirch
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -370,6 +371,7 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			// Set the PrivateKey and checkt, that it was set correctly
 			requirer.NoErrorf(context.SetKey(currTest.name, currTest.UUIDforKey, privBytes), "Setting the Private Key failed")
 
+			fmt.Printf("data len %v", len(hashBytes))
 			//Call Sign() and assert error
 			signature, err := context.Sign(currTest.UUID, hashBytes)
 			asserter.Errorf(err, "Sign() did not return an error for invalid input")
@@ -463,45 +465,6 @@ func TestCryptoContext_VerifyFails(t *testing.T) {
 			signatureToVerify: "b9fbd39289ac3d464662bb1277d183b697282bc08c56b6dba986b32f7a2778134441b006683a242733a80ef7f732cdbb6e9455d33f7a4350086b075db8f10d75",
 			dataToVerify:      "",
 		},
-	}
-
-	//Iterate over all tests
-	for _, currTest := range tests {
-		//Create identifier to append to test name
-		t.Run(currTest.testName, func(t *testing.T) {
-			asserter := assert.New(t)
-			requirer := require.New(t)
-
-			//Create new crypto context
-			var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
-			pubBytes, err := hex.DecodeString(currTest.publicKey)
-			//Check the inputs (data/structure only, signature is checked later)
-			signatureBytes, err := hex.DecodeString(currTest.signatureToVerify)
-			requirer.NoErrorf(err, "Test configuration string (signatureToVerify) can't be decoded.\nString was: %v", currTest.signatureToVerify)
-			dataBytes, err := hex.DecodeString(currTest.dataToVerify)
-			requirer.NoErrorf(err, "Test configuration string (dataToVerify) can't be decoded.\nString was: %v", currTest.dataToVerify)
-			// deliberately set UUIDforKey and not the UUID
-			requirer.NoErrorf(context.SetPublicKey(currTest.name, currTest.UUIDforKey, pubBytes), "Setting the Private Key failed")
-
-			//Call Verify() with UUID and assert error
-			valid, err := context.Verify(currTest.UUID, dataBytes, signatureBytes)
-			asserter.Errorf(err, "No error was returned from the Verification")
-			asserter.Falsef(valid, "the verification succeeded unexpected")
-		})
-	}
-}
-
-// This test will cause a runtime error and has later to be integrated into TestCryptoContext_VerifyFails()
-func TestCryptoContext_VerifyFails_NOTRDY(t *testing.T) {
-	var tests = []struct {
-		testName          string
-		name              string
-		UUID              uuid.UUID
-		UUIDforKey        uuid.UUID
-		publicKey         string
-		signatureToVerify string
-		dataToVerify      string
-	}{
 		{
 			testName:          "noSignature",
 			name:              defaultName,
