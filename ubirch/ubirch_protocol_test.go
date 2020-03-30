@@ -502,7 +502,7 @@ func TestVerifyHashedMessage(t *testing.T) {
 	asserter.True(ecdsa.Verify(&vk, hsh, r, s), "ecdsa.Verify() failed to verify known-good signature")
 }
 
-func TestVerify(t *testing.T) {
+func TestProtocol_Verify(t *testing.T) {
 	var tests = []struct {
 		testName        string
 		nameForProtocol string

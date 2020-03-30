@@ -30,15 +30,17 @@ import (
 	"math/big"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
 )
 
-// This crypto context contains the key store, a mapping for names -> UUIDs
+// CryptoContext contains the key store, a mapping for names -> UUIDs
 // and the last generated signature per UUID.
 type CryptoContext struct {
-	Keystore *keystore.Keystore
+	Keystore Keystorer
 	Names    map[string]uuid.UUID
 }
+
+// Ensure CryptoContext implements the Crypto interface
+var _ Crypto = (*CryptoContext)(nil)
 
 func encodePrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	x509Encoded, err := x509.MarshalECPrivateKey(privateKey)
@@ -100,8 +102,7 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	if err != nil {
 		return err
 	}
-	pph, _ := id.MarshalBinary()
-	return c.Keystore.Set("_"+id.String(), pubKeyBytes, pph) // TODO prefix "_" for private keys
+	return c.Keystore.SetKey("_"+id.String(), pubKeyBytes)
 }
 
 // storePrivateKey stores the private Key, returns 'nil', if successful
@@ -115,8 +116,7 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 	if err != nil {
 		return err
 	}
-	pph, _ := id.MarshalBinary()
-	return c.Keystore.Set(id.String(), privKeyBytes, pph)
+	return c.Keystore.SetKey(id.String(), privKeyBytes)
 }
 
 func (c *CryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
@@ -207,8 +207,7 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 		return nil, err
 	}
 
-	pph, _ := id.MarshalBinary()
-	pubKeyBytes, err := c.Keystore.Get("_"+id.String(), pph)
+	pubKeyBytes, err := c.Keystore.GetKey("_" + id.String())
 	if err != nil {
 		return nil, err
 	}
@@ -220,8 +219,7 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, errors.New("empty data cannot be signed")
 	}
-	pph, _ := id.MarshalBinary()
-	privKeyBytes, err := c.Keystore.Get(id.String(), pph)
+	privKeyBytes, err := c.Keystore.GetKey(id.String())
 	if err != nil {
 		return nil, err
 	}
@@ -258,8 +256,7 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (boo
 	if len(signature) != expectedSignatureLength {
 		return false, errors.New(fmt.Sprintf("signature lenght wrong: %d != %d", len(signature), expectedSignatureLength))
 	}
-	pph, _ := id.MarshalBinary()
-	pubKeyBytes, err := c.Keystore.Get("_"+id.String(), pph)
+	pubKeyBytes, err := c.Keystore.GetKey("_" + id.String())
 	if err != nil {
 		return false, err
 	}
