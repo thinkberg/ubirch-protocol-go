@@ -89,8 +89,7 @@ func getPrivateKey(c *CryptoContext, name string) ([]byte, error) {
 		return nil, err
 	}
 
-	pph, _ := id.MarshalBinary()
-	privKeyBytes, err := c.Keystore.Get(id.String(), pph)
+	privKeyBytes, err := c.Keystore.GetKey(id.String())
 	if err != nil {
 		return nil, err
 	}

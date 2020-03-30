@@ -287,7 +287,13 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 		unknownName = "NOBODY"
 	)
 	asserter := assert.New(t)
-	var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+	var context = &CryptoContext{
+		Keystore: &EncryptedKeystore{
+			Keystore: &keystore.Keystore{},
+			Secret:   []byte("2234567890123456"),
+		},
+		Names: map[string]uuid.UUID{},
+	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	// check for non existing key
 	privKeyBytes, err := getPrivateKey(context, unknownName)
@@ -351,7 +357,13 @@ func TestCryptoContext_Sign(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			var context = &CryptoContext{
+				Keystore: &EncryptedKeystore{
+					Keystore: &keystore.Keystore{},
+					Secret:   []byte("2234567890123456"),
+				},
+				Names: map[string]uuid.UUID{},
+			}
 			id := uuid.MustParse(currTest.UUID)
 			privBytes, err := hex.DecodeString(currTest.privateKey)
 			//Check created UPP (data/structure only, signature is checked later)
@@ -412,7 +424,13 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			var context = &CryptoContext{
+				Keystore: &EncryptedKeystore{
+					Keystore: &keystore.Keystore{},
+					Secret:   []byte("2234567890123456"),
+				},
+				Names: map[string]uuid.UUID{},
+			}
 			privBytes, err := hex.DecodeString(currTest.privateKey)
 			//Check created UPP (data/structure only, signature is checked later)
 			hashBytes, err := hex.DecodeString(currTest.hashForSign)
@@ -457,7 +475,13 @@ func TestCryptoContext_Verify(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			var context = &CryptoContext{
+				Keystore: &EncryptedKeystore{
+					Keystore: &keystore.Keystore{},
+					Secret:   []byte("2234567890123456"),
+				},
+				Names: map[string]uuid.UUID{},
+			}
 			id := uuid.MustParse(currTest.UUID)
 			pubBytes, err := hex.DecodeString(currTest.publicKey)
 			requirer.NoErrorf(err, "Test configuration string (UUID) can't be decoded.\nString was: %v", currTest.UUID)
@@ -534,7 +558,13 @@ func TestCryptoContext_VerifyFails(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			var context = &CryptoContext{Keystore: &keystore.Keystore{}, Names: map[string]uuid.UUID{}}
+			var context = &CryptoContext{
+				Keystore: &EncryptedKeystore{
+					Keystore: &keystore.Keystore{},
+					Secret:   []byte("2234567890123456"),
+				},
+				Names: map[string]uuid.UUID{},
+			}
 			pubBytes, err := hex.DecodeString(currTest.publicKey)
 			//Check the inputs (data/structure only, signature is checked later)
 			signatureBytes, err := hex.DecodeString(currTest.signatureToVerify)
