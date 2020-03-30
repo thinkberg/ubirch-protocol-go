@@ -304,7 +304,7 @@ func TestCreateMessageSigned(t *testing.T) {
 			testName:    "Data='1'",
 			privateKey:  defaultPriv,
 			publicKey:   defaultPub,
-			deviceUUID:  "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			deviceUUID:  defaultUUID,
 			userData:    "31", //equals the character "1" string
 			expectedUPP: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		},
@@ -312,7 +312,7 @@ func TestCreateMessageSigned(t *testing.T) {
 			testName:    "Data='Hello World!'",
 			privateKey:  defaultPriv,
 			publicKey:   defaultPub,
-			deviceUUID:  "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			deviceUUID:  defaultUUID,
 			userData:    "48656c6c6f20576f726c6421", //"Hello World!"
 			expectedUPP: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		},
@@ -373,7 +373,7 @@ func TestCreateMessageChained(t *testing.T) {
 			testName:      "dontSetLastSignature",
 			privateKey:    defaultPriv,
 			publicKey:     defaultPub,
-			deviceUUID:    "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			deviceUUID:    defaultUUID,
 			lastSignature: "", //""=don't set signature
 			UserDataInputs: []string{
 				"01",
@@ -390,7 +390,7 @@ func TestCreateMessageChained(t *testing.T) {
 			testName:      "SpecificPrivAndPubKey",
 			privateKey:    "10a0bef246575ea219e15bffbb6704d2a58b0e4aa99f101f12f0b1ce7a143559",
 			publicKey:     "92bbd65d59aecbdf7b497fb4dcbdffa22833613868ddf35b44f5bd672496664a2cc1d228550ae36a1d0210a3b42620b634dc5d22ecde9e12f37d66eeedee3e6a",
-			deviceUUID:    "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			deviceUUID:    defaultUUID,
 			lastSignature: defaultLastSig,
 			UserDataInputs: []string{
 				"01",
@@ -504,20 +504,164 @@ func TestVerifyHashedMessage(t *testing.T) {
 
 func TestVerify(t *testing.T) {
 	var tests = []struct {
-		testName   string
-		UUID       string
-		pubKey     string
-		input      string
-		protoType  ProtocolType
-		verifiable bool
+		testName        string
+		nameForProtocol string
+		nameForVerify   string
+		UUID            string
+		pubKey          string
+		input           string
+		protoType       ProtocolType
+		testPasses      bool
 	}{
 		{
-			testName:   "signed UPP",
-			UUID:       "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
-			pubKey:     defaultPub,
-			input:      "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
-			protoType:  Signed,
-			verifiable: true,
+			testName:        "signed UPP correct '1'",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType:       Signed,
+			testPasses:      true,
+		},
+		{
+			testName:        "signed UPP correct 'Hello world'",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5f9c19d1f",
+			protoType:       Signed,
+			testPasses:      true,
+		},
+		{
+			testName:        "chained UPP correct without last signature",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4204bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459ac440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a",
+			protoType:       Chained,
+			testPasses:      true,
+		},
+		{
+			testName:        "chained UPP correct with last signature",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      true,
+		},
+		{
+			testName:        "chained wrong type, signed", // todo, check if this is necessary
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Signed,
+			testPasses:      true,
+		},
+		{
+			testName:        "plain Type not supported",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType:       Plain,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained wrong name for protocol",
+			nameForProtocol: "B",
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained wrong name for Verify",
+			nameForProtocol: defaultName,
+			nameForVerify:   "B",
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained empty name for Verify",
+			nameForProtocol: defaultName,
+			nameForVerify:   "",
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained empty data",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained wrong data",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4116eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "signed wrong signature",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
+			protoType:       Signed,
+			testPasses:      false,
+		},
+		{
+			testName:        "signed invalid protocol type",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
+			protoType:       0x67,
+			testPasses:      false,
+		},
+		{
+			testName:        "signed data too short (66 Byte)",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
+			protoType:       0x67,
+			testPasses:      false,
+		},
+		{
+			testName:        "signed data too short(65 Byte)",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
+			protoType:       Signed,
+			testPasses:      false,
 		},
 	}
 
@@ -525,9 +669,10 @@ func TestVerify(t *testing.T) {
 	for _, currTest := range tests {
 		t.Run(currTest.testName, func(t *testing.T) {
 			requirer := require.New(t)
+			asserter := assert.New(t)
 
 			// Create new context
-			protocol, err := newProtocolContextVerifier(defaultName, currTest.UUID, currTest.pubKey)
+			protocol, err := newProtocolContextVerifier(currTest.nameForProtocol, currTest.UUID, currTest.pubKey)
 			requirer.NoError(err, "Creating protocol context failed: %v", err)
 
 			// convert test input string to bytes
@@ -535,11 +680,14 @@ func TestVerify(t *testing.T) {
 			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.input)
 
 			// verify test input
-			verified, err := protocol.Verify(defaultName, inputBytes, currTest.protoType)
-			requirer.NoErrorf(err, "protocol.Verify() returned error: %v", err)
-			requirer.Equal(currTest.verifiable, verified,
-				"test input was verifiable = %v, but protocol.Verify() returned %v. Input was %s",
-				currTest.verifiable, verified, currTest.input)
+			verified, err := protocol.Verify(currTest.nameForVerify, inputBytes, currTest.protoType)
+			if currTest.testPasses == true {
+				asserter.NoErrorf(err, "protocol.Verify() returned error: %v", err)
+				asserter.Truef(verified, "test input was not verifiable. Input was %s", currTest.input)
+			} else {
+				asserter.Errorf(err, "protocol.Verify() returned  no error")
+				asserter.Falsef(verified, "test input was verifiable. Input was %s", currTest.input)
+			}
 		})
 	}
 }
@@ -562,7 +710,7 @@ func TestDecode(t *testing.T) {
 			testName:      "signed UPP",
 			UPP:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
 			protoType:     Signed,
-			UUID:          "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			UUID:          defaultUUID,
 			PrevSignature: "",
 			Hint:          0x00,
 			Payload:       "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
@@ -572,7 +720,7 @@ func TestDecode(t *testing.T) {
 			testName:      "chained UPP",
 			UPP:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
 			protoType:     Chained,
-			UUID:          "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			UUID:          defaultUUID,
 			PrevSignature: "bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
 			Hint:          0x00,
 			Payload:       "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
@@ -620,34 +768,34 @@ func TestDecode(t *testing.T) {
 			switch currTest.protoType {
 			case Signed:
 				// make sure UPP was decoded to correct type and cast type
-				requirer.IsType(&SignedUPP{}, decoded, "signed UPP input was decoded to type %T", decoded)
-				requirer.NoError(err, "Decode() returned error: %v", err)
+				requirer.IsTypef(&SignedUPP{}, decoded, "signed UPP input was decoded to type %T", decoded)
+				requirer.NoErrorf(err, "Decode() returned error: %v", err)
 				signed := decoded.(*SignedUPP)
 
 				// check if decoded UPP has expected attributes
-				asserter.Equal(currTest.protoType, signed.Version, "decoded incorrect protocol version")
-				asserter.Equal(id, signed.Uuid, "decoded incorrect uuid")
-				asserter.Equal(currTest.Hint, signed.Hint, "decoded incorrect hint")
-				asserter.Equal(payloadBytes, signed.Payload, "decoded incorrect payload")
-				asserter.Equal(signatureBytes, signed.Signature, "decoded incorrect signature")
+				asserter.Equalf(currTest.protoType, signed.Version, "decoded incorrect protocol version")
+				asserter.Equalf(id, signed.Uuid, "decoded incorrect uuid")
+				asserter.Equalf(currTest.Hint, signed.Hint, "decoded incorrect hint")
+				asserter.Equalf(payloadBytes, signed.Payload, "decoded incorrect payload")
+				asserter.Equalf(signatureBytes, signed.Signature, "decoded incorrect signature")
 
 			case Chained:
 				// make sure UPP was decoded to correct type and cast type
-				requirer.IsType(&ChainedUPP{}, decoded, "chained UPP input was decoded to type %T", decoded)
-				requirer.NoError(err, "Decode() returned error: %v", err)
+				requirer.IsTypef(&ChainedUPP{}, decoded, "chained UPP input was decoded to type %T", decoded)
+				requirer.NoErrorf(err, "Decode() returned error: %v", err)
 				chained := decoded.(*ChainedUPP)
 
 				// check if decoded UPP has expected attributes
-				asserter.Equal(currTest.protoType, chained.Version, "decoded incorrect protocol version")
-				asserter.Equal(id, chained.Uuid, "decoded incorrect uuid")
-				asserter.Equal(prevSigBytes, chained.PrevSignature, "decoded incorrect previous signature")
-				asserter.Equal(currTest.Hint, chained.Hint, "decoded incorrect hint")
-				asserter.Equal(payloadBytes, chained.Payload, "decoded incorrect payload")
-				asserter.Equal(signatureBytes, chained.Signature, "decoded incorrect signature")
+				asserter.Equalf(currTest.protoType, chained.Version, "decoded incorrect protocol version")
+				asserter.Equalf(id, chained.Uuid, "decoded incorrect uuid")
+				asserter.Equalf(prevSigBytes, chained.PrevSignature, "decoded incorrect previous signature")
+				asserter.Equalf(currTest.Hint, chained.Hint, "decoded incorrect hint")
+				asserter.Equalf(payloadBytes, chained.Payload, "decoded incorrect payload")
+				asserter.Equalf(signatureBytes, chained.Signature, "decoded incorrect signature")
 
 			default:
-				requirer.Nil(decoded, "invalid input was decoded to UPP. input was: %s", currTest.UPP)
-				requirer.Error(err, "Decode() did not return error with invalid input")
+				requirer.Nilf(decoded, "invalid input was decoded to UPP. input was: %s", currTest.UPP)
+				requirer.Errorf(err, "Decode() did not return error with invalid input")
 			}
 		})
 	}
@@ -659,7 +807,7 @@ func TestRandomNOTRDY(t *testing.T) {
 
 	//Frequency (Monobit) Test
 	r := rand.Reader                         // the RNG under test
-	n := 100                                 // the length of the random number to be tested for randomness
+	n := 256                                 // the length of the random number to be tested for randomness
 	randomNumberUnderTest := make([]byte, n) // the random number to be tested for randomness
 	_, err := io.ReadFull(r, randomNumberUnderTest)
 	requirer.NoError(err, "generating random number failed: %v", err)
@@ -682,5 +830,13 @@ func TestRandomNOTRDY(t *testing.T) {
 
 	//Decision Rule at the 1% Level: If the computed P-value is < 0.01, then conclude that the sequence is non-random.
 	//Otherwise, conclude that the sequence is random.
+	for i := 0; i < n-8; {
+		log.Printf("%08b%08b%08b%08b%08b%08b%08b%08b\n",
+			randomNumberUnderTest[i], randomNumberUnderTest[i+1],
+			randomNumberUnderTest[i+2], randomNumberUnderTest[i+3],
+			randomNumberUnderTest[i+4], randomNumberUnderTest[i+5],
+			randomNumberUnderTest[i+6], randomNumberUnderTest[i+7])
+		i += 8
+	}
 	requirer.Greater(pValue, 0.01, "random number did not pass Frequency (Monobit) Test: %v", randomNumberUnderTest)
-}
+} //todo

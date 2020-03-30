@@ -183,13 +183,13 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 		return false, err
 	}
 
-	if len(value) <= 64 {
+	if len(value) < 66 {
 		return false, errors.New(fmt.Sprintf("data must contain signature: len %d < 64+2 bytes", len(value)))
 	}
 
 	switch protocol {
 	case Plain:
-		return p.Crypto.Verify(id, value[:len(value)-64], value[len(value)-64:])
+		return false, fmt.Errorf("Plain type packets are deprecated") //return p.Crypto.Verify(id, value[:len(value)-64], value[len(value)-64:])
 	case Signed:
 		fallthrough
 	case Chained:
