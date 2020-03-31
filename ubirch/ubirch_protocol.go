@@ -19,6 +19,7 @@
 package ubirch
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -136,15 +137,16 @@ func (p *Protocol) Init() {
 	//Keep this function for compatibility in ubirch/ubirch-go-udp-client
 }
 
-//Wrapper for backwards compatibility with Sign() calls, will be removed in the future
+//Sign is a wrapper for backwards compatibility with Sign() calls, will be removed in the future
 func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
 	fmt.Println("Warning: Sign() is deprecated, please use SignHash() or SignData() as appropriate")
 	return p.SignHash(name, hash, protocol)
 }
 
-// Create and sign a ubirch-protocol message using the given hash and the protocol type.
+// SignHash creates and signs a ubirch-protocol message using the given hash and the protocol type.
 // The method expects a hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
+//TODO: this should not be a public function, users should use SignData() instead.
 func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
 	const expectedHashSize = 32
 
@@ -174,6 +176,22 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 	default:
 		return nil, errors.New(fmt.Sprintf("unknown protocol type: 0x%02x", protocol))
 	}
+}
+
+// SignData creates and signs a ubirch-protocol message using the given user data and the protocol type.
+// The method expects the user data as input data. Data will be hashed and a UPP using
+// the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
+// from the context using the given device name.
+func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType) ([]byte, error) {
+	//Catch errors
+	if len(userData) < 1 || userData == nil {
+		return nil, fmt.Errorf("Input data is nil or empty")
+	}
+	//Calculate hash
+	//TODO: Make this dependent on the used crypto if we implement more than one
+	hash := sha256.Sum256(userData)
+
+	return p.SignHash(name, hash[:], protocol)
 }
 
 // Verify a ubirch-protocol message and return the payload.
