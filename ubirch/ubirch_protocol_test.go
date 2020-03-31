@@ -167,10 +167,10 @@ func TestSignFails(t *testing.T) {
 			protocolsToTest:      []ProtocolType{Signed, Chained},
 		},
 		{
-			testName:             "UUIDNotSet",
+			testName:             "UUIDAndPrivKeyNotSet",
 			nameForContext:       defaultName,
 			UUIDForContext:       "",
-			privateKeyForContext: defaultPriv,
+			privateKeyForContext: "",
 			lastSigForContext:    "",
 			nameForSign:          defaultName,
 			hashForSign:          defaultHash,
