@@ -31,7 +31,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -113,9 +112,9 @@ func TestResettLastSignatureNOTRDY(t *testing.T) {
 	t.Error("ResetLastSignature() not implemented")
 }
 
-//TestSignFails tests the cases where the Sign function must return an error
+//TestSignHashFails tests the cases where the SignHash function must return an error
 //it tests the defined inputs for each of the protocols defined in protocolsToTest(per case)
-func TestSignFails(t *testing.T) {
+func TestSignHashFails(t *testing.T) {
 	var tests = []struct {
 		testName             string
 		nameForContext       string
@@ -167,10 +166,10 @@ func TestSignFails(t *testing.T) {
 			protocolsToTest:      []ProtocolType{Signed, Chained},
 		},
 		{
-			testName:             "UUIDNotSet",
+			testName:             "UUIDAndPrivKeyNotSet",
 			nameForContext:       defaultName,
 			UUIDForContext:       "",
-			privateKeyForContext: defaultPriv,
+			privateKeyForContext: "",
 			lastSigForContext:    "",
 			nameForSign:          defaultName,
 			hashForSign:          defaultHash,
@@ -331,11 +330,8 @@ func TestCreateMessageSigned(t *testing.T) {
 			//Create 'Signed' type UPP with user data
 			userDataBytes, err := hex.DecodeString(currTest.userData)
 			requirer.NoErrorf(err, "Test configuration string (input data) can't be decoded.\nString was: %v", currTest.userData)
-			//TODO: This hashing should be removed as soon as a proper
-			// "Create UPP from data" is implemented in the library
-			hash := sha256.Sum256(userDataBytes)
-			createdUpp, err := protocol.SignHash(defaultName, hash[:], Signed)
-			requirer.NoError(err, "Protocol.SignHash() failed")
+			createdUpp, err := protocol.SignData(defaultName, userDataBytes, Signed)
+			requirer.NoError(err, "Protocol.SignData() failed")
 
 			//Check created UPP (data/structure only, signature is checked later)
 			expectedUPPBytes, err := hex.DecodeString(currTest.expectedUPP)
@@ -423,11 +419,8 @@ func TestCreateMessageChained(t *testing.T) {
 				//Create 'chained' type UPP with user data
 				userDataBytes, err := hex.DecodeString(currInputData)
 				requirer.NoErrorf(err, "Test configuration string (input data) can't be decoded for input %v. String was: %v", currInputIndex, currInputData)
-				//TODO: This hashing should be removed as soon as a proper
-				// "Create UPP from data" is implemented in the library
-				hash := sha256.Sum256(userDataBytes)
-				createdUppData, err := protocol.SignHash(defaultName, hash[:], Chained)
-				requirer.NoErrorf(err, "Protocol.SignHash() failed for input data at index %v", currInputIndex)
+				createdUppData, err := protocol.SignData(defaultName, userDataBytes, Chained)
+				requirer.NoErrorf(err, "Protocol.SignData() failed for input data at index %v", currInputIndex)
 				//Save UPP into array of all created UPPs
 				createdUpps[currInputIndex] = createdUppData
 			}
