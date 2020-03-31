@@ -28,10 +28,10 @@ package ubirch
 
 import (
 	"encoding/hex"
-	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 
 	"github.com/google/uuid"
 	"github.com/paypal/go.crypto/keystore"
@@ -439,7 +439,6 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			// Set the PrivateKey and checkt, that it was set correctly
 			requirer.NoErrorf(context.SetKey(currTest.name, currTest.UUIDforKey, privBytes), "Setting the Private Key failed")
 
-			fmt.Printf("data len %v", len(hashBytes))
 			//Call Sign() and assert error
 			signature, err := context.Sign(currTest.UUID, hashBytes)
 			asserter.Errorf(err, "Sign() did not return an error for invalid input")
