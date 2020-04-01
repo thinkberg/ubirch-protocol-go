@@ -108,13 +108,13 @@ func TestSetLastSignatureNOTRDY(t *testing.T) {
 	t.Error("SetLastSignature() not implemented")
 }
 
-func TestResettLastSignatureNOTRDY(t *testing.T) {
+func TestResetLastSignatureNOTRDY(t *testing.T) {
 	t.Error("ResetLastSignature() not implemented")
 }
 
 //TestSignHashFails tests the cases where the SignHash function must return an error
 //it tests the defined inputs for each of the protocols defined in protocolsToTest(per case)
-func TestSignHashFails(t *testing.T) {
+func TestSignHash_Fails(t *testing.T) {
 	var tests = []struct {
 		testName             string
 		nameForContext       string
@@ -245,7 +245,7 @@ func TestSignHashFails(t *testing.T) {
 
 //TestSignHash tests if SignHash can correctly create the UPP signature
 // for a random input hash for the signed protocol type
-func TestSignHashRandomInput(t *testing.T) {
+func TestSignHash_RandomInput(t *testing.T) {
 	const numberOfTests = 1000
 	inputHash := make([]byte, 32)
 
@@ -277,20 +277,20 @@ func TestSignHashRandomInput(t *testing.T) {
 	}
 }
 
-//TestCreateMessageFails tests the cases where the create message function must return an error
-func TestCreateMessageFailsNOTRDY(t *testing.T) {
+//TestSignData_Fails tests the cases where the create message function must return an error
+func TestSignData_FailsNOTRDY(t *testing.T) {
 	t.Error("Creating a message from user data not implemented")
 }
 
-func TestCreateMessageDataInputLengthNOTRDY(t *testing.T) {
+func TestSignData_DataInputLengthNOTRDY(t *testing.T) {
 	t.Error("Creating a message from user data not implemented")
 }
 
-//TestCreateMessageSigned tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
+//TestSignData_Signed tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
 //used as UPP payload and then the created encoded UPP data is compared to the expected values,
 //the signature is also checked. as it's non-deterministic, signature in expected UPPs are ignored,
 //instead a proper verification with the public key is performed
-func TestCreateMessageSigned(t *testing.T) {
+func TestSignData_SignedType(t *testing.T) {
 	var tests = []struct {
 		testName    string
 		privateKey  string
@@ -352,10 +352,10 @@ func TestCreateMessageSigned(t *testing.T) {
 	}
 }
 
-//TestCreateChainedMessage tests 'Chained' type UPP creation across multiple chained packets. Each input is hashed, hash is
+//TestSignData_Chained tests 'Chained' type UPP creation across multiple chained packets. Each input is hashed, hash is
 //used as UPP payload and then the created encoded UPP data (without the signature, as its
 //non-deterministic) is compared to the expected values. Each UPP signature and the signature chain are also verified.
-func TestCreateMessageChained(t *testing.T) {
+func TestSignData_ChainedType(t *testing.T) {
 	var tests = []struct {
 		testName            string
 		privateKey          string
