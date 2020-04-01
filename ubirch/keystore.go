@@ -20,10 +20,9 @@ package ubirch
 
 import (
 	"encoding/json"
-	"strings"
-
 	"github.com/google/uuid"
 	"github.com/paypal/go.crypto/keystore"
+	"strings"
 )
 
 // Keystorer contains the methods that must be implemented by the keystore
@@ -38,6 +37,7 @@ type Keystorer interface {
 }
 
 // EncryptedKeystore is the reference implementation for a simple keystore.
+// The secret has to be 16 Bytes long
 type EncryptedKeystore struct {
 	*keystore.Keystore
 	Secret []byte
@@ -48,9 +48,12 @@ var _ Keystorer = (*EncryptedKeystore)(nil)
 
 // NewEncryptedKeystore returns a new freshly initialized Keystore
 func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
+	if len(secret) != 16 {
+		return nil
+	}
 	return &EncryptedKeystore{
 		Keystore: &keystore.Keystore{},
-		Secret:   []byte("2234567890123456"),
+		Secret:   secret,
 	}
 }
 
@@ -79,7 +82,7 @@ func (enc *EncryptedKeystore) SetKey(keyname string, keyvalue []byte) error {
 // kek (key encrypting key) was derived from the UUID.
 func (enc *EncryptedKeystore) compatDecrypt(keyname string) ([]byte, error) {
 	// Public keys were prefixed with an underscore
-	keyname = strings.TrimPrefix(keyname, "_")
+	keyname2 := strings.TrimPrefix(keyname, "_")
 
 	u, err := uuid.Parse(keyname)
 	if err != nil {
@@ -90,7 +93,7 @@ func (enc *EncryptedKeystore) compatDecrypt(keyname string) ([]byte, error) {
 		return nil, err
 	}
 
-	return enc.Keystore.Get(keyname, kek)
+	return enc.Keystore.Get(keyname2, kek)
 }
 
 // MarshalJSON implements the json.Marshaler interface. The Password will not be

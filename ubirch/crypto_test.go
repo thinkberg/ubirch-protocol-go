@@ -63,7 +63,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	var context = &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("1234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -79,7 +79,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	context2 := &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("1234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -90,7 +90,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter.NotNilf(pubKeyBytesLoad, "Public Key for existing Key empty")
 
 	asserter.Equalf(pubKeyBytesNew, pubKeyBytesLoad, "Loading failed, because the keys are not equal")
-	deleteProtocolContext("temp.json")
+	asserter.NoErrorf(deleteProtocolContext("temp.json"), "context not deleted")
 }
 
 // TestCryptoContext_GetUUID gets the UUID for a specific name
@@ -171,7 +171,7 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 	var context = &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -201,7 +201,7 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	var context = &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -213,6 +213,7 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	// TODO find out how to chek, if a new key was generated
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
 	pubKeyBytes, err := p.GetPublicKey(defaultName)
+
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
 	privKeyBytes, err := getPrivateKey(context, defaultName)
@@ -253,7 +254,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	var context = &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -269,12 +270,14 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	pubKeyBytesNew, err := p.GetPublicKey(defaultName)
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
+	asserter.Containsf(string(pubKeyBytesNew), "-----BEGIN PUBLIC KEY-----", "not a public key")
 
 	// load the protocol and check if the Public key remains the same, as the new generated
-	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
+	asserter.NoErrorf(loadProtocolContext(&p, "test2.json"), "Failed loading")
 	pubKeyBytesLoad, err := p.GetPublicKey(defaultName)
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change")
+	asserter.Containsf(string(pubKeyBytesLoad), "-----BEGIN PUBLIC KEY-----", "not a public key")
 }
 
 // TestCryptoContext_GetPrivateKey performs tests to get the PrivateKey, which is not a library function, but
@@ -290,7 +293,7 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	var context = &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -306,12 +309,14 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	privKeyBytesNew, err := getPrivateKey(context, defaultName)
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(privKeyBytesNew, "Public Key for existing Key empty")
+	asserter.Containsf(string(privKeyBytesNew), "-----BEGIN PRIVATE KEY-----", "not a private key")
 
 	// load the protocol and check if the Private key remains the same, as the new generated
-	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
+	asserter.NoErrorf(loadProtocolContext(&p, "test2.json"), "Failed loading")
 	privKeyBytesLoad, err := getPrivateKey(context, defaultName)
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotEqualf(privKeyBytesLoad, privKeyBytesNew, "the public key did not change")
+	asserter.Containsf(string(privKeyBytesLoad), "-----BEGIN PRIVATE KEY-----", "not a private key")
 }
 
 // TestCryptoContext_GetCSR_NOTRDY the required method is not implemented yet
@@ -320,7 +325,7 @@ func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
 	var context = &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -360,7 +365,7 @@ func TestCryptoContext_Sign(t *testing.T) {
 			var context = &CryptoContext{
 				Keystore: &EncryptedKeystore{
 					Keystore: &keystore.Keystore{},
-					Secret:   []byte("2234567890123456"),
+					Secret:   []byte(defaultSecret),
 				},
 				Names: map[string]uuid.UUID{},
 			}
@@ -427,7 +432,7 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			var context = &CryptoContext{
 				Keystore: &EncryptedKeystore{
 					Keystore: &keystore.Keystore{},
-					Secret:   []byte("2234567890123456"),
+					Secret:   []byte(defaultSecret),
 				},
 				Names: map[string]uuid.UUID{},
 			}
@@ -478,7 +483,7 @@ func TestCryptoContext_Verify(t *testing.T) {
 			var context = &CryptoContext{
 				Keystore: &EncryptedKeystore{
 					Keystore: &keystore.Keystore{},
-					Secret:   []byte("2234567890123456"),
+					Secret:   []byte(defaultSecret),
 				},
 				Names: map[string]uuid.UUID{},
 			}
@@ -561,7 +566,7 @@ func TestCryptoContext_VerifyFails(t *testing.T) {
 			var context = &CryptoContext{
 				Keystore: &EncryptedKeystore{
 					Keystore: &keystore.Keystore{},
-					Secret:   []byte("2234567890123456"),
+					Secret:   []byte(defaultSecret),
 				},
 				Names: map[string]uuid.UUID{},
 			}

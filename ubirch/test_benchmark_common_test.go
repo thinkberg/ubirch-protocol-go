@@ -31,8 +31,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -54,6 +56,7 @@ const (
 	defaultLastSig  = "c03821e1bbabebce351044168c5016187829bcf60988869f4d0bd3e8a905d38fa0bde9269042ad062262dd6829cc8def9e71e10d0a527671ca5707a436b1f209"
 	defaultHash     = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	defaultDataSize = 200
+	defaultSecret   = "2234567890123456"
 )
 
 //////Helper Functions//////
@@ -101,7 +104,7 @@ func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSign
 	context := &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -116,7 +119,7 @@ func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*Proto
 	context := &CryptoContext{
 		Keystore: &EncryptedKeystore{
 			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
+			Secret:   []byte(defaultSecret),
 		},
 		Names: map[string]uuid.UUID{},
 	}
@@ -264,4 +267,51 @@ func verifyUPPChain(t *testing.T, uppsArray [][]byte, startSignature []byte) err
 	}
 	//If we reach this, everything was checked without errors
 	return nil
+}
+
+func encodePrivateKeyCommon(privKeyBytes []byte) ([]byte, error) {
+	privKey := new(ecdsa.PrivateKey)
+	privKey.D = new(big.Int)
+	privKey.D.SetBytes(privKeyBytes)
+	privKey.PublicKey.Curve = elliptic.P256()
+	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
+
+	x509Encoded, err := x509.MarshalECPrivateKey(privKey)
+	if err != nil {
+		return nil, err
+	}
+	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: x509Encoded})
+	return pemEncoded, nil
+}
+
+func encodePublicKeyCommon(pubKeyBytes []byte) ([]byte, error) {
+	pubKey := new(ecdsa.PublicKey)
+	pubKey.Curve = elliptic.P256()
+	pubKey.X = &big.Int{}
+	pubKey.X.SetBytes(pubKeyBytes[0:32])
+	pubKey.Y = &big.Int{}
+	pubKey.Y.SetBytes(pubKeyBytes[32:64])
+
+	x509EncodedPub, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
+		return nil, err
+	}
+	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509EncodedPub})
+
+	return pemEncoded, nil
+}
+
+func decodePrivateKeyCommon(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
+	block, _ := pem.Decode(pemEncoded)
+	x509Encoded := block.Bytes
+	return x509.ParseECPrivateKey(x509Encoded)
+}
+
+func decodePublicKeyCommon(pemEncoded []byte) (*ecdsa.PublicKey, error) {
+	block, _ := pem.Decode(pemEncoded)
+	genericPublicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
