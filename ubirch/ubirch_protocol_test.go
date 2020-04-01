@@ -277,9 +277,114 @@ func TestSignHash_RandomInput(t *testing.T) {
 	}
 }
 
-//TestSignData_Fails tests the cases where the create message function must return an error
-func TestSignData_FailsNOTRDY(t *testing.T) {
-	t.Error("Creating a message from user data not implemented")
+//TestSignData_Fails tests the cases where SignData() function must return an error
+func TestSignData_Fails(t *testing.T) {
+	var tests = []struct {
+		testName             string
+		nameForContext       string
+		UUIDForContext       string
+		privateKeyForContext string
+		lastSigForContext    string
+		nameForSign          string
+		dataForSign          string
+		protocolsToTest      []ProtocolType
+	}{
+		{
+			testName:             "emptyData",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    defaultLastSig,
+			nameForSign:          defaultName,
+			dataForSign:          "",
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "NameNotPresent",
+			nameForContext:       "name",
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    "",
+			nameForSign:          "naamee",
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "ContextNotInitializedEmptyName",
+			nameForContext:       "",
+			UUIDForContext:       "",
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          "",
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "ContextNotInitializedNonEmptyName",
+			nameForContext:       "",
+			UUIDForContext:       "",
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          "a",
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "EmptyName",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    defaultLastSig,
+			nameForSign:          "",
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "UUIDAndPrivKeyNotSet",
+			nameForContext:       defaultName,
+			UUIDForContext:       "",
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          defaultName,
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "PrivkeyNotSet",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          defaultName,
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Run each test for each protocol that should be tested
+		for _, currProtocolToTest := range currTest.protocolsToTest {
+			//Create identifier to append to test name
+			protocolTypeString := fmt.Sprintf("(ProtocolType=%v)", currProtocolToTest)
+			t.Run(currTest.testName+protocolTypeString, func(t *testing.T) {
+				asserter := assert.New(t)
+				requirer := require.New(t)
+
+				//Create new crypto context
+				protocol, err := newProtocolContextSigner(currTest.nameForContext, currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
+				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+
+				//Decode test data from hex string
+				dataBytes, err := hex.DecodeString(currTest.dataForSign)
+				requirer.NoErrorf(err, "Test configuration string (dataForSign) can't be decoded.\nString was: %v", currTest.dataForSign)
+
+				//Call SignData() and assert error
+				_, err = protocol.SignData(currTest.nameForSign, dataBytes, currProtocolToTest)
+				asserter.Error(err, "SignData() did not return an error for invalid input")
+			})
+		}
+	}
 }
 
 func TestSignData_DataInputLengthNOTRDY(t *testing.T) {
