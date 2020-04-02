@@ -71,7 +71,7 @@ func BenchmarkSign(b *testing.B) {
 		context := &CryptoContext{
 			Keystore: &EncryptedKeystore{
 				Keystore: &keystore.Keystore{},
-				Secret:   []byte("2234567890123456"),
+				Secret:   []byte(defaultSecret),
 			},
 			Names: map[string]uuid.UUID{},
 		}
@@ -123,7 +123,7 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 		context := &CryptoContext{
 			Keystore: &EncryptedKeystore{
 				Keystore: &keystore.Keystore{},
-				Secret:   []byte("2234567890123456"),
+				Secret:   []byte(defaultSecret),
 			},
 			Names: map[string]uuid.UUID{},
 		}

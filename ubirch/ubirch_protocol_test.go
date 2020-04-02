@@ -921,9 +921,9 @@ func TestRandomNOTRDY(t *testing.T) {
 	log.Printf("s: %v", s)
 
 	// calculate the test statistic
-	s_obs := math.Abs(float64(s)) / math.Sqrt(float64(n))
+	sObs := math.Abs(float64(s)) / math.Sqrt(float64(n))
 
-	pValue := math.Erfc(s_obs / math.Sqrt2)
+	pValue := math.Erfc(sObs / math.Sqrt2)
 	log.Printf("pValue: %v", pValue)
 
 	//Decision Rule at the 1% Level: If the computed P-value is < 0.01, then conclude that the sequence is non-random.
