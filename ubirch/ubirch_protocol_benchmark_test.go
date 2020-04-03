@@ -31,7 +31,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
+	"github.com/ubirch/go.crypto/keystore"
 )
 
 //BenchmarkSign benchmarks only UPP creation via Protocol.Sign() (NOT Crypto.Sign()) with various payload sizes
