@@ -31,6 +31,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -387,8 +388,91 @@ func TestSignData_Fails(t *testing.T) {
 	}
 }
 
-func TestSignData_DataInputLengthNOTRDY(t *testing.T) {
-	t.Error("Creating a message from user data not implemented")
+func TestSignData_DataInputLength(t *testing.T) {
+	const (
+		maxDataSizetoTest = 2 * 1024 //in Byte, be aware that test time is on the order of (Size!)
+		nrOfChainedUpps   = 3
+	)
+
+	//Tests for signed and chained type
+	for currentDataSize := 1; currentDataSize <= maxDataSizetoTest; currentDataSize++ {
+		//Generate Random data. As the data size is the same as the test run number we use it as seed.
+		//This way the data is reproducible but not simply only 0xff.. or 0x00.. and hopefully we catch a
+		//few more errors in this way
+		dataBytes := deterministicPseudoRandomBytes(int32(currentDataSize), currentDataSize)
+		//The hashing algorith might need to be adjusted if different cryptos are implemented
+		expectedDataHash := sha256.Sum256(dataBytes)
+
+		currTestName := "DataSize=" + fmt.Sprintf("%v", currentDataSize)
+
+		//run test for signed type
+		t.Run(currTestName+"-SignedType", func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+
+			//Call SignData() to create UPP
+			createdSignedUpp, err := protocol.SignData(defaultName, dataBytes, Signed)
+			asserter.NoError(err, "SignData() could not create Signed type UPP")
+
+			//Decode Pubkey for checking UPPs
+			pubkeyBytes, err := hex.DecodeString(defaultPub)
+			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
+
+			//Check singed UPP...
+			//...Signature
+			verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
+			requirer.NoError(err, "Signature verification could not be performed due to errors")
+			asserter.True(verifyOK, "Signature is not OK")
+			//...decoding/payload/hash
+			decodedSigned, err := Decode(createdSignedUpp)
+			requirer.NoError(err, "UPP could not be decoded")
+			signed := decodedSigned.(*SignedUPP)
+			asserter.Equal(expectedDataHash[:], signed.Payload, "Payload hash does not match data hash")
+		})
+
+		//run test for chained type
+		t.Run(currTestName+"-ChainedType", func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+
+			//Call SignData() to create multiple chained UPPs
+			createdChainedUpps := make([][]byte, nrOfChainedUpps)
+			for currUppIndex := range createdChainedUpps {
+				createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, dataBytes, Chained)
+				asserter.NoErrorf(err, "SignData() could not create Chained type UPP number %v", currUppIndex)
+			}
+
+			//Decode Pubkey for checking UPPs
+			pubkeyBytes, err := hex.DecodeString(defaultPub)
+			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
+
+			//Check each chained UPP...
+			for chainedUppIndex, chainedUppData := range createdChainedUpps {
+				//...Signature
+				verifyOK, err := verifyUPPSignature(t, chainedUppData, pubkeyBytes)
+				requirer.NoError(err, "Signature verification could not be performed due to errors for UPP at index %v", chainedUppIndex)
+				asserter.True(verifyOK, "Signature is not OK for UPP at index %v", chainedUppIndex)
+				//...decoding/payload/hash
+				decodedChained, err := Decode(chainedUppData)
+				requirer.NoError(err, "UPP could not be decoded for UPP at index %v", chainedUppIndex)
+				chained := decodedChained.(*ChainedUPP)
+				asserter.Equal(expectedDataHash[:], chained.Payload, "Payload hash does not match data hash for UPP at index %v", chainedUppIndex)
+			}
+			//... check chain iself
+			lastSigBytes, err := hex.DecodeString(defaultLastSig)
+			requirer.NoErrorf(err, "Test configuration string (lastSig) can't be decoded.\nString was: %v", defaultLastSig)
+			asserter.NoError(verifyUPPChain(t, createdChainedUpps, lastSigBytes))
+		})
+
+	}
 }
 
 //TestSignData_Signed tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
