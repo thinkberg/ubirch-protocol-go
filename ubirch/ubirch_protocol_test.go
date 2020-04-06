@@ -388,6 +388,9 @@ func TestSignData_Fails(t *testing.T) {
 	}
 }
 
+//TestSignData_DataInputLength checks if UPPs can be created correctly with data input lengths from 1 to maxDataSizetoTest.
+//Signed and chained UPPs are created for all data input size and correct signature, payload/expected hash and chain (for chained)
+//are checked. This should help in catching errors that only occur for certain input lengths e.g. buffer and len() calculation issues.
 func TestSignData_DataInputLength(t *testing.T) {
 	const (
 		maxDataSizetoTest = 2 * 1024 //in Byte, be aware that test time is on the order of (Size!)
@@ -396,7 +399,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 
 	//Tests for signed and chained type
 	for currentDataSize := 1; currentDataSize <= maxDataSizetoTest; currentDataSize++ {
-		//Generate Random data. As the data size is the same as the test run number we use it as seed.
+		//Generate pseudorandom data. As the data size is the same as the test run number we use it as seed.
 		//This way the data is reproducible but not simply only 0xff.. or 0x00.. and hopefully we catch a
 		//few more errors in this way
 		dataBytes := deterministicPseudoRandomBytes(int32(currentDataSize), currentDataSize)
@@ -422,7 +425,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 			pubkeyBytes, err := hex.DecodeString(defaultPub)
 			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
 
-			//Check singed UPP...
+			//Check signed UPP...
 			//...Signature
 			verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
 			requirer.NoError(err, "Signature verification could not be performed due to errors")
