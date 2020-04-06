@@ -389,7 +389,7 @@ func TestSignData_Fails(t *testing.T) {
 }
 
 //TestSignData_DataInputLength checks if UPPs can be created correctly with data input lengths from 1 to maxDataSizetoTest.
-//Signed and chained UPPs are created for all data input size and correct signature, payload/expected hash and chain (for chained)
+//Signed and chained UPPs are created for all data input sizes and correct signature, payload/expected hash and chain (for chained)
 //are checked. This should help in catching errors that only occur for certain input lengths e.g. buffer and len() calculation issues.
 func TestSignData_DataInputLength(t *testing.T) {
 	const (
