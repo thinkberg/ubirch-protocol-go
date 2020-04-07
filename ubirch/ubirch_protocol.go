@@ -41,6 +41,7 @@ type Crypto interface {
 	GetPublicKey(name string) ([]byte, error)
 	SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error
 	SetKey(name string, id uuid.UUID, privKeyBytes []byte) error
+	GetKeystorer() Keystorer
 
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)

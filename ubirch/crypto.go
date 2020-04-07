@@ -195,6 +195,11 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
+// Get the key store instance of the crypto context
+func (c *CryptoContext) GetKeystorer() Keystorer {
+	return c.Keystore
+}
+
 // Sign a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	privKeyBytes, err := c.Keystore.GetKey(id.String())
