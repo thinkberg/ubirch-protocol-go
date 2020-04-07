@@ -334,7 +334,7 @@ func checkChainedUPPs(t *testing.T, uppsArray [][]byte, expectedPayloads []strin
 		//...decoding/payload/hash
 		decodedChained, err := Decode(chainedUppData)
 		if err != nil {
-			return fmt.Errorf("UPP could not be decoded for UPP at index %v", chainedUppIndex)
+			return fmt.Errorf("UPP could not be decoded for UPP at index %v, error: %v", chainedUppIndex, err)
 		}
 		chained := decodedChained.(*ChainedUPP)
 		expectedPayload, err := hex.DecodeString(expectedPayloads[chainedUppIndex])
