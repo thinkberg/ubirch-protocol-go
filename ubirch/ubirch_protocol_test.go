@@ -665,8 +665,8 @@ func TestSignData_ChainedType(t *testing.T) {
 	}
 }
 
-//TestVerifyHashedMessage in its current state only tests if the ECDSA library behaves as expected
-func TestVerifyHashedMessage(t *testing.T) {
+//TestECDSALibrary in its current state only tests if the ECDSA library behaves as expected
+func TestECDSALibrary(t *testing.T) {
 	asserter := assert.New(t)
 
 	vkb, _ := base64.StdEncoding.DecodeString("o71ufIY0rP4GXQELZcXlm6t2s/LB29jzGfmheG3q8dJecxrGc/bqIODYcfROx6ofgunyarvG4lFiP+7p18qZqg==")
