@@ -244,23 +244,22 @@ func TestSignHash_Fails(t *testing.T) {
 	}
 }
 
-//TestSignHash tests if SignHash can correctly create the UPP signature
-// for a random input hash for the signed protocol type
+//TestSignHash_RandomInput tests if SignHash can correctly create UPPs
+// for a random input hash for the signed and chained protocol type
 func TestSignHash_RandomInput(t *testing.T) {
 	const numberOfTests = 1000
+	const nrOfChainedUpps = 3
+
 	inputHash := make([]byte, 32)
 
 	asserter := assert.New(t)
 	requirer := require.New(t)
 
-	//Create new crypto context
+	//Create new crypto context, we use this context for all created UPPs without resetting it
 	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
-	//decode pubkey
-	pubkeyBytes, err := hex.DecodeString(defaultPub)
-	requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
-
+	lastChainSig := defaultLastSig
 	//test the random input
 	for i := 0; i < numberOfTests; i++ {
 		//generate new input
@@ -269,12 +268,29 @@ func TestSignHash_RandomInput(t *testing.T) {
 
 		//Create 'Signed' type UPP with hash
 		createdSignedUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
-		requirer.NoErrorf(err, "Protocol.SignHash() failed for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
+		requirer.NoErrorf(err, "Protocol.SignHash() failed for Signed type UPP with input hash %v", hex.EncodeToString(inputHash))
 
-		//Check signature on Signed UPP
-		verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
-		requirer.NoError(err, "Signature verification could not be performed due to errors")
-		asserter.True(verifyOK, "Signature is not OK for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
+		//Check created Signed UPP
+		expectedPayloadString := hex.EncodeToString(inputHash[:])
+		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub)
+		asserter.NoError(err, "UPP check failed for Signed type UPP with input hash %v", hex.EncodeToString(inputHash))
+
+		//Create multiple chained UPPs
+		createdChainedUpps := make([][]byte, nrOfChainedUpps)
+		expectedPayloads := make([]string, nrOfChainedUpps)
+		for currUppIndex := range createdChainedUpps {
+			createdChainedUpps[currUppIndex], err = protocol.SignHash(defaultName, inputHash[:], Chained)
+			asserter.NoErrorf(err, "SignHash() could not create Chained type UPP for index %v", currUppIndex)
+			expectedPayloads[currUppIndex] = hex.EncodeToString(inputHash[:]) //build expected payload array for checking later
+		}
+
+		//Check the created UPPs
+		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, defaultPub)
+		asserter.NoError(err, "UPP check failed for Chained type UPPs with input hash %v", hex.EncodeToString(inputHash))
+
+		//save the last Signature of chain for check in next round TODO: get this using a library function when available, remove sig length magic number
+		lastChainUpp := createdChainedUpps[nrOfChainedUpps-1]
+		lastChainSig = hex.EncodeToString(lastChainUpp[len(lastChainUpp)-64:])
 	}
 }
 
@@ -421,20 +437,9 @@ func TestSignData_DataInputLength(t *testing.T) {
 			createdSignedUpp, err := protocol.SignData(defaultName, dataBytes, Signed)
 			asserter.NoError(err, "SignData() could not create Signed type UPP")
 
-			//Decode Pubkey for checking UPPs
-			pubkeyBytes, err := hex.DecodeString(defaultPub)
-			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
-
-			//Check signed UPP...
-			//...Signature
-			verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
-			requirer.NoError(err, "Signature verification could not be performed due to errors")
-			asserter.True(verifyOK, "Signature is not OK")
-			//...decoding/payload/hash
-			decodedSigned, err := Decode(createdSignedUpp)
-			requirer.NoError(err, "UPP could not be decoded")
-			signed := decodedSigned.(*SignedUPP)
-			asserter.Equal(expectedDataHash[:], signed.Payload, "Payload hash does not match data hash")
+			//Check created UPP
+			expectedPayloadString := hex.EncodeToString(expectedDataHash[:])
+			asserter.NoError(checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub))
 		})
 
 		//run test for chained type
@@ -448,40 +453,76 @@ func TestSignData_DataInputLength(t *testing.T) {
 
 			//Call SignData() to create multiple chained UPPs
 			createdChainedUpps := make([][]byte, nrOfChainedUpps)
+			expectedPayloads := make([]string, nrOfChainedUpps)
 			for currUppIndex := range createdChainedUpps {
 				createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, dataBytes, Chained)
 				asserter.NoErrorf(err, "SignData() could not create Chained type UPP number %v", currUppIndex)
+				expectedPayloads[currUppIndex] = hex.EncodeToString(expectedDataHash[:]) //build expected payload array for checking later
 			}
 
-			//Decode Pubkey for checking UPPs
-			pubkeyBytes, err := hex.DecodeString(defaultPub)
-			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
-
-			//Check each chained UPP...
-			for chainedUppIndex, chainedUppData := range createdChainedUpps {
-				//...Signature
-				verifyOK, err := verifyUPPSignature(t, chainedUppData, pubkeyBytes)
-				requirer.NoError(err, "Signature verification could not be performed due to errors for UPP at index %v", chainedUppIndex)
-				asserter.True(verifyOK, "Signature is not OK for UPP at index %v", chainedUppIndex)
-				//...decoding/payload/hash
-				decodedChained, err := Decode(chainedUppData)
-				requirer.NoError(err, "UPP could not be decoded for UPP at index %v", chainedUppIndex)
-				chained := decodedChained.(*ChainedUPP)
-				asserter.Equal(expectedDataHash[:], chained.Payload, "Payload hash does not match data hash for UPP at index %v", chainedUppIndex)
-			}
-			//... check chain iself
-			lastSigBytes, err := hex.DecodeString(defaultLastSig)
-			requirer.NoErrorf(err, "Test configuration string (lastSig) can't be decoded.\nString was: %v", defaultLastSig)
-			asserter.NoError(verifyUPPChain(t, createdChainedUpps, lastSigBytes))
+			//Check the created UPPs
+			asserter.NoError(checkChainedUPPs(t, createdChainedUpps, expectedPayloads, defaultLastSig, defaultPub))
 		})
 
 	}
 }
 
-//TestSignData_Signed tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
-//used as UPP payload and then the created encoded UPP data is compared to the expected values,
-//the signature is also checked. as it's non-deterministic, signature in expected UPPs are ignored,
-//instead a proper verification with the public key is performed
+//TestSignData_RandomInput tests if SignData can correctly create UPPs
+// for random input data for the signed and chained protocol type
+func TestSignData_RandomInput(t *testing.T) {
+	const numberOfTests = 1000
+	const nrOfChainedUpps = 3
+	const dataLength = defaultDataSize
+
+	inputData := make([]byte, dataLength)
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//Create new crypto context, we use this context for all created UPPs without resetting it
+	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	requirer.NoError(err, "Creating protocol context failed")
+
+	lastChainSig := defaultLastSig
+	//test the random input
+	for i := 0; i < numberOfTests; i++ {
+		//generate new input
+		_, err := rand.Read(inputData)
+		requirer.NoError(err, "Could not generate random data")
+		//Calculate hash, TODO: Make this dependent on crypto if more than one crypto is implemented
+		inputDataHash := sha256.Sum256(inputData)
+
+		//Create 'Signed' type UPP with data
+		createdSignedUpp, err := protocol.SignData(defaultName, inputData[:], Signed)
+		requirer.NoErrorf(err, "Protocol.SignData() failed for Signed type UPP with input data %v", hex.EncodeToString(inputData))
+
+		//Check created Signed UPP
+		expectedPayloadString := hex.EncodeToString(inputDataHash[:])
+		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub)
+		asserter.NoError(err, "UPP check failed for Signed type UPP with input data %v", hex.EncodeToString(inputData))
+
+		//Create multiple chained UPPs
+		createdChainedUpps := make([][]byte, nrOfChainedUpps)
+		expectedPayloads := make([]string, nrOfChainedUpps)
+		for currUppIndex := range createdChainedUpps {
+			createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, inputData[:], Chained)
+			asserter.NoErrorf(err, "SignData() could not create Chained type UPP for index %v", currUppIndex)
+			expectedPayloads[currUppIndex] = hex.EncodeToString(inputDataHash[:]) //build expected payload array for checking later
+		}
+
+		//Check the created UPPs
+		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, defaultPub)
+		asserter.NoError(err, "UPP check failed for Chained type UPPs with input data %v", hex.EncodeToString(inputData))
+
+		//save the last Signature of chain for check in next round TODO: get this using a library function when available, remove sig length magic number
+		lastChainUpp := createdChainedUpps[nrOfChainedUpps-1]
+		lastChainSig = hex.EncodeToString(lastChainUpp[len(lastChainUpp)-64:])
+	}
+}
+
+//TestSignData_Signed tests 'Signed' type UPP creation from given user data. The created encoded UPP
+//data is compared to the expected values, the signature is also checked. As it's non-deterministic,
+// signature in expected UPPs are ignored, instead a proper verification with the public key is performed
 func TestSignData_SignedType(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -544,9 +585,9 @@ func TestSignData_SignedType(t *testing.T) {
 	}
 }
 
-//TestSignData_Chained tests 'Chained' type UPP creation across multiple chained packets. Each input is hashed, hash is
-//used as UPP payload and then the created encoded UPP data (without the signature, as its
-//non-deterministic) is compared to the expected values. Each UPP signature and the signature chain are also verified.
+//TestSignData_Chained tests 'Chained' type UPP creation across multiple chained packets. The created
+// encoded UPP data (without the signature, as its non-deterministic) is compared to the expected
+// values. Each UPP signature and the signature chain are also verified.
 func TestSignData_ChainedType(t *testing.T) {
 	var tests = []struct {
 		testName            string
@@ -665,8 +706,8 @@ func TestSignData_ChainedType(t *testing.T) {
 	}
 }
 
-//TestVerifyHashedMessage in its current state only tests if the ECDSA library behaves as expected
-func TestVerifyHashedMessage(t *testing.T) {
+//TestECDSALibrary in its current state only tests if the ECDSA library behaves as expected
+func TestECDSALibrary(t *testing.T) {
 	asserter := assert.New(t)
 
 	vkb, _ := base64.StdEncoding.DecodeString("o71ufIY0rP4GXQELZcXlm6t2s/LB29jzGfmheG3q8dJecxrGc/bqIODYcfROx6ofgunyarvG4lFiP+7p18qZqg==")
