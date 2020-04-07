@@ -257,10 +257,6 @@ func TestSignHash_RandomInput(t *testing.T) {
 	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
-	//decode pubkey
-	pubkeyBytes, err := hex.DecodeString(defaultPub)
-	requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
-
 	//test the random input
 	for i := 0; i < numberOfTests; i++ {
 		//generate new input
@@ -271,10 +267,10 @@ func TestSignHash_RandomInput(t *testing.T) {
 		createdSignedUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
 		requirer.NoErrorf(err, "Protocol.SignHash() failed for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
 
-		//Check signature on Signed UPP
-		verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
-		requirer.NoError(err, "Signature verification could not be performed due to errors")
-		asserter.True(verifyOK, "Signature is not OK for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
+		//Check created UPP
+		expectedPayloadString := hex.EncodeToString(inputHash[:])
+		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub)
+		asserter.NoError(err, "Signature verification failed for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
 	}
 }
 
