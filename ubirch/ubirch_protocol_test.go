@@ -244,7 +244,7 @@ func TestSignHash_Fails(t *testing.T) {
 	}
 }
 
-//TestSignHash tests if SignHash can correctly create the UPP signature
+//TestSignHash_RandomInput tests if SignHash can correctly create UPPs
 // for a random input hash for the signed and chained protocol type
 func TestSignHash_RandomInput(t *testing.T) {
 	const numberOfTests = 1000
@@ -464,6 +464,59 @@ func TestSignData_DataInputLength(t *testing.T) {
 			asserter.NoError(checkChainedUPPs(t, createdChainedUpps, expectedPayloads, defaultLastSig, defaultPub))
 		})
 
+	}
+}
+
+//TestSignData_RandomInput tests if SignData can correctly create UPPs
+// for random input data for the signed and chained protocol type
+func TestSignData_RandomInput(t *testing.T) {
+	const numberOfTests = 1000
+	const nrOfChainedUpps = 3
+	const dataLength = defaultDataSize
+
+	inputData := make([]byte, dataLength)
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//Create new crypto context, we use this context for all created UPPs without resetting it
+	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	requirer.NoError(err, "Creating protocol context failed")
+
+	lastChainSig := defaultLastSig
+	//test the random input
+	for i := 0; i < numberOfTests; i++ {
+		//generate new input
+		_, err := rand.Read(inputData)
+		requirer.NoError(err, "Could not generate random data")
+		//Calculate hash, TODO: Make this dependent on crypto if more than one crypto is implemented
+		inputDataHash := sha256.Sum256(inputData)
+
+		//Create 'Signed' type UPP with data
+		createdSignedUpp, err := protocol.SignData(defaultName, inputData[:], Signed)
+		requirer.NoErrorf(err, "Protocol.SignData() failed for Signed type UPP with input data %v", hex.EncodeToString(inputData))
+
+		//Check created Signed UPP
+		expectedPayloadString := hex.EncodeToString(inputDataHash[:])
+		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub)
+		asserter.NoError(err, "UPP check failed for Signed type UPP with input data %v", hex.EncodeToString(inputData))
+
+		//Create multiple chained UPPs
+		createdChainedUpps := make([][]byte, nrOfChainedUpps)
+		expectedPayloads := make([]string, nrOfChainedUpps)
+		for currUppIndex := range createdChainedUpps {
+			createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, inputData[:], Chained)
+			asserter.NoErrorf(err, "SignData() could not create Chained type UPP for index %v", currUppIndex)
+			expectedPayloads[currUppIndex] = hex.EncodeToString(inputDataHash[:]) //build expected payload array for checking later
+		}
+
+		//Check the created UPPs
+		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, defaultPub)
+		asserter.NoError(err, "UPP check failed for Chained type UPPs with input data %v", hex.EncodeToString(inputData))
+
+		//save the last Signature of chain for check in next round TODO: get this using a library function when available, remove sig length magic number
+		lastChainUpp := createdChainedUpps[nrOfChainedUpps-1]
+		lastChainSig = hex.EncodeToString(lastChainUpp[len(lastChainUpp)-64:])
 	}
 }
 
