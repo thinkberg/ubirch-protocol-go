@@ -421,20 +421,9 @@ func TestSignData_DataInputLength(t *testing.T) {
 			createdSignedUpp, err := protocol.SignData(defaultName, dataBytes, Signed)
 			asserter.NoError(err, "SignData() could not create Signed type UPP")
 
-			//Decode Pubkey for checking UPPs
-			pubkeyBytes, err := hex.DecodeString(defaultPub)
-			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
-
-			//Check signed UPP...
-			//...Signature
-			verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
-			requirer.NoError(err, "Signature verification could not be performed due to errors")
-			asserter.True(verifyOK, "Signature is not OK")
-			//...decoding/payload/hash
-			decodedSigned, err := Decode(createdSignedUpp)
-			requirer.NoError(err, "UPP could not be decoded")
-			signed := decodedSigned.(*SignedUPP)
-			asserter.Equal(expectedDataHash[:], signed.Payload, "Payload hash does not match data hash")
+			//Check created UPP
+			expectedPayloadString := hex.EncodeToString(expectedDataHash[:])
+			asserter.NoError(checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub))
 		})
 
 		//run test for chained type

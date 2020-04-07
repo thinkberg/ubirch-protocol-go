@@ -270,6 +270,43 @@ func verifyUPPChain(t *testing.T, uppsArray [][]byte, startSignature []byte) err
 	return nil
 }
 
+//checkSignedUPP checks a signed type UPP. Parameters are passed as strings.
+//The following checks are performed: signature OK, decoding works, payload as expected
+//If everything is OK no error is returned, else the error indicates the failing check.
+func checkSignedUPP(t *testing.T, uppData []byte, expectedPayload string, pubKey string) error {
+	//Decode Pubkey for checking UPPs
+	pubkeyBytes, err := hex.DecodeString(pubKey)
+	if err != nil {
+		return fmt.Errorf("Test configuration string (pubkey) can't be decoded.\nString was: %v", pubKey)
+	}
+
+	//Check each signed UPP...
+	//...Signature
+	verifyOK, err := verifyUPPSignature(t, uppData, pubkeyBytes)
+	if err != nil {
+		return fmt.Errorf("Signature verification could not be performed, error: %v", err)
+	}
+	if !verifyOK {
+		return fmt.Errorf("Signature is not OK")
+	}
+	//...decoding/payload
+	decodedSigned, err := Decode(uppData)
+	if err != nil {
+		return fmt.Errorf("UPP could not be decoded")
+	}
+	signed := decodedSigned.(*SignedUPP)
+	expectedPayloadBytes, err := hex.DecodeString(expectedPayload)
+	if err != nil {
+		return fmt.Errorf("Test configuration string (expectedPayload) can't be decoded. \nString was: %v", expectedPayload)
+	}
+	if !bytes.Equal(expectedPayloadBytes[:], signed.Payload) {
+		return fmt.Errorf("Payload does not match expectation.\nExpected:\n%v\nGot:\n%v", hex.EncodeToString(expectedPayloadBytes[:]), hex.EncodeToString(signed.Payload))
+	}
+
+	//If we reach this, everything was checked without errors
+	return nil
+}
+
 //checkChainedUPPs checks an array of chained type UPPs. Parameters are passed as strings.
 //The following checks are performed: signatures OK, decoding works, payload as expected, chaining OK
 //If everything is OK no error is returned, else the error indicates the failing check.
