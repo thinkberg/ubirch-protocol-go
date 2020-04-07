@@ -281,14 +281,6 @@ func checkSignedUPP(t *testing.T, uppData []byte, expectedPayload string, pubKey
 	}
 
 	//Check each signed UPP...
-	//...Signature
-	verifyOK, err := verifyUPPSignature(t, uppData, pubkeyBytes)
-	if err != nil {
-		return fmt.Errorf("Signature verification could not be performed, error: %v", err)
-	}
-	if !verifyOK {
-		return fmt.Errorf("Signature is not OK")
-	}
 	//...decoding/payload
 	decodedSigned, err := Decode(uppData)
 	if err != nil {
@@ -301,6 +293,14 @@ func checkSignedUPP(t *testing.T, uppData []byte, expectedPayload string, pubKey
 	}
 	if !bytes.Equal(expectedPayloadBytes[:], signed.Payload) {
 		return fmt.Errorf("Payload does not match expectation.\nExpected:\n%v\nGot:\n%v", hex.EncodeToString(expectedPayloadBytes[:]), hex.EncodeToString(signed.Payload))
+	}
+	//...Signature
+	verifyOK, err := verifyUPPSignature(t, uppData, pubkeyBytes)
+	if err != nil {
+		return fmt.Errorf("Signature verification could not be performed, error: %v", err)
+	}
+	if !verifyOK {
+		return fmt.Errorf("Signature is not OK")
 	}
 
 	//If we reach this, everything was checked without errors
@@ -331,14 +331,6 @@ func checkChainedUPPs(t *testing.T, uppsArray [][]byte, expectedPayloads []strin
 
 	//Check each chained UPP...
 	for chainedUppIndex, chainedUppData := range uppsArray {
-		//...Signature
-		verifyOK, err := verifyUPPSignature(t, chainedUppData, pubkeyBytes)
-		if err != nil {
-			return fmt.Errorf("Signature verification could not be performed due to errors for UPP at index %v, error: %v", chainedUppIndex, err)
-		}
-		if !verifyOK {
-			return fmt.Errorf("Signature is not OK for UPP at index %v", chainedUppIndex)
-		}
 		//...decoding/payload/hash
 		decodedChained, err := Decode(chainedUppData)
 		if err != nil {
@@ -351,6 +343,14 @@ func checkChainedUPPs(t *testing.T, uppsArray [][]byte, expectedPayloads []strin
 		}
 		if !bytes.Equal(expectedPayload[:], chained.Payload) {
 			return fmt.Errorf("Payload does not match expectation for UPP at index %v\nExpected:\n%v\nGot:\n%v", chainedUppIndex, hex.EncodeToString(expectedPayload[:]), hex.EncodeToString(chained.Payload))
+		}
+		//...Signature
+		verifyOK, err := verifyUPPSignature(t, chainedUppData, pubkeyBytes)
+		if err != nil {
+			return fmt.Errorf("Signature verification could not be performed due to errors for UPP at index %v, error: %v", chainedUppIndex, err)
+		}
+		if !verifyOK {
+			return fmt.Errorf("Signature is not OK for UPP at index %v", chainedUppIndex)
 		}
 	}
 	//... check chain iself
