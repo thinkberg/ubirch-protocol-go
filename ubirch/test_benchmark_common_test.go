@@ -270,6 +270,61 @@ func verifyUPPChain(t *testing.T, uppsArray [][]byte, startSignature []byte) err
 	return nil
 }
 
+//checkChainedUPPs checks an array of chained type UPPs. Parameters are passed as strings.
+//The following checks are performed: signatures OK, decoding works, payload as expected, chaining OK
+//If everything is OK no error is returned, else the error indicates the failing check.
+func checkChainedUPPs(t *testing.T, uppsArray [][]byte, expectedPayloads []string, startSignature string, pubKey string) error {
+	//Catch general errors
+	if len(uppsArray) == 0 {
+		return fmt.Errorf("UPP array is empty")
+	}
+	if len(uppsArray) != len(expectedPayloads) {
+		return fmt.Errorf("Number of UPPs and expected payloads not equal")
+	}
+	//Decode Pubkey for checking UPPs
+	pubkeyBytes, err := hex.DecodeString(pubKey)
+	if err != nil {
+		return fmt.Errorf("Test configuration string (pubkey) can't be decoded.\nString was: %v", pubKey)
+	}
+	//Decode last signature
+	lastSigBytes, err := hex.DecodeString(startSignature)
+	if err != nil {
+		return fmt.Errorf("Test configuration string (startSig) can't be decoded.\nString was: %v", startSignature)
+	}
+
+	//Check each chained UPP...
+	for chainedUppIndex, chainedUppData := range uppsArray {
+		//...Signature
+		verifyOK, err := verifyUPPSignature(t, chainedUppData, pubkeyBytes)
+		if err != nil {
+			return fmt.Errorf("Signature verification could not be performed due to errors for UPP at index %v, error: %v", chainedUppIndex, err)
+		}
+		if !verifyOK {
+			return fmt.Errorf("Signature is not OK for UPP at index %v", chainedUppIndex)
+		}
+		//...decoding/payload/hash
+		decodedChained, err := Decode(chainedUppData)
+		if err != nil {
+			return fmt.Errorf("UPP could not be decoded for UPP at index %v", chainedUppIndex)
+		}
+		chained := decodedChained.(*ChainedUPP)
+		expectedPayload, err := hex.DecodeString(expectedPayloads[chainedUppIndex])
+		if err != nil {
+			return fmt.Errorf("Test configuration string (expectedPayload) can't be decoded at index %v.\nString was: %v", chainedUppIndex, expectedPayloads[chainedUppIndex])
+		}
+		if !bytes.Equal(expectedPayload[:], chained.Payload) {
+			return fmt.Errorf("Payload does not match expectation for UPP at index %v\nExpected:\n%v\nGot:\n%v", chainedUppIndex, hex.EncodeToString(expectedPayload[:]), hex.EncodeToString(chained.Payload))
+		}
+	}
+	//... check chain iself
+	err = verifyUPPChain(t, uppsArray, lastSigBytes)
+	if err != nil {
+		return err //return the info from the chain check error
+	}
+	//If we reach this, everything was checked without errors
+	return nil
+}
+
 func encodePrivateKeyCommon(privKeyBytes []byte) ([]byte, error) {
 	privKey := new(ecdsa.PrivateKey)
 	privKey.D = new(big.Int)

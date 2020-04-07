@@ -448,31 +448,15 @@ func TestSignData_DataInputLength(t *testing.T) {
 
 			//Call SignData() to create multiple chained UPPs
 			createdChainedUpps := make([][]byte, nrOfChainedUpps)
+			expectedPayloads := make([]string, nrOfChainedUpps)
 			for currUppIndex := range createdChainedUpps {
 				createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, dataBytes, Chained)
 				asserter.NoErrorf(err, "SignData() could not create Chained type UPP number %v", currUppIndex)
+				expectedPayloads[currUppIndex] = hex.EncodeToString(expectedDataHash[:]) //build expected payload array for checking later
 			}
 
-			//Decode Pubkey for checking UPPs
-			pubkeyBytes, err := hex.DecodeString(defaultPub)
-			requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
-
-			//Check each chained UPP...
-			for chainedUppIndex, chainedUppData := range createdChainedUpps {
-				//...Signature
-				verifyOK, err := verifyUPPSignature(t, chainedUppData, pubkeyBytes)
-				requirer.NoError(err, "Signature verification could not be performed due to errors for UPP at index %v", chainedUppIndex)
-				asserter.True(verifyOK, "Signature is not OK for UPP at index %v", chainedUppIndex)
-				//...decoding/payload/hash
-				decodedChained, err := Decode(chainedUppData)
-				requirer.NoError(err, "UPP could not be decoded for UPP at index %v", chainedUppIndex)
-				chained := decodedChained.(*ChainedUPP)
-				asserter.Equal(expectedDataHash[:], chained.Payload, "Payload hash does not match data hash for UPP at index %v", chainedUppIndex)
-			}
-			//... check chain iself
-			lastSigBytes, err := hex.DecodeString(defaultLastSig)
-			requirer.NoErrorf(err, "Test configuration string (lastSig) can't be decoded.\nString was: %v", defaultLastSig)
-			asserter.NoError(verifyUPPChain(t, createdChainedUpps, lastSigBytes))
+			//Check the created UPPs
+			asserter.NoError(checkChainedUPPs(t, createdChainedUpps, expectedPayloads, defaultLastSig, defaultPub))
 		})
 
 	}
