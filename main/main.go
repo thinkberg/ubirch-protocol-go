@@ -21,6 +21,8 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"github.com/ubirch/go.crypto/keystore"
+	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 	"io/ioutil"
 	"log"
 	"os"
@@ -28,13 +30,11 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
-	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 )
 
 func saveProtocolContext(p *ubirch.Protocol) error {
 	contextBytes, _ := json.Marshal(p)
-	err := ioutil.WriteFile("protocol.json", contextBytes, 444)
+	err := ioutil.WriteFile("../protocol.json", contextBytes, 444)
 	if err != nil {
 		log.Printf("unable to store protocol context: %v", err)
 		return err
@@ -45,7 +45,7 @@ func saveProtocolContext(p *ubirch.Protocol) error {
 }
 
 func loadProtocolContext(p *ubirch.Protocol) error {
-	contextBytes, err := ioutil.ReadFile("protocol.json")
+	contextBytes, err := ioutil.ReadFile("../protocol.json")
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func main() {
 	}
 
 	data, _ := hex.DecodeString("010203040506070809FF")
-	encoded, err := p.Sign(name, data, ubirch.Chained)
+	encoded, err := p.SignData(name, data, ubirch.Chained)
 	if err != nil {
 		log.Fatalf("creating signed upp failed: %v", err)
 	}

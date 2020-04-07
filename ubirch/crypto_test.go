@@ -34,7 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
+	"github.com/ubirch/go.crypto/keystore"
 )
 
 // TestCreateKeyStore tests, if a new keystore can be created

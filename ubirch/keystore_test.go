@@ -109,9 +109,6 @@ func TestEncryptedKeystore_SetKey(t *testing.T) {
 		"set private key with correct length failed")
 	// test different lengths for the key
 	for i := 1; i < len(privEncodedCorrect); i++ {
-		if (i % 8) == 0 {
-			i++
-		} //todo, see TestEncryptedKeystore_SetKeyNOTRDY() below
 		asserter.NoErrorf(testKeystore.SetKey(defaultUUID, privEncodedCorrect[:i]),
 			"set private key with length (%v) failed", i)
 	}
@@ -125,9 +122,6 @@ func TestEncryptedKeystore_SetKey(t *testing.T) {
 		"set public key with correct length failed")
 	// test different lengths for the key
 	for i := 1; i < len(pubEncodedCorrect); i++ {
-		if (i % 8) == 0 {
-			i++
-		} //todo, see TestEncryptedKeystore_SetKeyNOTRDY() below
 		asserter.NoErrorf(testKeystore.SetKey("_"+defaultUUID, pubEncodedCorrect[:i]),
 			"set public key with length (%v) failed", i)
 	}
@@ -135,7 +129,7 @@ func TestEncryptedKeystore_SetKey(t *testing.T) {
 
 // Test the set method with keylengths of n*8 Bytes, where n >=1, which currently fails
 // because of a bug in the paypal/keystore library
-func TestEncryptedKeystore_SetKeyNOTRDY(t *testing.T) {
+func TestEncryptedKeystore_SetKey2(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	//Set up test objects and parameters

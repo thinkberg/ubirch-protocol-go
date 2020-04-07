@@ -43,7 +43,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
+	"github.com/ubirch/go.crypto/keystore"
 )
 
 ////Default Values////
@@ -57,7 +57,7 @@ const (
 	defaultHash      = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 	defaultInputData = "cafedeadbeef11223344556677889900aabbccddeeff"
 	defaultDataSize  = 200
-	defaultSecret   = "2234567890123456"
+	defaultSecret    = "2234567890123456"
 )
 
 //////Helper Functions//////

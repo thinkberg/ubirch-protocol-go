@@ -21,7 +21,7 @@ package ubirch
 import (
 	"encoding/json"
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
+	"github.com/ubirch/go.crypto/keystore"
 	"strings"
 )
 
