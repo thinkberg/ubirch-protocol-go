@@ -447,10 +447,9 @@ func TestSignData_DataInputLength(t *testing.T) {
 	}
 }
 
-//TestSignData_Signed tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
-//used as UPP payload and then the created encoded UPP data is compared to the expected values,
-//the signature is also checked. as it's non-deterministic, signature in expected UPPs are ignored,
-//instead a proper verification with the public key is performed
+//TestSignData_Signed tests 'Signed' type UPP creation from given user data. The created encoded UPP
+//data is compared to the expected values, the signature is also checked. As it's non-deterministic,
+// signature in expected UPPs are ignored, instead a proper verification with the public key is performed
 func TestSignData_SignedType(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -513,9 +512,9 @@ func TestSignData_SignedType(t *testing.T) {
 	}
 }
 
-//TestSignData_Chained tests 'Chained' type UPP creation across multiple chained packets. Each input is hashed, hash is
-//used as UPP payload and then the created encoded UPP data (without the signature, as its
-//non-deterministic) is compared to the expected values. Each UPP signature and the signature chain are also verified.
+//TestSignData_Chained tests 'Chained' type UPP creation across multiple chained packets. The created
+// encoded UPP data (without the signature, as its non-deterministic) is compared to the expected
+// values. Each UPP signature and the signature chain are also verified.
 func TestSignData_ChainedType(t *testing.T) {
 	var tests = []struct {
 		testName            string
