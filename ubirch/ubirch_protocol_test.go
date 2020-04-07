@@ -245,7 +245,7 @@ func TestSignHash_Fails(t *testing.T) {
 }
 
 //TestSignHash tests if SignHash can correctly create the UPP signature
-// for a random input hash for the signed protocol type
+// for a random input hash for the signed and chained protocol type
 func TestSignHash_RandomInput(t *testing.T) {
 	const numberOfTests = 1000
 	const nrOfChainedUpps = 3
