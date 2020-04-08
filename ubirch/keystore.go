@@ -50,7 +50,7 @@ var _ Keystorer = (*EncryptedKeystore)(nil)
 func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
 	return &EncryptedKeystore{
 		Keystore: &keystore.Keystore{},
-		Secret:   []byte("2234567890123456"),
+		Secret:   secret,
 	}
 }
 
