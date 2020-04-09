@@ -41,7 +41,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
 )
 
 ////Default Values////
@@ -85,11 +84,8 @@ func deleteProtocolContext(filename string) error {
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
 func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*Protocol, error) {
 	context := &CryptoContext{
-		Keystore: &EncryptedKeystore{
-			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
-		},
-		Names: map[string]uuid.UUID{},
+		Keystore: NewEncryptedKeystore([]byte("2234567890123456")),
+		Names:    map[string]uuid.UUID{},
 	}
 	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	//Load reference data into context
@@ -100,11 +96,8 @@ func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSign
 //Creates a new protocol context for a UPP verifier (only pubkey is needed)
 func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*Protocol, error) {
 	context := &CryptoContext{
-		Keystore: &EncryptedKeystore{
-			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
-		},
-		Names: map[string]uuid.UUID{},
+		Keystore: NewEncryptedKeystore([]byte("2234567890123456")),
+		Names:    map[string]uuid.UUID{},
 	}
 	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	//Load reference data into context
