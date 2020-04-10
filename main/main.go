@@ -28,7 +28,7 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
-	"github.com/paypal/go.crypto/keystore"
+	"github.com/ubirch/go.crypto/keystore"
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 )
 
