@@ -20,9 +20,6 @@ package ubirch
 
 import (
 	"encoding/json"
-	"strings"
-
-	"github.com/google/uuid"
 	"github.com/ubirch/go.crypto/keystore"
 )
 
@@ -56,41 +53,12 @@ func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
 
 // GetKey returns a Key from the Keystore
 func (enc *EncryptedKeystore) GetKey(keyname string) ([]byte, error) {
-	content, err := enc.Keystore.Get(keyname, enc.Secret)
-	if err != nil {
-		// try old format, where the key was derived from the keyname
-		// itself.
-		if content, err := enc.compatDecrypt(keyname); err == nil {
-			return content, nil
-		}
-
-		// if that didnt work, return original error.
-		return nil, err
-	}
-	return content, nil
+	return enc.Keystore.Get(keyname, enc.Secret)
 }
 
 // SetKey sets a key in the Keystore
 func (enc *EncryptedKeystore) SetKey(keyname string, keyvalue []byte) error {
 	return enc.Keystore.Set(keyname, keyvalue, enc.Secret)
-}
-
-// compatDecrypt is the compatibility to the old version. Originally the
-// kek (key encrypting key) was derived from the UUID.
-func (enc *EncryptedKeystore) compatDecrypt(keyname string) ([]byte, error) {
-	// Private key entry titles were prefixed with an underscore
-	keyname = strings.TrimPrefix(keyname, "_")
-
-	u, err := uuid.Parse(keyname)
-	if err != nil {
-		return nil, err
-	}
-	kek, err := u.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	return enc.Keystore.Get(keyname, kek)
 }
 
 // MarshalJSON implements the json.Marshaler interface. The Password will not be
