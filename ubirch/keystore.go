@@ -78,7 +78,7 @@ func (enc *EncryptedKeystore) SetKey(keyname string, keyvalue []byte) error {
 // compatDecrypt is the compatibility to the old version. Originally the
 // kek (key encrypting key) was derived from the UUID.
 func (enc *EncryptedKeystore) compatDecrypt(keyname string) ([]byte, error) {
-	// Public keys were prefixed with an underscore
+	// Private key entry titles were prefixed with an underscore
 	keyname = strings.TrimPrefix(keyname, "_")
 
 	u, err := uuid.Parse(keyname)

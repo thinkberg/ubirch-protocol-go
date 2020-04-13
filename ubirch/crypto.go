@@ -76,6 +76,14 @@ func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
+func privKeyEntryTitle(id uuid.UUID) string {
+	return "_" + id.String()
+}
+
+func pubKeyEntryTitle(id uuid.UUID) string {
+	return id.String()
+}
+
 //func signatureToPoints(signature []byte) (r, s *big.Int, err error) {
 //	r, s = &big.Int{}, &big.Int{}
 //
@@ -96,13 +104,13 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	if c.Names == nil {
 		c.Names = make(map[string]uuid.UUID, 1)
 	}
-	c.Names[name] = id // TODO warn or fail if uuid already exists
+	c.Names[name] = id
 
 	pubKeyBytes, err := encodePublicKey(k)
 	if err != nil {
 		return err
 	}
-	return c.Keystore.SetKey("_"+id.String(), pubKeyBytes)
+	return c.Keystore.SetKey(pubKeyEntryTitle(id), pubKeyBytes)
 }
 
 // storePrivateKey stores the private Key, returns 'nil', if successful
@@ -116,7 +124,7 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 	if err != nil {
 		return err
 	}
-	return c.Keystore.SetKey(id.String(), privKeyBytes)
+	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
 }
 
 func (c *CryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
@@ -188,21 +196,16 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 		return nil, err
 	}
 
-	pubKeyBytes, err := c.Keystore.GetKey("_" + id.String())
+	pubKeyBytes, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
 	}
 	return pubKeyBytes, nil
 }
 
-// Get the key store instance of the crypto context
-func (c *CryptoContext) GetKeystorer() Keystorer {
-	return c.Keystore
-}
-
 // Sign a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
-	privKeyBytes, err := c.Keystore.GetKey(id.String())
+	privKeyBytes, err := c.Keystore.GetKey(privKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +233,7 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 
 // Verify a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
-	pubKeyBytes, err := c.Keystore.GetKey("_" + id.String())
+	pubKeyBytes, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
 	if err != nil {
 		return false, err
 	}
