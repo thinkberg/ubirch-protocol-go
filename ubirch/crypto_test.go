@@ -224,21 +224,21 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	// check for non existing key
 	pubKeyBytes, err := p.GetPublicKey(unknownName)
-	asserter.Errorf(err, "Getting non exisitng Public key failed")
+	asserter.Errorf(err, "Getting non existing Public key did not fail as expected")
 	asserter.Nilf(pubKeyBytes, "Public Key for non existing Key not empty")
 
 	// check for new generated key
 	id := uuid.MustParse(defaultUUID)
-	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
+	asserter.NoError(p.GenerateKey(defaultName, id), "Generating key failed")
 	pubKeyBytesNew, err := p.GetPublicKey(defaultName)
-	asserter.Nilf(err, "Getting Public key failed")
+	asserter.NoError(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
 
 	// load the protocol and check if the Public key remains the same, as the new generated
 	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
 	pubKeyBytesLoad, err := p.GetPublicKey(defaultName)
-	asserter.Nilf(err, "Getting Public key failed")
-	asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change")
+	asserter.NoError(err, "Getting Public key failed")
+	asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change when loading context")
 }
 
 // TestCryptoContext_GetPrivateKey_NOTRDY the required method is not implemented yet
