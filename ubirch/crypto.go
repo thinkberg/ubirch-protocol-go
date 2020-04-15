@@ -217,6 +217,9 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decoding public key from keystore failed: %s", err)
 	}
+	if decodedPubKey.Curve.Params().Name != "P-256" {
+		return nil, fmt.Errorf("public key from keystore has unexpected type: %s", decodedPubKey.Curve.Params().Name)
+	}
 
 	pubKeyBytes := make([]byte, 0, 0)
 
