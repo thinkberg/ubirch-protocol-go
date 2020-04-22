@@ -39,6 +39,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	insecuremathrand "math/rand"
 	"os"
 	"testing"
 
@@ -61,6 +62,44 @@ const (
 )
 
 //////Helper Functions//////
+
+//parameterString prints a string showing the passed parameters as a block of text (for easier/ more helpful error messages)
+//if the string is empty ("") the corresponding line is not added
+func parameterString(name string, uuidStr string, privkey string, pubkey string, lastSignature string) string {
+	paramStr := ""
+
+	if name != "" {
+		paramStr += fmt.Sprintf("Name: %v\n", name)
+	}
+	if uuidStr != "" {
+		paramStr += fmt.Sprintf("UUID: %v\n", uuidStr)
+	}
+	if privkey != "" {
+		paramStr += fmt.Sprintf("PrivKey: %v\n", privkey)
+	}
+	if pubkey != "" {
+		paramStr += fmt.Sprintf("PubKey: %v\n", pubkey)
+	}
+	if lastSignature != "" {
+		paramStr += fmt.Sprintf("lastSig: %v\n", lastSignature)
+	}
+
+	return paramStr
+}
+
+//randomString returns a random string with a length between lenMin and lenMax
+//all letters that are allowed in the string
+func randomString(lenMin int, lenMax int) string {
+	var letters = []rune(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
+
+	//generate the string
+	stringlength := insecuremathrand.Intn((lenMax+1)-lenMin) + lenMin
+	randString := make([]rune, stringlength)
+	for i := range randString {
+		randString[i] = letters[insecuremathrand.Intn(len(letters))]
+	}
+	return string(randString)
+}
 
 //loads a protocol context from a json file
 func loadProtocolContext(p *Protocol, filename string) error {

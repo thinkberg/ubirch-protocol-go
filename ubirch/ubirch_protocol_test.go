@@ -32,8 +32,10 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
@@ -469,6 +471,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 
 //TestSignData_RandomInput tests if SignData can correctly create UPPs
 // for random input data for the signed and chained protocol type
+//TODO: add randomization of parameters?
 func TestSignData_RandomInput(t *testing.T) {
 	const numberOfTests = 1000
 	const nrOfChainedUpps = 3
@@ -915,6 +918,124 @@ func TestProtocol_Verify(t *testing.T) {
 				asserter.Falsef(verified, "test input was verifiable. Input was %s", currTest.input)
 			}
 		})
+	}
+}
+
+//TestProtocol_SignVerifyLoop tests if a loop of creating and verifying an UPP with the lib
+//functions works as expected (SignData and Verify). This mainly tests if packet creation and
+//verification/unpacking is consistent within the library. This is tested with random data
+//and random parameters to catch errors with certain parameters. Tests are run for both signed
+//and chained type. Chaining is not checked as the library does not provide such a function. The
+//chaining is however checked in TestSignData_RandomInput with a test helper function.
+//TODO: Add library chain check function here when/if library is extended to support it
+func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
+	const numberOfTests = 1000 //total number of tests
+	const nrOfUPPsPerTest = 10 //number of chained and signed packets for each test (generated with one set of parameters)
+	const dataLength = defaultDataSize
+
+	currData := make([]byte, dataLength)
+	currName := ""
+	currUUIDTypeUUID := uuid.Nil
+	currUUID := ""
+	privBytes := make([]byte, 32)
+	currPriv := ""
+	currPub := ""
+	lastSigBytes := make([]byte, 64)
+	currLastSig := ""
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//test the random input
+	for i := 0; i < numberOfTests; i++ {
+		//generate new random parameters
+		//Name
+		currName = randomString(1, 5)
+		//UUID
+		currUUIDTypeUUID = uuid.New()
+		currUUID = currUUIDTypeUUID.String()
+		//Privkey
+		_, err := rand.Read(privBytes)
+		requirer.NoError(err, "Could not generate random data for private key")
+		currPriv = hex.EncodeToString(privBytes)
+		//Last Signature
+		_, err = rand.Read(lastSigBytes)
+		requirer.NoError(err, "Could not generate random data for last signature")
+		currLastSig = hex.EncodeToString(lastSigBytes)
+
+		//Create new crypto contexts, new one for each round for parameter randomization
+		//Signer
+		signer, err := newProtocolContextSigner(currName, currUUID, currPriv, currLastSig)
+		requirer.NoError(err, "Creating signer protocol context failed")
+		//Verifier
+		currPubkeyBytes, err := signer.GetPublicKey(currName)
+		requirer.NoError(err, "Could not get pubkey from signer context")
+		//TODO: Remove this legacy pubkey conversion when new functions are merged which will directly return key bytes
+		block, _ := pem.Decode(currPubkeyBytes)
+		asserter.NotNil(block)
+		decodedPubKeyGeneric, err := x509.ParsePKIXPublicKey(block.Bytes)
+		decodedPubKey := decodedPubKeyGeneric.(*ecdsa.PublicKey)
+		asserter.NoError(err)
+		pubKeyBytes := make([]byte, 0, 0)
+		paddedX := make([]byte, 32)
+		paddedY := make([]byte, 32)
+		copy(paddedX[32-len(decodedPubKey.X.Bytes()):], decodedPubKey.X.Bytes())
+		copy(paddedY[32-len(decodedPubKey.Y.Bytes()):], decodedPubKey.Y.Bytes())
+		pubKeyBytes = append(pubKeyBytes, paddedX...)
+		pubKeyBytes = append(pubKeyBytes, paddedY...)
+		//end of legacy pubkey conversion
+		currPub = hex.EncodeToString(pubKeyBytes)
+		verifier, err := newProtocolContextVerifier(currName, currUUID, currPub)
+		requirer.NoError(err, "Creating verifier protocol context failed")
+
+		//create a number of signed and chained type UPPs and verify/decode them with the library
+		for currUPPIndex := 0; currUPPIndex < nrOfUPPsPerTest; currUPPIndex++ {
+			//TODO: Output parameters as well (Log?), helper function for parameter string?
+			//generate new random data
+			_, err := rand.Read(currData)
+			requirer.NoError(err, "Could not generate random data for input data")
+			//Calculate hash for later checking, TODO: Make this dependent on crypto if more than one crypto is implemented
+			currDataHash := sha256.Sum256(currData)
+
+			//Create string to use in error messages with all necessary info
+			debugInfoString := fmt.Sprintf("Input data: %v\nParameters:\n%v",
+				hex.EncodeToString(currData),
+				parameterString(currName, currUUID, currPriv, currPub, currLastSig))
+
+			////SIGNED section////
+			//Create 'Signed' type UPP with data
+			createdSignedUpp, err := signer.SignData(currName, currData[:], Signed)
+			requirer.NoErrorf(err, "Protocol.SignData() failed for Signed type UPP\n%v", debugInfoString)
+
+			//Check created Signed UPP using the library function: first verify, then decode and check hash/payload
+			result, err := verifier.Verify(currName, createdSignedUpp, Signed)
+			asserter.NoError(err, "UPP verify failed with an error for Signed type UPP\n%v", debugInfoString)
+			asserter.True(result, "UPP verification returned false for Signed type UPP\n%v", debugInfoString)
+			decodedUPP, err := Decode(createdSignedUpp)
+			asserter.NoError(err, "UPP decoding failed with an error for Signed type UPP\n%v", debugInfoString)
+			//Check payload (and other struct contents)
+			asserter.Equal(Signed, decodedUPP.(*SignedUPP).Version, "Signed type Version not as expected\n%v", debugInfoString)
+			asserter.Equal(currUUIDTypeUUID, decodedUPP.(*SignedUPP).Uuid, "Signed type UUID not as expected\n%v", debugInfoString)
+			asserter.Equal(uint8(0x00), decodedUPP.(*SignedUPP).Hint, "Signed type Hint not as expected\n%v", debugInfoString)
+			asserter.Equal(currDataHash[:], decodedUPP.(*SignedUPP).Payload, "Signed type Payload not as expected\n%v", debugInfoString)
+
+			////CHAINED section////
+			//Create 'Chained' type UPP with data
+			createdChainedUpp, err := signer.SignData(currName, currData[:], Chained)
+			requirer.NoErrorf(err, "Protocol.SignData() failed for Chained type UPP\n%v", debugInfoString)
+
+			//Check created Chained UPP using the library function: first verify, then decode and check hash/payload
+			result, err = verifier.Verify(currName, createdChainedUpp, Chained)
+			asserter.NoError(err, "UPP verify failed with an error for Chained type UPP\n%v", debugInfoString)
+			asserter.True(result, "UPP verification returned false for Chained type UPP\n%v", debugInfoString)
+			decodedUPP, err = Decode(createdChainedUpp)
+			asserter.NoError(err, "UPP decoding failed with an error for Chained type UPP\n%v", debugInfoString)
+			//Check payload (and other struct contents)
+			asserter.Equal(Chained, decodedUPP.(*ChainedUPP).Version, "Chained type Version not as expected\n%v", debugInfoString)
+			asserter.Equal(currUUIDTypeUUID, decodedUPP.(*ChainedUPP).Uuid, "Chained type UUID not as expected\n%v", debugInfoString)
+			asserter.Equal(uint8(0x00), decodedUPP.(*ChainedUPP).Hint, "Chained type Hint not as expected\n%v", debugInfoString)
+			asserter.Equal(currDataHash[:], decodedUPP.(*ChainedUPP).Payload, "Chained type Payload not as expected\n%v", debugInfoString)
+		}
 	}
 }
 
