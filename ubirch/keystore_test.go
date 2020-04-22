@@ -20,10 +20,11 @@ package ubirch
 
 import (
 	"encoding/hex"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 // TestNewEncryptedKeystore tests the creation of a new keystore
@@ -158,10 +159,52 @@ func TestEncryptedKeystore_SetKey2(t *testing.T) {
 	}
 }
 
-func TestEncryptedKeystore_MarshalJSON_NOTRDY(t *testing.T) {
-	t.Error("MarshalJSON() not implemented")
+func TestEncryptedKeystore_MarshalUnmarshalJSON(t *testing.T) {
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	// initialize new Keystore
+	ks := NewEncryptedKeystore([]byte(defaultSecret))
+	requirer.NotNilf(ks, "Newly initialized keystore is nil")
+
+	// make+set encoded private Key
+	privBytes, err := hex.DecodeString(defaultPriv)
+	requirer.NoErrorf(err, "Decoding private key bytes failed")
+	privEncoded, err := encodePrivateKeyCommon(privBytes)
+	requirer.NoError(err, "Encoding private key failed")
+	requirer.NoError(ks.SetKey(defaultUUID, privEncoded), "Setting private key failed")
+
+	// can marshal keystore into byte representation
+	byteRepr, err := ks.MarshalJSON()
+	requirer.NoError(err, "Error marshaling keystore to bytes")
+
+	//Can load keystore from marshaled bytes
+	loadedKs := NewEncryptedKeystore([]byte(defaultSecret))
+	requirer.NoError(loadedKs.UnmarshalJSON(byteRepr), "Error loading keystore from marshaled bytes")
+
+	retrievedKey, err := ks.GetKey(defaultUUID)
+	requirer.NoErrorf(err, "Error getting key %q", defaultUUID, err)
+	asserter.Equal(privEncoded, retrievedKey, "Retrieved key (%v) does not match saved key %q: retrieved: %x expected: %x", defaultUUID)
 }
 
-func TestEncryptedKeystore_UnmarshalJSON_NOTRDY(t *testing.T) {
-	t.Error("UnmarshalJSON() not implemented")
+func TestEncryptedKeystore_WrongSecret(t *testing.T) {
+	requirer := require.New(t)
+
+	// initialize new Keystore
+	ks := NewEncryptedKeystore([]byte(defaultSecret))
+	requirer.NotNilf(ks, "Newly initialized keystore is nil")
+
+	// make+set encoded private Key
+	privBytes, err := hex.DecodeString(defaultPriv)
+	requirer.NoErrorf(err, "Decoding private key bytes failed")
+	privEncoded, err := encodePrivateKeyCommon(privBytes)
+	requirer.NoError(err, "Encoding private key failed")
+	requirer.NoError(ks.SetKey(defaultUUID, privEncoded), "Setting private key failed")
+
+	//change the secret so decryption fails
+	ks.Secret = []byte("0000000000000000")
+
+	//try to retrive key (should fail)
+	_, err = ks.GetKey(defaultUUID)
+	requirer.Errorf(err, "Key could be retrived with wrong secret")
 }

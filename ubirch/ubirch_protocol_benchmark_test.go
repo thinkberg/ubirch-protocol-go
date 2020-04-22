@@ -31,7 +31,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/ubirch/go.crypto/keystore"
 )
 
 //BenchmarkSign benchmarks only UPP creation via Protocol.Sign() (NOT Crypto.Sign()) with various payload sizes
@@ -69,11 +68,8 @@ func BenchmarkSign(b *testing.B) {
 	for _, bm := range benchmarks {
 		//Create new crypto context
 		context := &CryptoContext{
-			Keystore: &EncryptedKeystore{
-				Keystore: &keystore.Keystore{},
-				Secret:   []byte(defaultSecret),
-			},
-			Names: map[string]uuid.UUID{},
+			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+			Names:    map[string]uuid.UUID{},
 		}
 		p := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 		//Load reference data into context
@@ -121,11 +117,8 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 	for _, bm := range benchmarks {
 		//Create new crypto context
 		context := &CryptoContext{
-			Keystore: &EncryptedKeystore{
-				Keystore: &keystore.Keystore{},
-				Secret:   []byte(defaultSecret),
-			},
-			Names: map[string]uuid.UUID{},
+			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+			Names:    map[string]uuid.UUID{},
 		}
 		p := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 		//Load reference data into context

@@ -40,6 +40,7 @@ type Crypto interface {
 	GenerateKey(name string, id uuid.UUID) error
 	GetCSR(name string) ([]byte, error)
 	GetPublicKey(name string) ([]byte, error)
+	PrivateKeyExists(name string) bool
 	SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error
 	SetKey(name string, id uuid.UUID, privKeyBytes []byte) error
 

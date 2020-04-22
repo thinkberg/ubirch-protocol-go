@@ -63,17 +63,31 @@ func encodePublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
 
 func decodePrivateKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemEncoded)
+	if block == nil {
+		return nil, fmt.Errorf("unable to parse PEM block")
+	}
 	x509Encoded := block.Bytes
 	return x509.ParseECPrivateKey(x509Encoded)
 }
 
 func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode(pemEncoded)
+	if block == nil {
+		return nil, fmt.Errorf("unable to parse PEM block")
+	}
 	genericPublicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return nil, err
 	}
 	return genericPublicKey.(*ecdsa.PublicKey), nil
+}
+
+func privKeyEntryTitle(id uuid.UUID) string {
+	return "_" + id.String()
+}
+
+func pubKeyEntryTitle(id uuid.UUID) string {
+	return id.String()
 }
 
 //func signatureToPoints(signature []byte) (r, s *big.Int, err error) {
@@ -96,13 +110,13 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	if c.Names == nil {
 		c.Names = make(map[string]uuid.UUID, 1)
 	}
-	c.Names[name] = id // TODO warn or fail if uuid already exists
+	c.Names[name] = id
 
 	pubKeyBytes, err := encodePublicKey(k)
 	if err != nil {
 		return err
 	}
-	return c.Keystore.SetKey("_"+id.String(), pubKeyBytes)
+	return c.Keystore.SetKey(pubKeyEntryTitle(id), pubKeyBytes)
 }
 
 // storePrivateKey stores the private Key, returns 'nil', if successful
@@ -116,7 +130,7 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 	if err != nil {
 		return err
 	}
-	return c.Keystore.SetKey(id.String(), privKeyBytes)
+	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
 }
 
 func (c *CryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
@@ -200,26 +214,82 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 // Get a certificate signing request.
 func (c *CryptoContext) GetCSR(name string) ([]byte, error) { return nil, nil }
 
-// Get the public key bytes for the given name.
-func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
+// Get the decoded public key for the given name.
+func (c *CryptoContext) getDecodedPublicKey(name string) (*ecdsa.PublicKey, error) {
 	id, err := c.GetUUID(name)
 	if err != nil {
 		return nil, err
 	}
 
-	pubKeyBytes, err := c.Keystore.GetKey("_" + id.String())
+	pubKey, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
 	}
+
+	// decode the key
+	return decodePublicKey(pubKey)
+}
+
+// Get the public key bytes for the given name.
+func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
+	decodedPubKey, err := c.getDecodedPublicKey(name)
+	if err != nil {
+		return nil, fmt.Errorf("decoding public key from keystore failed: %s", err)
+	}
+	if decodedPubKey.Curve.Params().Name != "P-256" {
+		return nil, fmt.Errorf("public key from keystore has unexpected type: %s", decodedPubKey.Curve.Params().Name)
+	}
+
+	pubKeyBytes := make([]byte, 0, 0)
+
+	paddedX := make([]byte, 32)
+	paddedY := make([]byte, 32)
+	copy(paddedX[32-len(decodedPubKey.X.Bytes()):], decodedPubKey.X.Bytes())
+	copy(paddedY[32-len(decodedPubKey.Y.Bytes()):], decodedPubKey.Y.Bytes())
+	pubKeyBytes = append(pubKeyBytes, paddedX...)
+	pubKeyBytes = append(pubKeyBytes, paddedY...)
+
 	return pubKeyBytes, nil
 }
 
+// Get the decoded private key for the given name.
+func (c *CryptoContext) getDecodedPrivateKey(name string) (*ecdsa.PrivateKey, error) {
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
+	privKey, err := c.Keystore.GetKey(privKeyEntryTitle(id))
+	if err != nil {
+		return nil, err
+	}
+
+	// decode the key
+	return decodePrivateKey(privKey)
+}
+
+// Check if a private key entry for the given name exists in the keystore.
+func (c *CryptoContext) PrivateKeyExists(name string) bool {
+	_, err := c.getDecodedPrivateKey(name)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+// TODO
+//  // Sign a message using a signing key corresponding to a specific name.
+//  func (c *CryptoContext) Sign(name string, data []byte) ([]byte, error) {
+//		privKeyBytes, err := c.getDecodedPrivateKey(name)
+//		...
 // Sign a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
+
 	if len(data) == 0 {
 		return nil, errors.New("empty data cannot be signed")
 	}
-	privKeyBytes, err := c.Keystore.GetKey(id.String())
+	privKeyBytes, err := c.Keystore.GetKey(privKeyEntryTitle(id))
+
 	if err != nil {
 		return nil, err
 	}
@@ -247,6 +317,11 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	return append(paddedR, paddedS...), nil
 }
 
+// TODO
+//  // Verify a message using a verifying key corresponding to a specific name.
+//  func (c *CryptoContext) Verify(name string, data []byte, signature []byte) (bool, error) {
+//		pubKeyBytes, err := c.getDecodedPublicKey(name)
+//		...
 // Verify a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
 	const expectedSignatureLength = 64
@@ -256,7 +331,9 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (boo
 	if len(signature) != expectedSignatureLength {
 		return false, errors.New(fmt.Sprintf("signature lenght wrong: %d != %d", len(signature), expectedSignatureLength))
 	}
-	pubKeyBytes, err := c.Keystore.GetKey("_" + id.String())
+
+	pubKeyBytes, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
+
 	if err != nil {
 		return false, err
 	}

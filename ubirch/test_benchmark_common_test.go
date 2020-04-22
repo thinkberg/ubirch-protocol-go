@@ -44,7 +44,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/ubirch/go.crypto/keystore"
 )
 
 ////Default Values////
@@ -59,6 +58,13 @@ const (
 	defaultInputData = "cafedeadbeef11223344556677889900aabbccddeeff"
 	defaultDataSize  = 200
 	defaultSecret    = "2234567890123456"
+)
+
+////Constants////
+//constants to avoid 'magic numbers' in the code
+const (
+	lenPubkeyECDSA  = 64
+	lenPrivkeyECDSA = 32
 )
 
 //////Helper Functions//////
@@ -125,14 +131,14 @@ func deleteProtocolContext(filename string) error {
 	return err
 }
 
-// Get the public key bytes for the given name.
+// Get the private key bytes for the given name.
 func getPrivateKey(c *CryptoContext, name string) ([]byte, error) {
 	id, err := c.GetUUID(name)
 	if err != nil {
 		return nil, err
 	}
 
-	privKeyBytes, err := c.Keystore.GetKey(id.String())
+	privKeyBytes, err := c.Keystore.GetKey(privKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
 	}
@@ -142,11 +148,8 @@ func getPrivateKey(c *CryptoContext, name string) ([]byte, error) {
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
 func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*Protocol, error) {
 	context := &CryptoContext{
-		Keystore: &EncryptedKeystore{
-			Keystore: &keystore.Keystore{},
-			Secret:   []byte(defaultSecret),
-		},
-		Names: map[string]uuid.UUID{},
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+		Names:    map[string]uuid.UUID{},
 	}
 	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	//Load reference data into context
@@ -157,11 +160,8 @@ func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSign
 //Creates a new protocol context for a UPP verifier (only pubkey is needed)
 func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*Protocol, error) {
 	context := &CryptoContext{
-		Keystore: &EncryptedKeystore{
-			Keystore: &keystore.Keystore{},
-			Secret:   []byte(defaultSecret),
-		},
-		Names: map[string]uuid.UUID{},
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+		Names:    map[string]uuid.UUID{},
 	}
 	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	//Load reference data into context

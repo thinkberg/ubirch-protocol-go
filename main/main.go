@@ -21,8 +21,6 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
-	"github.com/ubirch/go.crypto/keystore"
-	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 	"io/ioutil"
 	"log"
 	"os"
@@ -30,6 +28,8 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
+	"github.com/ubirch/go.crypto/keystore"
+	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 )
 
 func saveProtocolContext(p *ubirch.Protocol) error {

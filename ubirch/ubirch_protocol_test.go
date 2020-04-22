@@ -32,10 +32,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
@@ -970,21 +968,7 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 		//Verifier
 		currPubkeyBytes, err := signer.GetPublicKey(currName)
 		requirer.NoError(err, "Could not get pubkey from signer context")
-		//TODO: Remove this legacy pubkey conversion when new functions are merged which will directly return key bytes
-		block, _ := pem.Decode(currPubkeyBytes)
-		asserter.NotNil(block)
-		decodedPubKeyGeneric, err := x509.ParsePKIXPublicKey(block.Bytes)
-		decodedPubKey := decodedPubKeyGeneric.(*ecdsa.PublicKey)
-		asserter.NoError(err)
-		pubKeyBytes := make([]byte, 0, 0)
-		paddedX := make([]byte, 32)
-		paddedY := make([]byte, 32)
-		copy(paddedX[32-len(decodedPubKey.X.Bytes()):], decodedPubKey.X.Bytes())
-		copy(paddedY[32-len(decodedPubKey.Y.Bytes()):], decodedPubKey.Y.Bytes())
-		pubKeyBytes = append(pubKeyBytes, paddedX...)
-		pubKeyBytes = append(pubKeyBytes, paddedY...)
-		//end of legacy pubkey conversion
-		currPub = hex.EncodeToString(pubKeyBytes)
+		currPub = hex.EncodeToString(currPubkeyBytes)
 		verifier, err := newProtocolContextVerifier(currName, currUUID, currPub)
 		requirer.NoError(err, "Creating verifier protocol context failed")
 
