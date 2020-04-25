@@ -66,6 +66,24 @@ func (enc *EncryptedKeystore) SetKey(keyname string, keyvalue []byte) error {
 	return enc.Keystore.Set(keyname, keyvalue, enc.Secret)
 }
 
+// compatDecrypt is the compatibility to the old version. Originally the
+// kek (key encrypting key) was derived from the UUID.
+func (enc *EncryptedKeystore) compatDecrypt(keyname string) ([]byte, error) {
+	// Public keys were prefixed with an underscore
+	keyname2 := strings.TrimPrefix(keyname, "_")
+
+	u, err := uuid.Parse(keyname)
+	if err != nil {
+		return nil, err
+	}
+	kek, err := u.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	return enc.Keystore.Get(keyname2, kek)
+}
+
 // MarshalJSON implements the json.Marshaler interface. The Password will not be
 // marshaled.
 func (enc *EncryptedKeystore) MarshalJSON() ([]byte, error) {
