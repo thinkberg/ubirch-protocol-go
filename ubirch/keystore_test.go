@@ -118,7 +118,7 @@ func TestEncryptedKeystore_SetKey(t *testing.T) {
 	requirer.NoErrorf(err, "Decoding private Key Bytes failed")
 	pubEncodedCorrect, err := encodePublicKeyCommon(pubBytesCorrect)
 	requirer.NoErrorf(err, "Encoding PrivateKey failed")
-	// Test valid key length  //todo this test fails, but shouldn't
+	// Test valid key length
 	asserter.NoErrorf(testKeystore.SetKey("_"+defaultUUID, pubEncodedCorrect),
 		"set public key with correct length failed")
 	// test different lengths for the key
@@ -207,4 +207,41 @@ func TestEncryptedKeystore_WrongSecret(t *testing.T) {
 	//try to retrive key (should fail)
 	_, err = ks.GetKey(defaultUUID)
 	requirer.Errorf(err, "Key could be retrived with wrong secret")
+}
+
+// Testing the Marshal JSON functionality
+//		This test depends on the file test3.json
+func TestEncryptedKeystore_MarshalJSON(t *testing.T) {
+	asserter := assert.New(t)
+	requirer := require.New(t)
+	//Set up test objects and parameters
+	var testKeystore = NewEncryptedKeystore([]byte(defaultSecret))
+	var context = &CryptoContext{
+		Keystore: testKeystore,
+		Names:    map[string]uuid.UUID{},
+	}
+	// test empty Keystore
+	jsonKeystore, err := testKeystore.MarshalJSON()
+	asserter.NoErrorf(err, "there should be no error")
+	asserter.Containsf(string(jsonKeystore), "{}", "This should be empty")
+
+	// test with keystore file "test3.json" and check if the relevant information is provided
+	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	requirer.NoErrorf(loadProtocolContext(&p, "test3.json"), "Failed loading protocol context")
+
+	jsonKeystore, err = testKeystore.MarshalJSON()
+	asserter.NoErrorf(err, "there should be no error")
+	asserter.Containsf(string(jsonKeystore), "6eac4d0b-16e6-4508-8c46-22e7451ea5a1", "keyname not present")
+	asserter.Containsf(string(jsonKeystore), "_6eac4d0b-16e6-4508-8c46-22e7451ea5a1", "keyname not present")
+	asserter.Containsf(string(jsonKeystore),
+		"Y8hIgKipGokgjlUrL8gi1P17TmiHiZ0jqGQlRB2512GwVmaHZTjwgbdc019m1dODp0NPDIh2JstexjqCsAwHjIuA/DPvhLoIDqY35ZJCoZ7LqY/ISeujnZUXQWqcET7DcyDZHPBQQ67NDTa6urajiYNGoiGI8q82h7g3Pn5jGRdZRqrAyhyYP7tEt1vsgqfsCAEYCwroRdXb1VQv8YBLhDRTZVCPm2BkKt/SM14bzoS1KLKTZtjMoxWlQIiZPu1p2BEgFwQ6KgRa9+6zIGbBm9EQ81EdFWZ18PfVLCzb/qgxrOZ5R+fduQ==",
+		"keyvalue not present")
+	asserter.Containsf(string(jsonKeystore),
+		"6fZv2OPrI+NdpPtCNY3Xqh+7Q/HTcJ6geD+HJM5eaNCb7V417kK0fLO8tGnbkLtntkSgXNskOzDdL73nKxDufwWpauKUOBuiaTTXuei1IVl/6VlQsXy1hlcL3vl8dNbgVKNdO7lYcWb0/s2XWGXvbYvN5d0F1VdByqOBUBk6ARbxt1ALWd72aLRK+EGQuc5x6GhjxcTSB8KIcMfbsmtVvXFhnX4UE6PeB0lbryP9II7gPaEqQ7272Dcb7Fyq9e6t",
+		"keyvalue not present")
+}
+
+// todo: figure out, how to test this
+func TestEncryptedKeystore_UnmarshalJSON_NOTRDY(t *testing.T) {
+	t.Errorf("not yet implemented")
 }

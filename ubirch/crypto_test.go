@@ -41,7 +41,7 @@ import (
 func TestCreateKeystore(t *testing.T) {
 	asserter := assert.New(t)
 	//create new crypto context and check, if the kystore is correct TODO not sure if this test is valid
-	var kstore = NewEncryptedKeystore([]byte("1234567890123456"))
+	var kstore = NewEncryptedKeystore([]byte(defaultSecret))
 	var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
 
 	asserter.IsTypef(kstore, context.Keystore, "Keystore creation failed")
@@ -94,7 +94,7 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	)
 	// prepare
 	asserter := assert.New(t)
-	var kstore = NewEncryptedKeystore([]byte("1234567890123456"))
+	var kstore = NewEncryptedKeystore([]byte(defaultSecret))
 	var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 
@@ -124,7 +124,7 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("1234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 
@@ -282,15 +282,15 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
 	privKeyBytesNew, err := getPrivateKey(context, defaultName)
-	asserter.NoErrorf(err, "Getting Public key failed")
-	asserter.NotNilf(privKeyBytesNew, "Public Key for existing Key empty")
+	asserter.NoErrorf(err, "Getting Private key failed")
+	asserter.NotNilf(privKeyBytesNew, "Private Key for existing Key empty")
 	asserter.Containsf(string(privKeyBytesNew), "-----BEGIN PRIVATE KEY-----", "not a private key")
 
 	// load the protocol and check if the Private key remains the same, as the new generated
 	asserter.NoErrorf(loadProtocolContext(&p, "test2.json"), "Failed loading")
 	privKeyBytesLoad, err := getPrivateKey(context, defaultName)
-	asserter.NoErrorf(err, "Getting Public key failed")
-	asserter.NotEqualf(privKeyBytesLoad, privKeyBytesNew, "the public key did not change")
+	asserter.NoErrorf(err, "Getting Private key failed")
+	asserter.NotEqualf(privKeyBytesLoad, privKeyBytesNew, "the Private key did not change")
 	asserter.Containsf(string(privKeyBytesLoad), "-----BEGIN PRIVATE KEY-----", "not a private key")
 }
 

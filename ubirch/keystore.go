@@ -20,6 +20,8 @@ package ubirch
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
+	"strings"
 
 	"github.com/ubirch/go.crypto/keystore"
 )
