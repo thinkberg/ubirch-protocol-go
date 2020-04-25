@@ -84,7 +84,7 @@ func (enc *EncryptedKeystore) compatDecrypt(keyname string) ([]byte, error) {
 	// Public keys were prefixed with an underscore
 	keyname2 := strings.TrimPrefix(keyname, "_")
 
-	u, err := uuid.Parse(keyname)
+	u, err := uuid.Parse(keyname2)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (enc *EncryptedKeystore) compatDecrypt(keyname string) ([]byte, error) {
 		return nil, err
 	}
 
-	return enc.Keystore.Get(keyname2, kek)
+	return enc.Keystore.Get(keyname, kek)
 }
 
 // MarshalJSON implements the json.Marshaler interface. The Password will not be

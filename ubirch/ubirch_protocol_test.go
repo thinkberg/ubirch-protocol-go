@@ -687,6 +687,9 @@ func TestVerifyHashedMessage(t *testing.T) {
 	asserter.True(ecdsa.Verify(&vk, hsh, r, s), "ecdsa.Verify() failed to verify known-good signature")
 }
 
+// TestProtocol_Verify verifies UPP packages for different configurations.
+//		Tests, which shall pass, have the attribute testPasses = true,
+//		Tests, which shall return an error, have the attribute testPasses = false
 func TestProtocol_Verify(t *testing.T) {
 	var tests = []struct {
 		testName        string
@@ -739,7 +742,7 @@ func TestProtocol_Verify(t *testing.T) {
 			testPasses:      true,
 		},
 		{
-			testName:        "chained wrong type, signed", // todo, check if this is necessary
+			testName:        "chained type verify for signed UPP, but still passes",
 			nameForProtocol: defaultName,
 			nameForVerify:   defaultName,
 			UUID:            defaultUUID,
@@ -825,16 +828,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:            defaultUUID,
 			pubKey:          defaultPub,
 			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
-			protoType:       0x67,
-			testPasses:      false,
-		},
-		{
-			testName:        "signed data too short (66 Byte)",
-			nameForProtocol: defaultName,
-			nameForVerify:   defaultName,
-			UUID:            defaultUUID,
-			pubKey:          defaultPub,
-			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
 			protoType:       0x67,
 			testPasses:      false,
 		},
