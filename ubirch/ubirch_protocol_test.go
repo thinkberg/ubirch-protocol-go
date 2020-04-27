@@ -874,6 +874,16 @@ func TestProtocol_Verify(t *testing.T) {
 			testPasses:      false,
 		},
 		{
+			testName:        "signed data too short (66 Byte)",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
+			protoType:       Signed,
+			testPasses:      false,
+		},
+		{
 			testName:        "signed data too short(65 Byte)",
 			nameForProtocol: defaultName,
 			nameForVerify:   defaultName,
