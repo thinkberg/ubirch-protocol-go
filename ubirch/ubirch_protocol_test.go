@@ -1179,8 +1179,8 @@ func TestRandomNOTRDY(t *testing.T) {
 //If it does not, there is likely a problem with the random number or nonce ('k') generation
 //which will allow attackers to calculate the private key from signatures.
 //Since only a 'small' number of signatures is checked this will most likely detect only 'total' failures
-//in k/nonce generation. Seealso  https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm#Security
-//For testing 'signed' type UPPs are used. Both "new context for each UPP" and "one context across all UPPs" cases are tested
+//in k/nonce generation. See also  https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm#Security
+//For testing, 'signed' type UPPs are used. Both "new context for each UPP" and "one context across all UPPs" cases are tested
 func TestECDSASignatureChanges(t *testing.T) {
 	const nrOfSigsToCheck = 1000 //effective number of tests is two time this number as both "new context for each test" and "consistent context" cases are tested
 	userDataBytes := []byte("Hello World!")
