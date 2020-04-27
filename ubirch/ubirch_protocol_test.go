@@ -1174,3 +1174,55 @@ func TestRandomNOTRDY(t *testing.T) {
 	}
 	requirer.Greater(pValue, 0.01, "random number did not pass Frequency (Monobit) Test: %v", randomNumberUnderTest)
 } //todo
+
+//TestECDSASignatureChanges tests if the signature of ECDSA changes for the same input using the top level protocol struct.
+//If it does not, there is likely a problem with the random number or nonce ('k') generation
+//which will allow attackers to calculate the private key from signatures.
+//Since only a 'small' number of signatures is checked this will most likely detect only 'total' failures
+//in k/nonce generation. See also  https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm#Security
+//For testing, 'signed' type UPPs are used. Both "new context for each UPP" and "one context across all UPPs" cases are tested
+func TestECDSASignatureChanges(t *testing.T) {
+	const nrOfSigsToCheck = 1000 //effective number of tests is two time this number as both "new context for each test" and "consistent context" cases are tested
+	userDataBytes := []byte("Hello World!")
+
+	requirer := require.New(t)
+
+	//Run the test with a fresh context for each test
+	signatureMap := make(map[string]bool)
+	for currTestNr := 0; currTestNr < nrOfSigsToCheck; currTestNr++ {
+		//Create new crypto context (each time)
+		protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+		requirer.NoError(err, "Creating protocol context failed")
+
+		//Create 'Signed' type UPP
+		createdUpp, err := protocol.SignData(defaultName, userDataBytes, Signed)
+		requirer.NoError(err, "Protocol.SignData() failed")
+
+		//Check if signature was already seen, if not remember it
+		signature := createdUpp[len(createdUpp)-64:]
+		if !signatureMap[hex.EncodeToString(signature)] { //if signature key does not exists in map (standard return value is false)
+			signatureMap[hex.EncodeToString(signature)] = true
+		} else { //we found a duplicate, raise an error and abort
+			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with fresh context. Private key is leaked in UPPs. Signature was: %v", currTestNr+1, hex.EncodeToString(signature))
+		}
+	}
+
+	//Run the test with a continuous context
+	signatureMap = make(map[string]bool) //reset signature map
+	//Create new crypto context (once)
+	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	requirer.NoError(err, "Creating protocol context failed")
+	for currTestNr := 0; currTestNr < nrOfSigsToCheck; currTestNr++ {
+		//Create 'Signed' type UPP
+		createdUpp, err := protocol.SignData(defaultName, userDataBytes, Signed)
+		requirer.NoError(err, "Protocol.SignData() failed")
+
+		//Check if signature was already seen, if not remember it
+		signature := createdUpp[len(createdUpp)-64:]
+		if !signatureMap[hex.EncodeToString(signature)] { //if signature key does not exists in map (standard return value is false)
+			signatureMap[hex.EncodeToString(signature)] = true
+		} else { //we found a duplicate, raise an error and abort
+			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with continuous context. Private key is leaked in UPPs. Signature was: %v", currTestNr+1, hex.EncodeToString(signature))
+		}
+	}
+}
