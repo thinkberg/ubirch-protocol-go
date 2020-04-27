@@ -1203,7 +1203,7 @@ func TestECDSASignatureChanges(t *testing.T) {
 		if !signatureMap[hex.EncodeToString(signature)] { //if signature key does not exists in map (standard return value is false)
 			signatureMap[hex.EncodeToString(signature)] = true
 		} else { //we found a duplicate, raise an error and abort
-			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with fresh context. Private key is leaked in UPPs. Signature was: %v", currTestNr, hex.EncodeToString(signature))
+			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with fresh context. Private key is leaked in UPPs. Signature was: %v", currTestNr+1, hex.EncodeToString(signature))
 		}
 	}
 
@@ -1222,7 +1222,7 @@ func TestECDSASignatureChanges(t *testing.T) {
 		if !signatureMap[hex.EncodeToString(signature)] { //if signature key does not exists in map (standard return value is false)
 			signatureMap[hex.EncodeToString(signature)] = true
 		} else { //we found a duplicate, raise an error and abort
-			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with continuous context. Private key is leaked in UPPs. Signature was: %v", currTestNr, hex.EncodeToString(signature))
+			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with continuous context. Private key is leaked in UPPs. Signature was: %v", currTestNr+1, hex.EncodeToString(signature))
 		}
 	}
 }
