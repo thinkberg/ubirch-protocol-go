@@ -559,7 +559,26 @@ func TestCryptoContext_VerifyFails(t *testing.T) {
 }
 
 func TestCryptoContext_PrivateKeyExists_NOTRDY(t *testing.T) {
-	t.Error("TestPrivateKeyExists() not implemented")
+	const (
+		unknownName = "NOBODY"
+	)
+	asserter := assert.New(t)
+	requirer := require.New(t)
+	var context = &CryptoContext{
+		Keystore: &EncryptedKeystore{
+			Keystore: &keystore.Keystore{},
+			Secret:   []byte(defaultSecret),
+		},
+		Names: map[string]uuid.UUID{},
+	}
+	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	// check for non existing key
+	asserter.Falsef(p.PrivateKeyExists(unknownName), "Key for unknown Name should not exist")
+
+	// check for new generated key
+	id := uuid.MustParse(defaultUUID)
+	requirer.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
+	asserter.Truef(p.PrivateKeyExists(defaultName), "Key should exist")
 }
 
 func TestCryptoContext_getDecodedPrivateKey_NOTRDY(t *testing.T) {
