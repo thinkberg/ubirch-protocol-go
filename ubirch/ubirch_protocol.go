@@ -27,14 +27,16 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// ProtocolType definition
 type ProtocolType uint8
 
 const (
-	Plain   ProtocolType = 0x00
-	Signed  ProtocolType = 0x22
-	Chained ProtocolType = 0x23
+	Plain   ProtocolType = 0x00 // Plain protocol, without hashing and signing
+	Signed  ProtocolType = 0x22 // Signed protocol, the payload is signed
+	Chained ProtocolType = 0x23 // Chained protocol, the payload contains the previous signature and is signed
 )
 
+// Crypto Interaface for exported functionality
 type Crypto interface {
 	GetUUID(name string) (uuid.UUID, error)
 	GenerateKey(name string, id uuid.UUID) error
@@ -48,11 +50,13 @@ type Crypto interface {
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
 }
 
+// Protocol structure
 type Protocol struct {
 	Crypto
 	Signatures map[uuid.UUID][]byte
 }
 
+// SignedUPP is the Signed Ubirch Protocol Package
 type SignedUPP struct {
 	Version   ProtocolType
 	Uuid      uuid.UUID
@@ -61,6 +65,7 @@ type SignedUPP struct {
 	Signature []byte
 }
 
+// ChainedUPP is the Chained Ubirch Protocol Package
 type ChainedUPP struct {
 	Version       ProtocolType
 	Uuid          uuid.UUID
@@ -70,6 +75,7 @@ type ChainedUPP struct {
 	Signature     []byte
 }
 
+// Encode is encoding an interface into MsgPack and returns it, if successful with 'nil' error
 func Encode(v interface{}) ([]byte, error) {
 	var mh codec.MsgpackHandle
 	mh.StructToArray = true
@@ -83,6 +89,7 @@ func Encode(v interface{}) ([]byte, error) {
 	return encoded, nil
 }
 
+// Decode is decoding a protocol package into a message a returns it, if successful with 'nil' error
 func Decode(upp []byte) (interface{}, error) {
 	var mh codec.MsgpackHandle
 	mh.StructToArray = true
@@ -109,12 +116,14 @@ func Decode(upp []byte) (interface{}, error) {
 	}
 }
 
+// appendSignature appends a signature to an encoded message and returns it
 func appendSignature(encoded []byte, signature []byte) []byte {
 	encoded = append(encoded[:len(encoded)-1], 0xC4, byte(len(signature)))
 	encoded = append(encoded, signature...)
 	return encoded
 }
 
+// sign encodes, signs and appends the signature to a SignedUPP
 func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
 	encoded, err := Encode(upp)
 	if err != nil {
@@ -124,6 +133,8 @@ func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
 	return appendSignature(encoded, signature), nil
 }
 
+// sign encodes, signs and appends the signature to a ChainedUPP.
+// also the signature is stored for later usage
 func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
 	encoded, err := Encode(upp)
 	if err != nil {
@@ -134,6 +145,7 @@ func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
 	return appendSignature(encoded, signature), nil
 }
 
+// Init initializes the Protocol, which is not necessary in Golang
 func (p *Protocol) Init() {
 	//Keep this function for compatibility in ubirch/ubirch-go-udp-client
 }
@@ -208,7 +220,7 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 
 	switch protocol {
 	case Plain:
-		return false, fmt.Errorf("Plain type packets are deprecated") //return p.Crypto.Verify(id, value[:len(value)-64], value[len(value)-64:])
+		return false, errors.New("Plain type packets are deprecated") //return p.Crypto.Verify(id, value[:len(value)-64], value[len(value)-64:])
 	case Signed:
 		fallthrough
 	case Chained:

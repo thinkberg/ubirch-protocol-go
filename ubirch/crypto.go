@@ -42,6 +42,7 @@ type CryptoContext struct {
 // Ensure CryptoContext implements the Crypto interface
 var _ Crypto = (*CryptoContext)(nil)
 
+// encodePrivateKey encodes the Private Key as x509 and returns the encoded PEM
 func encodePrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	x509Encoded, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
@@ -51,6 +52,7 @@ func encodePrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	return pemEncoded, nil
 }
 
+// encodePublicKey encodes the Public Key as x509 and returns the encoded PEM
 func encodePublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
 	x509EncodedPub, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
@@ -61,6 +63,7 @@ func encodePublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
 	return pemEncoded, nil
 }
 
+// decodePrivateKey decodes a Private Key from the x509 PEM format and returns the Private Key
 func decodePrivateKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	if block == nil {
@@ -70,6 +73,7 @@ func decodePrivateKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	return x509.ParseECPrivateKey(x509Encoded)
 }
 
+// decodePublicKey decodes a Public Key from the x509 PEM format and returns the Public Key
 func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	if block == nil {
@@ -82,10 +86,12 @@ func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
+// privKeyEntryTitle returns a string of the Private Key Entry
 func privKeyEntryTitle(id uuid.UUID) string {
 	return "_" + id.String()
 }
 
+// pubKeyEntryTitle returns a string of the Public Key Entry
 func pubKeyEntryTitle(id uuid.UUID) string {
 	return id.String()
 }
@@ -106,6 +112,7 @@ func pubKeyEntryTitle(id uuid.UUID) string {
 //	return r, s, nil
 //}
 
+// storePublicKey stores the public Key, returns 'nil', if successful
 func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
 	if c.Names == nil {
 		c.Names = make(map[string]uuid.UUID, 1)
@@ -133,6 +140,7 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
 }
 
+// storeKey stores the Private Key, as well as the Public Key, returns 'nil', if successful
 func (c *CryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
 	err := c.storePublicKey(name, id, &k.PublicKey)
 	if err != nil {
@@ -141,7 +149,7 @@ func (c *CryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey)
 	return c.storePrivateKey(name, id, k)
 }
 
-// Get the uuid that is related the given name.
+// GetUUID gets the uuid that is related the given name.
 func (c *CryptoContext) GetUUID(name string) (uuid.UUID, error) {
 	id, found := c.Names[name]
 	if !found {
@@ -150,7 +158,7 @@ func (c *CryptoContext) GetUUID(name string) (uuid.UUID, error) {
 	return id, nil
 }
 
-// Generate a new key pair and store it using the given name and associated UUID.
+// GenerateKey generates a new key pair and stores it, using the given name and associated UUID.
 func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
 	// check for empty name
 	if name == "" {
@@ -211,10 +219,13 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 	return c.storeKey(name, id, privKey)
 }
 
-// Get a certificate signing request.
-func (c *CryptoContext) GetCSR(name string) ([]byte, error) { return nil, nil }
+// GetCSR gets a certificate signing request.
+// TODO Not yet implemented
+func (c *CryptoContext) GetCSR(name string) ([]byte, error) {
+	return nil, nil
+}
 
-// Get the decoded public key for the given name.
+// getDecodedPublicKey gets the decoded public key for the given name.
 func (c *CryptoContext) getDecodedPublicKey(name string) (*ecdsa.PublicKey, error) {
 	id, err := c.GetUUID(name)
 	if err != nil {
@@ -230,7 +241,7 @@ func (c *CryptoContext) getDecodedPublicKey(name string) (*ecdsa.PublicKey, erro
 	return decodePublicKey(pubKey)
 }
 
-// Get the public key bytes for the given name.
+// GetPublicKey gets the public key bytes for the given name.
 func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 	decodedPubKey, err := c.getDecodedPublicKey(name)
 	if err != nil {
@@ -252,7 +263,7 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
-// Get the decoded private key for the given name.
+// getDecodedPrivateKey gets the decoded private key for the given name.
 func (c *CryptoContext) getDecodedPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 	id, err := c.GetUUID(name)
 	if err != nil {
@@ -268,7 +279,7 @@ func (c *CryptoContext) getDecodedPrivateKey(name string) (*ecdsa.PrivateKey, er
 	return decodePrivateKey(privKey)
 }
 
-// Check if a private key entry for the given name exists in the keystore.
+// PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
 func (c *CryptoContext) PrivateKeyExists(name string) bool {
 	_, err := c.getDecodedPrivateKey(name)
 	if err != nil {
