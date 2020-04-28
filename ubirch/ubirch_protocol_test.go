@@ -36,7 +36,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"math/big"
 	"math/bits"
@@ -1135,45 +1134,55 @@ func TestDecode(t *testing.T) {
 	}
 }
 
-// test random numbers from package "crypto/rand"
-func TestRandomNOTRDY(t *testing.T) {
+//TestRandomBitFrequency tests random numbers/bits from package "crypto/rand" (which is used in our crypto) to
+//detect (serious) problems with the cryptographic random number generation. Implements
+//the frequency/monobit test, see NIST Special Publication 800-22 2.1
+func TestRandomBitFrequency(t *testing.T) {
+	//The p-value to use for the test decision (pCalc < pLimit -> not random), p=0.01 -> 99% confidence,
+	//also means 1% of tests fail even with true random source. See NIST Special
+	//Publication 800-22 1.1.5
+	const pValueLimit = 0.01 //0.01 -> 1% Level
+
 	requirer := require.New(t)
 
 	//Frequency (Monobit) Test
-	r := rand.Reader                         // the RNG under test
-	n := 256                                 // the length of the random number to be tested for randomness
-	randomNumberUnderTest := make([]byte, n) // the random number to be tested for randomness
-	_, err := io.ReadFull(r, randomNumberUnderTest)
-	requirer.NoError(err, "generating random number failed: %v", err)
+	r := rand.Reader                             //the RNG under test
+	nBytes := 256                                //amount of random bytes to be tested
+	nBits := nBytes * 8                          //amount of bits in the random data
+	randomBytesUnderTest := make([]byte, nBytes) //the random data to be tested for randomness
+	_, err := io.ReadFull(r, randomBytesUnderTest)
+	requirer.NoError(err, "Generating random bytes failed: %v", err)
 
-	//calculate the frequency of ones and zeros in the random number
+	//calculate the frequency of ones and zeros in the random data
 	s := 0
-	for i := 0; i < n; i++ {
+	for i := 0; i < nBytes; i++ {
 		// get number of one bits (population count)
-		ones := bits.OnesCount8(randomNumberUnderTest[i])
+		ones := bits.OnesCount8(randomBytesUnderTest[i])
 		// count +1 for every one bit and -1 for every zero bit
 		s += (2 * ones) - 8
 	}
-	log.Printf("s: %v", s)
-
 	// calculate the test statistic
-	sObs := math.Abs(float64(s)) / math.Sqrt(float64(n))
+	sObs := math.Abs(float64(s)) / math.Sqrt(float64(nBits))
+	pValueCalc := math.Erfc(sObs / math.Sqrt2)
 
-	pValue := math.Erfc(sObs / math.Sqrt2)
-	log.Printf("pValue: %v", pValue)
+	//Debug info
+	//log.Printf("s: %v", s)
+	//log.Printf("Calculated pValue: %v", pValueCalc)
+	// for i := 0; i < nBytes-8; {
+	// 	log.Printf("%08b%08b%08b%08b%08b%08b%08b%08b\n",
+	// 		randomBytesUnderTest[i], randomBytesUnderTest[i+1],
+	// 		randomBytesUnderTest[i+2], randomBytesUnderTest[i+3],
+	// 		randomBytesUnderTest[i+4], randomBytesUnderTest[i+5],
+	// 		randomBytesUnderTest[i+6], randomBytesUnderTest[i+7])
+	// 	i += 8
+	// }
 
-	//Decision Rule at the 1% Level: If the computed P-value is < 0.01, then conclude that the sequence is non-random.
+	//Decision Rule: If the computed P-value is pValueCalc < pValueLimit, then conclude that the sequence is non-random.
 	//Otherwise, conclude that the sequence is random.
-	for i := 0; i < n-8; {
-		log.Printf("%08b%08b%08b%08b%08b%08b%08b%08b\n",
-			randomNumberUnderTest[i], randomNumberUnderTest[i+1],
-			randomNumberUnderTest[i+2], randomNumberUnderTest[i+3],
-			randomNumberUnderTest[i+4], randomNumberUnderTest[i+5],
-			randomNumberUnderTest[i+6], randomNumberUnderTest[i+7])
-		i += 8
-	}
-	requirer.Greater(pValue, 0.01, "random number did not pass Frequency (Monobit) Test: %v", randomNumberUnderTest)
-} //todo
+	requirer.Greater(pValueCalc, pValueLimit, "Random data did not pass Frequency (Monobit) test. (pValueCalc was smaller than pValueLimit)\n"+
+		"This means with 99 %% confidence that something is wrong, but in 1 %% of tests there is a false positive.\n"+
+		"Random data was :\n%v", randomBytesUnderTest)
+}
 
 //TestECDSASignatureChanges tests if the signature of ECDSA changes for the same input using the top level protocol struct.
 //If it does not, there is likely a problem with the random number or nonce ('k') generation
