@@ -34,7 +34,7 @@ import (
 
 func saveProtocolContext(p *ubirch.Protocol) error {
 	contextBytes, _ := json.Marshal(p)
-	err := ioutil.WriteFile("../protocol.json", contextBytes, 444)
+	err := ioutil.WriteFile("protocol.json", contextBytes, 444)
 	if err != nil {
 		log.Printf("unable to store protocol context: %v", err)
 		return err
@@ -45,7 +45,7 @@ func saveProtocolContext(p *ubirch.Protocol) error {
 }
 
 func loadProtocolContext(p *ubirch.Protocol) error {
-	contextBytes, err := ioutil.ReadFile("../protocol.json")
+	contextBytes, err := ioutil.ReadFile("protocol.json")
 	if err != nil {
 		return err
 	}

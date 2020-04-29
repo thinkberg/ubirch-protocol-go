@@ -276,7 +276,7 @@ func (c *CryptoContext) getDecodedPrivateKey(name string) (*ecdsa.PrivateKey, er
 	}
 
 	// decode the key
-	return decodePrivateKey(privKey)
+	return decodePrivateKey(privKey) //todo, check if this is necessary
 }
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.

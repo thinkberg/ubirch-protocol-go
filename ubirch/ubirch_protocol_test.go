@@ -1192,7 +1192,6 @@ func TestRandomBitFrequency(t *testing.T) {
 //For testing, 'signed' type UPPs are used. Both "new context for each UPP" and "one context across all UPPs" cases are tested
 func TestECDSASignatureChanges(t *testing.T) {
 	const nrOfSigsToCheck = 1000 //effective number of tests is two time this number as both "new context for each test" and "consistent context" cases are tested
-	userDataBytes := []byte("Hello World!")
 
 	requirer := require.New(t)
 
@@ -1204,7 +1203,7 @@ func TestECDSASignatureChanges(t *testing.T) {
 		requirer.NoError(err, "Creating protocol context failed")
 
 		//Create 'Signed' type UPP
-		createdUpp, err := protocol.SignData(defaultName, userDataBytes, Signed)
+		createdUpp, err := protocol.SignData(defaultName, []byte(defaultInputData), Signed)
 		requirer.NoError(err, "Protocol.SignData() failed")
 
 		//Check if signature was already seen, if not remember it
@@ -1223,7 +1222,7 @@ func TestECDSASignatureChanges(t *testing.T) {
 	requirer.NoError(err, "Creating protocol context failed")
 	for currTestNr := 0; currTestNr < nrOfSigsToCheck; currTestNr++ {
 		//Create 'Signed' type UPP
-		createdUpp, err := protocol.SignData(defaultName, userDataBytes, Signed)
+		createdUpp, err := protocol.SignData(defaultName, []byte(defaultInputData), Signed)
 		requirer.NoError(err, "Protocol.SignData() failed")
 
 		//Check if signature was already seen, if not remember it

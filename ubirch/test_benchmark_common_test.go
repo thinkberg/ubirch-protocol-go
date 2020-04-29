@@ -401,7 +401,7 @@ func checkChainedUPPs(t *testing.T, uppsArray [][]byte, expectedPayloads []strin
 	return nil
 }
 
-func encodePrivateKeyCommon(privKeyBytes []byte) ([]byte, error) {
+func encodePrivateKeyTestHelper(privKeyBytes []byte) ([]byte, error) {
 	privKey := new(ecdsa.PrivateKey)
 	privKey.D = new(big.Int)
 	privKey.D.SetBytes(privKeyBytes)
@@ -416,7 +416,7 @@ func encodePrivateKeyCommon(privKeyBytes []byte) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-func encodePublicKeyCommon(pubKeyBytes []byte) ([]byte, error) {
+func encodePublicKeyTestHelper(pubKeyBytes []byte) ([]byte, error) {
 	pubKey := new(ecdsa.PublicKey)
 	pubKey.Curve = elliptic.P256()
 	pubKey.X = &big.Int{}
@@ -433,13 +433,13 @@ func encodePublicKeyCommon(pubKeyBytes []byte) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-func decodePrivateKeyCommon(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
+func decodePrivateKeyTestHelper(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	x509Encoded := block.Bytes
 	return x509.ParseECPrivateKey(x509Encoded)
 }
 
-func decodePublicKeyCommon(pemEncoded []byte) (*ecdsa.PublicKey, error) {
+func decodePublicKeyTestHelper(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	genericPublicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {

@@ -30,11 +30,9 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ubirch/go.crypto/keystore"
-
-	"github.com/google/uuid"
 )
 
 // TestCreateKeyStore tests, if a new keystore can be created
@@ -186,20 +184,16 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 
-	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
+	//Generate Key with valid name and valid uuid
 	id := uuid.MustParse(defaultUUID)
-
-	// TODO find out how to chek, if a new key was generated
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
 	pubKeyBytes, err := p.GetPublicKey(defaultName)
-
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
 	privKeyBytes, err := getPrivateKey(context, defaultName)
 	asserter.NoErrorf(err, "Getting Private key failed")
 	asserter.NotNilf(privKeyBytes, "Private Key for existing Key empty")
 
-	// TODO find out how to chek, if a new key was generated
 	// generate key with empty name
 	name := ""
 	asserter.Errorf(p.GenerateKey(name, id), "Generating key without name")
@@ -212,11 +206,12 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 
 	// generate Keypair with uuid = 00000000-0000-0000-0000-000000000000
 	id = uuid.Nil
-	asserter.Errorf(p.GenerateKey(defaultName, id), "Generating key without id")
-	pubKeyBytes, err = p.GetPublicKey(name)
+	uuidNilName := "name for nil uuid"
+	asserter.Errorf(p.GenerateKey(uuidNilName, id), "Generating key without id")
+	pubKeyBytes, err = p.GetPublicKey(uuidNilName)
 	asserter.Errorf(err, "Getting Public without uuid")
 	asserter.Nilf(pubKeyBytes, "Public Key without uuid not empty")
-	privKeyBytes, err = getPrivateKey(context, name)
+	privKeyBytes, err = getPrivateKey(context, uuidNilName)
 	asserter.Errorf(err, "Getting Private Key without uuid")
 	asserter.Nilf(privKeyBytes, "Private Key without uuid not empty")
 }
@@ -246,7 +241,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	pubKeyBytesNew, err := p.GetPublicKey(defaultName)
 	asserter.NoError(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
-	asserter.Equal(lenPubkeyECDSA, len(pubKeyBytesNew), "len(public key) not correct a public key")
+	asserter.Equal(lenPubkeyECDSA, len(pubKeyBytesNew), "len(public key) not correct for a public key")
 
 	// load the protocol and check if the Public key remains the same, as the new generated
 	asserter.NoErrorf(loadProtocolContext(&p, "test2.json"), "Failed loading")
@@ -266,11 +261,8 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	)
 	asserter := assert.New(t)
 	var context = &CryptoContext{
-		Keystore: &EncryptedKeystore{
-			Keystore: &keystore.Keystore{},
-			Secret:   []byte(defaultSecret),
-		},
-		Names: map[string]uuid.UUID{},
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+		Names:    map[string]uuid.UUID{},
 	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	// check for non existing key
@@ -305,7 +297,7 @@ func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
 	// certificate, err := p.GetCSR(defaultName)
 	// asserter.Nilf(err, "Getting CSR failed")
 	// asserter.NotNilf(certificate, "The Certificate is \"Nil\"")
-	// t.Errorf("not implemented")
+	t.Errorf("not implemented")
 }
 
 // TestCryptoContext_Sign test the (CryptoContext) Sign function with defaultData, which should pass
@@ -335,11 +327,8 @@ func TestCryptoContext_Sign(t *testing.T) {
 
 			//Create new crypto context
 			var context = &CryptoContext{
-				Keystore: &EncryptedKeystore{
-					Keystore: &keystore.Keystore{},
-					Secret:   []byte(defaultSecret),
-				},
-				Names: map[string]uuid.UUID{},
+				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+				Names:    map[string]uuid.UUID{},
 			}
 			id := uuid.MustParse(currTest.UUID)
 			privBytes, err := hex.DecodeString(currTest.privateKey)
@@ -402,11 +391,8 @@ func TestCryptoContext_SignFails(t *testing.T) {
 
 			//Create new crypto context
 			var context = &CryptoContext{
-				Keystore: &EncryptedKeystore{
-					Keystore: &keystore.Keystore{},
-					Secret:   []byte(defaultSecret),
-				},
-				Names: map[string]uuid.UUID{},
+				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+				Names:    map[string]uuid.UUID{},
 			}
 			privBytes, err := hex.DecodeString(currTest.privateKey)
 			//Check created UPP (data/structure only, signature is checked later)
@@ -452,11 +438,8 @@ func TestCryptoContext_Verify(t *testing.T) {
 
 			//Create new crypto context
 			var context = &CryptoContext{
-				Keystore: &EncryptedKeystore{
-					Keystore: &keystore.Keystore{},
-					Secret:   []byte(defaultSecret),
-				},
-				Names: map[string]uuid.UUID{},
+				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+				Names:    map[string]uuid.UUID{},
 			}
 			id := uuid.MustParse(currTest.UUID)
 			pubBytes, err := hex.DecodeString(currTest.publicKey)
@@ -535,11 +518,8 @@ func TestCryptoContext_VerifyFails(t *testing.T) {
 
 			//Create new crypto context
 			var context = &CryptoContext{
-				Keystore: &EncryptedKeystore{
-					Keystore: &keystore.Keystore{},
-					Secret:   []byte(defaultSecret),
-				},
-				Names: map[string]uuid.UUID{},
+				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+				Names:    map[string]uuid.UUID{},
 			}
 			pubBytes, err := hex.DecodeString(currTest.publicKey)
 			//Check the inputs (data/structure only, signature is checked later)
@@ -565,11 +545,8 @@ func TestCryptoContext_PrivateKeyExists_NOTRDY(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	var context = &CryptoContext{
-		Keystore: &EncryptedKeystore{
-			Keystore: &keystore.Keystore{},
-			Secret:   []byte(defaultSecret),
-		},
-		Names: map[string]uuid.UUID{},
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+		Names:    map[string]uuid.UUID{},
 	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	// check for non existing key
