@@ -30,16 +30,16 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestCreateKeyStore tests, if a new keystore can be created
 func TestCreateKeystore(t *testing.T) {
 	asserter := assert.New(t)
 	//create new crypto context and check, if the kystore is correct TODO not sure if this test is valid
-	var kstore = NewEncryptedKeystore([]byte("1234567890123456"))
+	var kstore = NewEncryptedKeystore([]byte(defaultSecret))
 	var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
 
 	asserter.IsTypef(kstore, context.Keystore, "Keystore creation failed")
@@ -56,7 +56,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("1234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
@@ -69,7 +69,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter.NoErrorf(saveProtocolContext(&p, "temp.json"), "Failed Saving protocol context")
 
 	context2 := &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("1234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 	p2 := Protocol{Crypto: context2, Signatures: map[uuid.UUID][]byte{}}
@@ -79,7 +79,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter.NotNilf(pubKeyBytesLoad, "Public Key for existing Key empty")
 
 	asserter.Equalf(pubKeyBytesNew, pubKeyBytesLoad, "Loading failed, because the keys are not equal")
-	deleteProtocolContext("temp.json")
+	asserter.NoErrorf(deleteProtocolContext("temp.json"), "context not deleted")
 }
 
 // TestCryptoContext_GetUUID gets the UUID for a specific name
@@ -92,7 +92,7 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	)
 	// prepare
 	asserter := assert.New(t)
-	var kstore = NewEncryptedKeystore([]byte("1234567890123456"))
+	var kstore = NewEncryptedKeystore([]byte(defaultSecret))
 	var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 
@@ -122,7 +122,7 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("1234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 
@@ -152,7 +152,7 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("2234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 
@@ -176,36 +176,44 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 //		Generate key with name
 //		Generate Key with empty name
 //		Generate Key with no uuid
-func TestCryptoContext_GenerateKey_NOTRDY(t *testing.T) {
+func TestCryptoContext_GenerateKey(t *testing.T) {
 	asserter := assert.New(t)
 	var context = &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("2234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 
-	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
+	//Generate Key with valid name and valid uuid
 	id := uuid.MustParse(defaultUUID)
-
-	// TODO find out how to chek, if a new key was generated
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
 	pubKeyBytes, err := p.GetPublicKey(defaultName)
-	asserter.Nilf(err, "Getting key failed")
+	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
-	// TODO find out how to chek, if a new key was generated
+	privKeyBytes, err := getPrivateKey(context, defaultName)
+	asserter.NoErrorf(err, "Getting Private key failed")
+	asserter.NotNilf(privKeyBytes, "Private Key for existing Key empty")
+
 	// generate key with empty name
 	name := ""
 	asserter.Errorf(p.GenerateKey(name, id), "Generating key without name")
 	pubKeyBytes, err = p.GetPublicKey(name)
-	asserter.Nilf(err, "Getting Public without name failed")
-	asserter.Nilf(pubKeyBytes, "Public Key for existing Key empty")
+	asserter.Errorf(err, "Getting Public without name")
+	asserter.Nilf(pubKeyBytes, "Public Key without name not empty")
+	privKeyBytes, err = getPrivateKey(context, name)
+	asserter.Errorf(err, "Getting Private Key without name")
+	asserter.Nilf(privKeyBytes, "Private Key without name not empty")
+
 	// generate Keypair with uuid = 00000000-0000-0000-0000-000000000000
 	id = uuid.Nil
-	asserter.Errorf(p.GenerateKey(defaultName, id), "Generating key without id")
-	pubKeyBytes, err = p.GetPublicKey(name)
-	asserter.Nilf(err, "Getting Public without name failed")
-	asserter.Nilf(pubKeyBytes, "Public Key for existing Key empty")
-
+	uuidNilName := "name for nil uuid"
+	asserter.Errorf(p.GenerateKey(uuidNilName, id), "Generating key without id")
+	pubKeyBytes, err = p.GetPublicKey(uuidNilName)
+	asserter.Errorf(err, "Getting Public without uuid")
+	asserter.Nilf(pubKeyBytes, "Public Key without uuid not empty")
+	privKeyBytes, err = getPrivateKey(context, uuidNilName)
+	asserter.Errorf(err, "Getting Private Key without uuid")
+	asserter.Nilf(privKeyBytes, "Private Key without uuid not empty")
 }
 
 // TestGetPublicKey
@@ -218,7 +226,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	)
 	asserter := assert.New(t)
 	var context = &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("2234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
@@ -233,29 +241,323 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	pubKeyBytesNew, err := p.GetPublicKey(defaultName)
 	asserter.NoError(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
+	asserter.Equal(lenPubkeyECDSA, len(pubKeyBytesNew), "len(public key) not correct for a public key")
 
 	// load the protocol and check if the Public key remains the same, as the new generated
-	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading")
+	asserter.NoErrorf(loadProtocolContext(&p, "test2.json"), "Failed loading")
 	pubKeyBytesLoad, err := p.GetPublicKey(defaultName)
 	asserter.NoError(err, "Getting Public key failed")
 	asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change when loading context")
 }
 
-// TestCryptoContext_GetPrivateKey_NOTRDY the required method is not implemented yet
-func TestCryptoContext_GetPrivateKey_NOTRDY(t *testing.T) {
-	t.Errorf("not implemented")
+// TestCryptoContext_GetPrivateKey performs tests to get the PrivateKey, which is not a library function, but
+// provides test results for the underlying functions
+//		Get not existing key
+//		Get new generated key
+//		Get Key from file and compare with generated key
+func TestCryptoContext_GetPrivateKey(t *testing.T) {
+	const (
+		unknownName = "NOBODY"
+	)
+	asserter := assert.New(t)
+	var context = &CryptoContext{
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+		Names:    map[string]uuid.UUID{},
+	}
+	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	// check for non existing key
+	privKeyBytes, err := getPrivateKey(context, unknownName)
+	asserter.Errorf(err, "Getting non exisitng Public key failed")
+	asserter.Nilf(privKeyBytes, "Public Key for non existing Key not empty")
+
+	// check for new generated key
+	id := uuid.MustParse(defaultUUID)
+	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
+	privKeyBytesNew, err := getPrivateKey(context, defaultName)
+	asserter.NoErrorf(err, "Getting Private key failed")
+	asserter.NotNilf(privKeyBytesNew, "Private Key for existing Key empty")
+	asserter.Containsf(string(privKeyBytesNew), "-----BEGIN PRIVATE KEY-----", "not a private key")
+
+	// load the protocol and check if the Private key remains the same, as the new generated
+	asserter.NoErrorf(loadProtocolContext(&p, "test2.json"), "Failed loading")
+	privKeyBytesLoad, err := getPrivateKey(context, defaultName)
+	asserter.NoErrorf(err, "Getting Private key failed")
+	asserter.NotEqualf(privKeyBytesLoad, privKeyBytesNew, "the Private key did not change")
+	asserter.Containsf(string(privKeyBytesLoad), "-----BEGIN PRIVATE KEY-----", "not a private key")
 }
 
 // TestCryptoContext_GetCSR_NOTRDY the required method is not implemented yet
 func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
+	// asserter := assert.New(t)
+	// var context = &CryptoContext{
+	// 	Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+	// 	Names:    map[string]uuid.UUID{},
+	// }
+	// p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	// certificate, err := p.GetCSR(defaultName)
+	// asserter.Nilf(err, "Getting CSR failed")
+	// asserter.NotNilf(certificate, "The Certificate is \"Nil\"")
+	t.Errorf("not implemented")
+}
+
+// TestCryptoContext_Sign test the (CryptoContext) Sign function with defaultData, which should pass
+func TestCryptoContext_Sign(t *testing.T) {
+	var tests = []struct {
+		testName    string
+		name        string
+		UUID        string
+		privateKey  string
+		hashForSign string
+	}{
+		{
+			testName:    "DEFAULT",
+			name:        defaultName,
+			UUID:        defaultUUID,
+			privateKey:  defaultPriv,
+			hashForSign: defaultHash,
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Create identifier to append to test name
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			var context = &CryptoContext{
+				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+				Names:    map[string]uuid.UUID{},
+			}
+			id := uuid.MustParse(currTest.UUID)
+			privBytes, err := hex.DecodeString(currTest.privateKey)
+			//Check created UPP (data/structure only, signature is checked later)
+			hashBytes, err := hex.DecodeString(currTest.hashForSign)
+			requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
+			//Set the PrivateKey and check, that it is set correct
+			requirer.NoErrorf(context.SetKey(currTest.name, id, privBytes), "Setting the Private Key failed")
+
+			//Call Sign() and assert error
+			signature, err := context.Sign(id, hashBytes)
+			asserter.NoErrorf(err, "Sign() returned an error for valid input")
+			asserter.NotNilf(signature, "the signature should not be Nil")
+		})
+	}
+}
+
+// TestCryptoContext_SignFails performs the (CryptoContext) Sign tests, which fail, due to incorrect parameters
+func TestCryptoContext_SignFails(t *testing.T) {
+	var tests = []struct {
+		testName    string
+		name        string
+		UUID        uuid.UUID
+		UUIDforKey  uuid.UUID
+		privateKey  string
+		hashForSign string
+	}{
+		{
+			testName:    "uuid.Nil",
+			name:        defaultName,
+			UUID:        uuid.Nil,
+			UUIDforKey:  uuid.MustParse(defaultUUID),
+			privateKey:  defaultPriv,
+			hashForSign: defaultHash,
+		},
+		{
+			testName:    "uuidUnknown",
+			name:        defaultName,
+			UUID:        uuid.MustParse("12345678-1234-1234-1234-123456789abc"),
+			UUIDforKey:  uuid.MustParse(defaultUUID),
+			privateKey:  defaultPriv,
+			hashForSign: defaultHash,
+		},
+		{
+			testName:    "noData",
+			name:        defaultName,
+			UUID:        uuid.MustParse(defaultUUID),
+			UUIDforKey:  uuid.MustParse(defaultUUID),
+			privateKey:  defaultPriv,
+			hashForSign: "", // empty hash/data
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Create identifier to append to test name
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			var context = &CryptoContext{
+				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+				Names:    map[string]uuid.UUID{},
+			}
+			privBytes, err := hex.DecodeString(currTest.privateKey)
+			//Check created UPP (data/structure only, signature is checked later)
+			hashBytes, err := hex.DecodeString(currTest.hashForSign)
+			//fmt.Printf("HASH: %v", hashBytes)
+			requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
+			// Set the PrivateKey and checkt, that it was set correctly
+			requirer.NoErrorf(context.SetKey(currTest.name, currTest.UUIDforKey, privBytes), "Setting the Private Key failed")
+
+			//Call Sign() and assert error
+			signature, err := context.Sign(currTest.UUID, hashBytes)
+			asserter.Errorf(err, "Sign() did not return an error for invalid input")
+			asserter.Nilf(signature, "the signature should be Nil, but is not")
+		})
+	}
+}
+
+func TestCryptoContext_Verify(t *testing.T) {
+	var tests = []struct {
+		testName          string
+		name              string
+		UUID              string
+		publicKey         string
+		signatureToVerify string
+		dataToVerify      string
+	}{
+		{
+			testName:          "DEFAULT",
+			name:              defaultName,
+			UUID:              defaultUUID,
+			publicKey:         defaultPub,
+			signatureToVerify: "b9fbd39289ac3d464662bb1277d183b697282bc08c56b6dba986b32f7a2778134441b006683a242733a80ef7f732cdbb6e9455d33f7a4350086b075db8f10d75",
+			dataToVerify:      defaultHash,
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Create identifier to append to test name
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			var context = &CryptoContext{
+				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+				Names:    map[string]uuid.UUID{},
+			}
+			id := uuid.MustParse(currTest.UUID)
+			pubBytes, err := hex.DecodeString(currTest.publicKey)
+			requirer.NoErrorf(err, "Test configuration string (UUID) can't be decoded.\nString was: %v", currTest.UUID)
+			//Check inputs (data/structure only, signature is checked later)
+			signatureBytes, err := hex.DecodeString(currTest.signatureToVerify)
+			requirer.NoErrorf(err, "Test configuration string (signatureToVerify) can't be decoded.\nString was: %v", currTest.signatureToVerify)
+			dataBytes, err := hex.DecodeString(currTest.dataToVerify)
+			requirer.NoErrorf(err, "Test configuration string (dataToVerify) can't be decoded.\nString was: %v", currTest.dataToVerify)
+			//Set the PublicKey for the Verification and check, that it is set correctly
+			requirer.NoErrorf(context.SetPublicKey(currTest.name, id, pubBytes), "Setting the Private Key failed")
+
+			//Call Verify() and assert error
+			valid, err := context.Verify(id, dataBytes, signatureBytes)
+			asserter.NoErrorf(err, "An unexpected error occured")
+			asserter.Truef(valid, "the verification failed")
+		})
+	}
+}
+
+// TestCryptoContext_Verify performs fail tests for the (CryptoContext) Verify function
+func TestCryptoContext_VerifyFails(t *testing.T) {
+	var tests = []struct {
+		testName          string
+		name              string
+		UUID              uuid.UUID
+		UUIDforKey        uuid.UUID
+		publicKey         string
+		signatureToVerify string
+		dataToVerify      string
+	}{
+		{
+			testName:          "uuid.Nil",
+			name:              defaultName,
+			UUID:              uuid.Nil,
+			UUIDforKey:        uuid.MustParse(defaultUUID),
+			publicKey:         defaultPub,
+			signatureToVerify: "b9fbd39289ac3d464662bb1277d183b697282bc08c56b6dba986b32f7a2778134441b006683a242733a80ef7f732cdbb6e9455d33f7a4350086b075db8f10d75",
+			dataToVerify:      defaultHash,
+		},
+		{
+			testName:          "uuidUnknown",
+			name:              defaultName,
+			UUID:              uuid.MustParse("12345678-1234-1234-1234-123456789abc"),
+			UUIDforKey:        uuid.MustParse(defaultUUID),
+			publicKey:         defaultPub,
+			signatureToVerify: "b9fbd39289ac3d464662bb1277d183b697282bc08c56b6dba986b32f7a2778134441b006683a242733a80ef7f732cdbb6e9455d33f7a4350086b075db8f10d75",
+			dataToVerify:      defaultHash,
+		},
+		{
+			testName:          "noHash",
+			name:              defaultName,
+			UUID:              uuid.MustParse(defaultUUID),
+			UUIDforKey:        uuid.MustParse(defaultUUID),
+			publicKey:         defaultPub,
+			signatureToVerify: "b9fbd39289ac3d464662bb1277d183b697282bc08c56b6dba986b32f7a2778134441b006683a242733a80ef7f732cdbb6e9455d33f7a4350086b075db8f10d75",
+			dataToVerify:      "",
+		},
+		{
+			testName:          "noSignature",
+			name:              defaultName,
+			UUID:              uuid.MustParse(defaultUUID),
+			UUIDforKey:        uuid.MustParse(defaultUUID),
+			publicKey:         defaultPub,
+			signatureToVerify: "",
+			dataToVerify:      defaultHash,
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Create identifier to append to test name
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			var context = &CryptoContext{
+				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+				Names:    map[string]uuid.UUID{},
+			}
+			pubBytes, err := hex.DecodeString(currTest.publicKey)
+			//Check the inputs (data/structure only, signature is checked later)
+			signatureBytes, err := hex.DecodeString(currTest.signatureToVerify)
+			requirer.NoErrorf(err, "Test configuration string (signatureToVerify) can't be decoded.\nString was: %v", currTest.signatureToVerify)
+			dataBytes, err := hex.DecodeString(currTest.dataToVerify)
+			requirer.NoErrorf(err, "Test configuration string (dataToVerify) can't be decoded.\nString was: %v", currTest.dataToVerify)
+			// deliberately set UUIDforKey and not the UUID
+			requirer.NoErrorf(context.SetPublicKey(currTest.name, currTest.UUIDforKey, pubBytes), "Setting the Private Key failed")
+
+			//Call Verify() with UUID and assert error
+			valid, err := context.Verify(currTest.UUID, dataBytes, signatureBytes)
+			asserter.Errorf(err, "No error was returned from the Verification")
+			asserter.Falsef(valid, "the verification succeeded unexpected")
+		})
+	}
+}
+
+func TestCryptoContext_PrivateKeyExists_NOTRDY(t *testing.T) {
+	const (
+		unknownName = "NOBODY"
+	)
 	asserter := assert.New(t)
+	requirer := require.New(t)
 	var context = &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("2234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
-	certificate, err := p.GetCSR(defaultName)
-	asserter.Nilf(err, "Getting CSR failed")
-	asserter.NotNilf(certificate, "The Certificate is \"Nil\"")
-	t.Errorf("not implemented")
+	// check for non existing key
+	asserter.Falsef(p.PrivateKeyExists(unknownName), "Key for unknown Name should not exist")
+
+	// check for new generated key
+	id := uuid.MustParse(defaultUUID)
+	requirer.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
+	asserter.Truef(p.PrivateKeyExists(defaultName), "Key should exist")
+}
+
+func TestCryptoContext_getDecodedPrivateKey_NOTRDY(t *testing.T) {
+	t.Error("TestgetDecodedPrivateKey() not implemented")
 }

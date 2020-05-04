@@ -1,0 +1,19 @@
+{
+  "Crypto":
+  {
+    "Keystore":
+    {
+      "_6eac4d0b-16e6-4508-8c46-22e7451ea5a1":"Y8hIgKipGokgjlUrL8gi1P17TmiHiZ0jqGQlRB2512GwVmaHZTjwgbdc019m1dODp0NPDIh2JstexjqCsAwHjIuA/DPvhLoIDqY35ZJCoZ7LqY/ISeujnZUXQWqcET7DcyDZHPBQQ67NDTa6urajiYNGoiGI8q82h7g3Pn5jGRdZRqrAyhyYP7tEt1vsgqfsCAEYCwroRdXb1VQv8YBLhDRTZVCPm2BkKt/SM14bzoS1KLKTZtjMoxWlQIiZPu1p2BEgFwQ6KgRa9+6zIGbBm9EQ81EdFWZ18PfVLCzb/qgxrOZ5R+fduQ==",
+      "6eac4d0b-16e6-4508-8c46-22e7451ea5a1":"6fZv2OPrI+NdpPtCNY3Xqh+7Q/HTcJ6geD+HJM5eaNCb7V417kK0fLO8tGnbkLtntkSgXNskOzDdL73nKxDufwWpauKUOBuiaTTXuei1IVl/6VlQsXy1hlcL3vl8dNbgVKNdO7lYcWb0/s2XWGXvbYvN5d0F1VdByqOBUBk6ARbxt1ALWd72aLRK+EGQuc5x6GhjxcTSB8KIcMfbsmtVvXFhnX4UE6PeB0lbryP9II7gPaEqQ7272Dcb7Fyq9e6t"
+    },
+    "Names":
+    {
+      "A":"6eac4d0b-16e6-4508-8c46-22e7451ea5a1"
+    }
+  },
+  "Signatures":
+  {
+
+  },
+  "_COMMENT": "this file was generated, based on defaultName, defaultUUID, defaultPub, defaultPriv"
+}

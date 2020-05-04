@@ -36,7 +36,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"math/big"
 	"math/bits"
@@ -109,13 +108,13 @@ func TestSetLastSignatureNOTRDY(t *testing.T) {
 	t.Error("SetLastSignature() not implemented")
 }
 
-func TestResettLastSignatureNOTRDY(t *testing.T) {
+func TestResetLastSignatureNOTRDY(t *testing.T) {
 	t.Error("ResetLastSignature() not implemented")
 }
 
-//TestSignFails tests the cases where the Sign function must return an error
+//TestSignHashFails tests the cases where the SignHash function must return an error
 //it tests the defined inputs for each of the protocols defined in protocolsToTest(per case)
-func TestSignFails(t *testing.T) {
+func TestSignHash_Fails(t *testing.T) {
 	var tests = []struct {
 		testName             string
 		nameForContext       string
@@ -167,10 +166,10 @@ func TestSignFails(t *testing.T) {
 			protocolsToTest:      []ProtocolType{Signed, Chained},
 		},
 		{
-			testName:             "UUIDNotSet",
+			testName:             "UUIDAndPrivKeyNotSet",
 			nameForContext:       defaultName,
 			UUIDForContext:       "",
-			privateKeyForContext: defaultPriv,
+			privateKeyForContext: "",
 			lastSigForContext:    "",
 			nameForSign:          defaultName,
 			hashForSign:          defaultHash,
@@ -244,23 +243,22 @@ func TestSignFails(t *testing.T) {
 	}
 }
 
-//TestSignHash tests if SignHash can correctly create the UPP signature
-// for a random input hash for the signed protocol type
-func TestSignHashRandomInput(t *testing.T) {
+//TestSignHash_RandomInput tests if SignHash can correctly create UPPs
+// for a random input hash for the signed and chained protocol type
+func TestSignHash_RandomInput(t *testing.T) {
 	const numberOfTests = 1000
+	const nrOfChainedUpps = 3
+
 	inputHash := make([]byte, 32)
 
 	asserter := assert.New(t)
 	requirer := require.New(t)
 
-	//Create new crypto context
+	//Create new crypto context, we use this context for all created UPPs without resetting it
 	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
-	//decode pubkey
-	pubkeyBytes, err := hex.DecodeString(defaultPub)
-	requirer.NoErrorf(err, "Test configuration string (pubkey) can't be decoded.\nString was: %v", defaultPub)
-
+	lastChainSig := defaultLastSig
 	//test the random input
 	for i := 0; i < numberOfTests; i++ {
 		//generate new input
@@ -269,29 +267,263 @@ func TestSignHashRandomInput(t *testing.T) {
 
 		//Create 'Signed' type UPP with hash
 		createdSignedUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
-		requirer.NoErrorf(err, "Protocol.SignHash() failed for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
+		requirer.NoErrorf(err, "Protocol.SignHash() failed for Signed type UPP with input hash %v", hex.EncodeToString(inputHash))
 
-		//Check signature on Signed UPP
-		verifyOK, err := verifyUPPSignature(t, createdSignedUpp, pubkeyBytes)
-		requirer.NoError(err, "Signature verification could not be performed due to errors")
-		asserter.True(verifyOK, "Signature is not OK for 'Signed' UPP with input hash %v", hex.EncodeToString(inputHash))
+		//Check created Signed UPP
+		expectedPayloadString := hex.EncodeToString(inputHash[:])
+		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub)
+		asserter.NoError(err, "UPP check failed for Signed type UPP with input hash %v", hex.EncodeToString(inputHash))
+
+		//Create multiple chained UPPs
+		createdChainedUpps := make([][]byte, nrOfChainedUpps)
+		expectedPayloads := make([]string, nrOfChainedUpps)
+		for currUppIndex := range createdChainedUpps {
+			createdChainedUpps[currUppIndex], err = protocol.SignHash(defaultName, inputHash[:], Chained)
+			asserter.NoErrorf(err, "SignHash() could not create Chained type UPP for index %v", currUppIndex)
+			expectedPayloads[currUppIndex] = hex.EncodeToString(inputHash[:]) //build expected payload array for checking later
+		}
+
+		//Check the created UPPs
+		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, defaultPub)
+		asserter.NoError(err, "UPP check failed for Chained type UPPs with input hash %v", hex.EncodeToString(inputHash))
+
+		//save the last Signature of chain for check in next round TODO: get this using a library function when available, remove sig length magic number
+		lastChainUpp := createdChainedUpps[nrOfChainedUpps-1]
+		lastChainSig = hex.EncodeToString(lastChainUpp[len(lastChainUpp)-64:])
 	}
 }
 
-//TestCreateMessageFails tests the cases where the create message function must return an error
-func TestCreateMessageFailsNOTRDY(t *testing.T) {
-	t.Error("Creating a message from user data not implemented")
+//TestSignData_Fails tests the cases where SignData() function must return an error
+func TestSignData_Fails(t *testing.T) {
+	var tests = []struct {
+		testName             string
+		nameForContext       string
+		UUIDForContext       string
+		privateKeyForContext string
+		lastSigForContext    string
+		nameForSign          string
+		dataForSign          string
+		protocolsToTest      []ProtocolType
+	}{
+		{
+			testName:             "emptyData",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    defaultLastSig,
+			nameForSign:          defaultName,
+			dataForSign:          "",
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "NameNotPresent",
+			nameForContext:       "name",
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    "",
+			nameForSign:          "naamee",
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "ContextNotInitializedEmptyName",
+			nameForContext:       "",
+			UUIDForContext:       "",
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          "",
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "ContextNotInitializedNonEmptyName",
+			nameForContext:       "",
+			UUIDForContext:       "",
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          "a",
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "EmptyName",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: defaultPriv,
+			lastSigForContext:    defaultLastSig,
+			nameForSign:          "",
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "UUIDAndPrivKeyNotSet",
+			nameForContext:       defaultName,
+			UUIDForContext:       "",
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          defaultName,
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:             "PrivkeyNotSet",
+			nameForContext:       defaultName,
+			UUIDForContext:       defaultUUID,
+			privateKeyForContext: "",
+			lastSigForContext:    "",
+			nameForSign:          defaultName,
+			dataForSign:          defaultInputData,
+			protocolsToTest:      []ProtocolType{Signed, Chained},
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Run each test for each protocol that should be tested
+		for _, currProtocolToTest := range currTest.protocolsToTest {
+			//Create identifier to append to test name
+			protocolTypeString := fmt.Sprintf("(ProtocolType=%v)", currProtocolToTest)
+			t.Run(currTest.testName+protocolTypeString, func(t *testing.T) {
+				asserter := assert.New(t)
+				requirer := require.New(t)
+
+				//Create new crypto context
+				protocol, err := newProtocolContextSigner(currTest.nameForContext, currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
+				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+
+				//Decode test data from hex string
+				dataBytes, err := hex.DecodeString(currTest.dataForSign)
+				requirer.NoErrorf(err, "Test configuration string (dataForSign) can't be decoded.\nString was: %v", currTest.dataForSign)
+
+				//Call SignData() and assert error
+				_, err = protocol.SignData(currTest.nameForSign, dataBytes, currProtocolToTest)
+				asserter.Error(err, "SignData() did not return an error for invalid input")
+			})
+		}
+	}
 }
 
-func TestCreateMessageDataInputLengthNOTRDY(t *testing.T) {
-	t.Error("Creating a message from user data not implemented")
+//TestSignData_DataInputLength checks if UPPs can be created correctly with data input lengths from 1 to maxDataSizetoTest.
+//Signed and chained UPPs are created for all data input sizes and correct signature, payload/expected hash and chain (for chained)
+//are checked. This should help in catching errors that only occur for certain input lengths e.g. buffer and len() calculation issues.
+func TestSignData_DataInputLength(t *testing.T) {
+	const (
+		maxDataSizetoTest = 2 * 1024 //in Byte, be aware that test time is on the order of (Size!)
+		nrOfChainedUpps   = 3
+	)
+
+	//Tests for signed and chained type
+	for currentDataSize := 1; currentDataSize <= maxDataSizetoTest; currentDataSize++ {
+		//Generate pseudorandom data. As the data size is the same as the test run number we use it as seed.
+		//This way the data is reproducible but not simply only 0xff.. or 0x00.. and hopefully we catch a
+		//few more errors in this way
+		dataBytes := deterministicPseudoRandomBytes(int32(currentDataSize), currentDataSize)
+		//The hashing algorith might need to be adjusted if different cryptos are implemented
+		expectedDataHash := sha256.Sum256(dataBytes)
+
+		currTestName := "DataSize=" + fmt.Sprintf("%v", currentDataSize)
+
+		//run test for signed type
+		t.Run(currTestName+"-SignedType", func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+
+			//Call SignData() to create UPP
+			createdSignedUpp, err := protocol.SignData(defaultName, dataBytes, Signed)
+			asserter.NoError(err, "SignData() could not create Signed type UPP")
+
+			//Check created UPP
+			expectedPayloadString := hex.EncodeToString(expectedDataHash[:])
+			asserter.NoError(checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub))
+		})
+
+		//run test for chained type
+		t.Run(currTestName+"-ChainedType", func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			//Create new crypto context
+			protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+
+			//Call SignData() to create multiple chained UPPs
+			createdChainedUpps := make([][]byte, nrOfChainedUpps)
+			expectedPayloads := make([]string, nrOfChainedUpps)
+			for currUppIndex := range createdChainedUpps {
+				createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, dataBytes, Chained)
+				asserter.NoErrorf(err, "SignData() could not create Chained type UPP number %v", currUppIndex)
+				expectedPayloads[currUppIndex] = hex.EncodeToString(expectedDataHash[:]) //build expected payload array for checking later
+			}
+
+			//Check the created UPPs
+			asserter.NoError(checkChainedUPPs(t, createdChainedUpps, expectedPayloads, defaultLastSig, defaultPub))
+		})
+
+	}
 }
 
-//TestCreateMessageSigned tests 'Signed' type UPP creation from given user data. Data is hashed, hash is
-//used as UPP payload and then the created encoded UPP data is compared to the expected values,
-//the signature is also checked. as it's non-deterministic, signature in expected UPPs are ignored,
-//instead a proper verification with the public key is performed
-func TestCreateMessageSigned(t *testing.T) {
+//TestSignData_RandomInput tests if SignData can correctly create UPPs
+// for random input data for the signed and chained protocol type
+//TODO: add randomization of parameters?
+func TestSignData_RandomInput(t *testing.T) {
+	const numberOfTests = 1000
+	const nrOfChainedUpps = 3
+	const dataLength = defaultDataSize
+
+	inputData := make([]byte, dataLength)
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//Create new crypto context, we use this context for all created UPPs without resetting it
+	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	requirer.NoError(err, "Creating protocol context failed")
+
+	lastChainSig := defaultLastSig
+	//test the random input
+	for i := 0; i < numberOfTests; i++ {
+		//generate new input
+		_, err := rand.Read(inputData)
+		requirer.NoError(err, "Could not generate random data")
+		//Calculate hash, TODO: Make this dependent on crypto if more than one crypto is implemented
+		inputDataHash := sha256.Sum256(inputData)
+
+		//Create 'Signed' type UPP with data
+		createdSignedUpp, err := protocol.SignData(defaultName, inputData[:], Signed)
+		requirer.NoErrorf(err, "Protocol.SignData() failed for Signed type UPP with input data %v", hex.EncodeToString(inputData))
+
+		//Check created Signed UPP
+		expectedPayloadString := hex.EncodeToString(inputDataHash[:])
+		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub)
+		asserter.NoError(err, "UPP check failed for Signed type UPP with input data %v", hex.EncodeToString(inputData))
+
+		//Create multiple chained UPPs
+		createdChainedUpps := make([][]byte, nrOfChainedUpps)
+		expectedPayloads := make([]string, nrOfChainedUpps)
+		for currUppIndex := range createdChainedUpps {
+			createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, inputData[:], Chained)
+			asserter.NoErrorf(err, "SignData() could not create Chained type UPP for index %v", currUppIndex)
+			expectedPayloads[currUppIndex] = hex.EncodeToString(inputDataHash[:]) //build expected payload array for checking later
+		}
+
+		//Check the created UPPs
+		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, defaultPub)
+		asserter.NoError(err, "UPP check failed for Chained type UPPs with input data %v", hex.EncodeToString(inputData))
+
+		//save the last Signature of chain for check in next round TODO: get this using a library function when available, remove sig length magic number
+		lastChainUpp := createdChainedUpps[nrOfChainedUpps-1]
+		lastChainSig = hex.EncodeToString(lastChainUpp[len(lastChainUpp)-64:])
+	}
+}
+
+//TestSignData_Signed tests 'Signed' type UPP creation from given user data. The created encoded UPP
+//data is compared to the expected values, the signature is also checked. As it's non-deterministic,
+// signature in expected UPPs are ignored, instead a proper verification with the public key is performed
+func TestSignData_SignedType(t *testing.T) {
 	var tests = []struct {
 		testName    string
 		privateKey  string
@@ -304,7 +536,7 @@ func TestCreateMessageSigned(t *testing.T) {
 			testName:    "Data='1'",
 			privateKey:  defaultPriv,
 			publicKey:   defaultPub,
-			deviceUUID:  "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			deviceUUID:  defaultUUID,
 			userData:    "31", //equals the character "1" string
 			expectedUPP: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		},
@@ -312,7 +544,7 @@ func TestCreateMessageSigned(t *testing.T) {
 			testName:    "Data='Hello World!'",
 			privateKey:  defaultPriv,
 			publicKey:   defaultPub,
-			deviceUUID:  "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			deviceUUID:  defaultUUID,
 			userData:    "48656c6c6f20576f726c6421", //"Hello World!"
 			expectedUPP: "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c44000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		},
@@ -331,11 +563,8 @@ func TestCreateMessageSigned(t *testing.T) {
 			//Create 'Signed' type UPP with user data
 			userDataBytes, err := hex.DecodeString(currTest.userData)
 			requirer.NoErrorf(err, "Test configuration string (input data) can't be decoded.\nString was: %v", currTest.userData)
-			//TODO: This hashing should be removed as soon as a proper
-			// "Create UPP from data" is implemented in the library
-			hash := sha256.Sum256(userDataBytes)
-			createdUpp, err := protocol.SignHash(defaultName, hash[:], Signed)
-			requirer.NoError(err, "Protocol.SignHash() failed")
+			createdUpp, err := protocol.SignData(defaultName, userDataBytes, Signed)
+			requirer.NoError(err, "Protocol.SignData() failed")
 
 			//Check created UPP (data/structure only, signature is checked later)
 			expectedUPPBytes, err := hex.DecodeString(currTest.expectedUPP)
@@ -356,10 +585,10 @@ func TestCreateMessageSigned(t *testing.T) {
 	}
 }
 
-//TestCreateChainedMessage tests 'Chained' type UPP creation across multiple chained packets. Each input is hashed, hash is
-//used as UPP payload and then the created encoded UPP data (without the signature, as its
-//non-deterministic) is compared to the expected values. Each UPP signature and the signature chain are also verified.
-func TestCreateMessageChained(t *testing.T) {
+//TestSignData_Chained tests 'Chained' type UPP creation across multiple chained packets. The created
+// encoded UPP data (without the signature, as its non-deterministic) is compared to the expected
+// values. Each UPP signature and the signature chain are also verified.
+func TestSignData_ChainedType(t *testing.T) {
 	var tests = []struct {
 		testName            string
 		privateKey          string
@@ -373,7 +602,7 @@ func TestCreateMessageChained(t *testing.T) {
 			testName:      "dontSetLastSignature",
 			privateKey:    defaultPriv,
 			publicKey:     defaultPub,
-			deviceUUID:    "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			deviceUUID:    defaultUUID,
 			lastSignature: "", //""=don't set signature
 			UserDataInputs: []string{
 				"01",
@@ -390,7 +619,7 @@ func TestCreateMessageChained(t *testing.T) {
 			testName:      "SpecificPrivAndPubKey",
 			privateKey:    "10a0bef246575ea219e15bffbb6704d2a58b0e4aa99f101f12f0b1ce7a143559",
 			publicKey:     "92bbd65d59aecbdf7b497fb4dcbdffa22833613868ddf35b44f5bd672496664a2cc1d228550ae36a1d0210a3b42620b634dc5d22ecde9e12f37d66eeedee3e6a",
-			deviceUUID:    "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			deviceUUID:    defaultUUID,
 			lastSignature: defaultLastSig,
 			UserDataInputs: []string{
 				"01",
@@ -423,11 +652,8 @@ func TestCreateMessageChained(t *testing.T) {
 				//Create 'chained' type UPP with user data
 				userDataBytes, err := hex.DecodeString(currInputData)
 				requirer.NoErrorf(err, "Test configuration string (input data) can't be decoded for input %v. String was: %v", currInputIndex, currInputData)
-				//TODO: This hashing should be removed as soon as a proper
-				// "Create UPP from data" is implemented in the library
-				hash := sha256.Sum256(userDataBytes)
-				createdUppData, err := protocol.SignHash(defaultName, hash[:], Chained)
-				requirer.NoErrorf(err, "Protocol.SignHash() failed for input data at index %v", currInputIndex)
+				createdUppData, err := protocol.SignData(defaultName, userDataBytes, Chained)
+				requirer.NoErrorf(err, "Protocol.SignData() failed for input data at index %v", currInputIndex)
 				//Save UPP into array of all created UPPs
 				createdUpps[currInputIndex] = createdUppData
 			}
@@ -480,8 +706,8 @@ func TestCreateMessageChained(t *testing.T) {
 	}
 }
 
-//TestVerifyHashedMessage in its current state only tests if the ECDSA library behaves as expected
-func TestVerifyHashedMessage(t *testing.T) {
+//TestECDSALibrary in its current state only tests if the ECDSA library behaves as expected
+func TestECDSALibrary(t *testing.T) {
 	asserter := assert.New(t)
 
 	vkb, _ := base64.StdEncoding.DecodeString("o71ufIY0rP4GXQELZcXlm6t2s/LB29jzGfmheG3q8dJecxrGc/bqIODYcfROx6ofgunyarvG4lFiP+7p18qZqg==")
@@ -502,22 +728,169 @@ func TestVerifyHashedMessage(t *testing.T) {
 	asserter.True(ecdsa.Verify(&vk, hsh, r, s), "ecdsa.Verify() failed to verify known-good signature")
 }
 
-func TestVerify(t *testing.T) {
+// TestProtocol_Verify verifies UPP packages for different configurations.
+//		Tests, which shall pass, have the attribute testPasses = true,
+//		Tests, which shall return an error, have the attribute testPasses = false
+func TestProtocol_Verify(t *testing.T) {
 	var tests = []struct {
-		testName   string
-		UUID       string
-		pubKey     string
-		input      string
-		protoType  ProtocolType
-		verifiable bool
+		testName        string
+		nameForProtocol string
+		nameForVerify   string
+		UUID            string
+		pubKey          string
+		input           string
+		protoType       ProtocolType
+		testPasses      bool
 	}{
 		{
-			testName:   "signed UPP",
-			UUID:       "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
-			pubKey:     defaultPub,
-			input:      "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
-			protoType:  Signed,
-			verifiable: true,
+			testName:        "signed UPP correct '1'",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType:       Signed,
+			testPasses:      true,
+		},
+		{
+			testName:        "signed UPP correct 'Hello world'",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5f9c19d1f",
+			protoType:       Signed,
+			testPasses:      true,
+		},
+		{
+			testName:        "chained UPP correct without last signature",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4204bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459ac440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a",
+			protoType:       Chained,
+			testPasses:      true,
+		},
+		{
+			testName:        "chained UPP correct with last signature",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      true,
+		},
+		{
+			testName:        "chained type verify for signed UPP, but still passes",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Signed,
+			testPasses:      true,
+		},
+		{
+			testName:        "plain Type not supported",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType:       Plain,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained wrong name for protocol",
+			nameForProtocol: "B",
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained wrong name for Verify",
+			nameForProtocol: defaultName,
+			nameForVerify:   "B",
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained empty name for Verify",
+			nameForProtocol: defaultName,
+			nameForVerify:   "",
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained empty data",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "chained wrong data",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9623c4116eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
+			protoType:       Chained,
+			testPasses:      false,
+		},
+		{
+			testName:        "signed wrong signature",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
+			protoType:       Signed,
+			testPasses:      false,
+		},
+		{
+			testName:        "signed invalid protocol type",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
+			protoType:       0x67,
+			testPasses:      false,
+		},
+		{
+			testName:        "signed data too short (66 Byte)",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
+			protoType:       Signed,
+			testPasses:      false,
+		},
+		{
+			testName:        "signed data too short(65 Byte)",
+			nameForProtocol: defaultName,
+			nameForVerify:   defaultName,
+			UUID:            defaultUUID,
+			pubKey:          defaultPub,
+			input:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
+			protoType:       Signed,
+			testPasses:      false,
 		},
 	}
 
@@ -525,9 +898,10 @@ func TestVerify(t *testing.T) {
 	for _, currTest := range tests {
 		t.Run(currTest.testName, func(t *testing.T) {
 			requirer := require.New(t)
+			asserter := assert.New(t)
 
 			// Create new context
-			protocol, err := newProtocolContextVerifier(defaultName, currTest.UUID, currTest.pubKey)
+			protocol, err := newProtocolContextVerifier(currTest.nameForProtocol, currTest.UUID, currTest.pubKey)
 			requirer.NoError(err, "Creating protocol context failed: %v", err)
 
 			// convert test input string to bytes
@@ -535,12 +909,119 @@ func TestVerify(t *testing.T) {
 			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.input)
 
 			// verify test input
-			verified, err := protocol.Verify(defaultName, inputBytes, currTest.protoType)
-			requirer.NoErrorf(err, "protocol.Verify() returned error: %v", err)
-			requirer.Equal(currTest.verifiable, verified,
-				"test input was verifiable = %v, but protocol.Verify() returned %v. Input was %s",
-				currTest.verifiable, verified, currTest.input)
+			verified, err := protocol.Verify(currTest.nameForVerify, inputBytes, currTest.protoType)
+			if currTest.testPasses == true {
+				asserter.NoErrorf(err, "protocol.Verify() returned error: %v", err)
+				asserter.Truef(verified, "test input was not verifiable. Input was %s", currTest.input)
+			} else {
+				asserter.Errorf(err, "protocol.Verify() returned  no error")
+				asserter.Falsef(verified, "test input was verifiable. Input was %s", currTest.input)
+			}
 		})
+	}
+}
+
+//TestProtocol_SignVerifyLoop tests if a loop of creating and verifying an UPP with the lib
+//functions works as expected (SignData and Verify). This mainly tests if packet creation and
+//verification/unpacking is consistent within the library. This is tested with random data
+//and random parameters to catch errors with certain parameters. Tests are run for both signed
+//and chained type. Chaining is not checked as the library does not provide such a function. The
+//chaining is however checked in TestSignData_RandomInput with a test helper function.
+//TODO: Add library chain check function here when/if library is extended to support it
+func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
+	const numberOfTests = 1000 //total number of tests
+	const nrOfUPPsPerTest = 10 //number of chained and signed packets for each test (generated with one set of parameters)
+	const dataLength = defaultDataSize
+
+	currData := make([]byte, dataLength)
+	currName := ""
+	currUUIDTypeUUID := uuid.Nil
+	currUUID := ""
+	privBytes := make([]byte, 32)
+	currPriv := ""
+	currPub := ""
+	lastSigBytes := make([]byte, 64)
+	currLastSig := ""
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//test the random input
+	for i := 0; i < numberOfTests; i++ {
+		//generate new random parameters
+		//Name
+		currName = randomString(1, 5)
+		//UUID
+		currUUIDTypeUUID = uuid.New()
+		currUUID = currUUIDTypeUUID.String()
+		//Privkey
+		_, err := rand.Read(privBytes)
+		requirer.NoError(err, "Could not generate random data for private key")
+		currPriv = hex.EncodeToString(privBytes)
+		//Last Signature
+		_, err = rand.Read(lastSigBytes)
+		requirer.NoError(err, "Could not generate random data for last signature")
+		currLastSig = hex.EncodeToString(lastSigBytes)
+
+		//Create new crypto contexts, new one for each round for parameter randomization
+		//Signer
+		signer, err := newProtocolContextSigner(currName, currUUID, currPriv, currLastSig)
+		requirer.NoError(err, "Creating signer protocol context failed")
+		//Verifier
+		currPubkeyBytes, err := signer.GetPublicKey(currName)
+		requirer.NoError(err, "Could not get pubkey from signer context")
+		currPub = hex.EncodeToString(currPubkeyBytes)
+		verifier, err := newProtocolContextVerifier(currName, currUUID, currPub)
+		requirer.NoError(err, "Creating verifier protocol context failed")
+
+		//create a number of signed and chained type UPPs and verify/decode them with the library
+		for currUPPIndex := 0; currUPPIndex < nrOfUPPsPerTest; currUPPIndex++ {
+			//TODO: Output parameters as well (Log?), helper function for parameter string?
+			//generate new random data
+			_, err := rand.Read(currData)
+			requirer.NoError(err, "Could not generate random data for input data")
+			//Calculate hash for later checking, TODO: Make this dependent on crypto if more than one crypto is implemented
+			currDataHash := sha256.Sum256(currData)
+
+			//Create string to use in error messages with all necessary info
+			debugInfoString := fmt.Sprintf("Input data: %v\nParameters:\n%v",
+				hex.EncodeToString(currData),
+				parameterString(currName, currUUID, currPriv, currPub, currLastSig))
+
+			////SIGNED section////
+			//Create 'Signed' type UPP with data
+			createdSignedUpp, err := signer.SignData(currName, currData[:], Signed)
+			requirer.NoErrorf(err, "Protocol.SignData() failed for Signed type UPP\n%v", debugInfoString)
+
+			//Check created Signed UPP using the library function: first verify, then decode and check hash/payload
+			result, err := verifier.Verify(currName, createdSignedUpp, Signed)
+			asserter.NoError(err, "UPP verify failed with an error for Signed type UPP\n%v", debugInfoString)
+			asserter.True(result, "UPP verification returned false for Signed type UPP\n%v", debugInfoString)
+			decodedUPP, err := Decode(createdSignedUpp)
+			asserter.NoError(err, "UPP decoding failed with an error for Signed type UPP\n%v", debugInfoString)
+			//Check payload (and other struct contents)
+			asserter.Equal(Signed, decodedUPP.(*SignedUPP).Version, "Signed type Version not as expected\n%v", debugInfoString)
+			asserter.Equal(currUUIDTypeUUID, decodedUPP.(*SignedUPP).Uuid, "Signed type UUID not as expected\n%v", debugInfoString)
+			asserter.Equal(uint8(0x00), decodedUPP.(*SignedUPP).Hint, "Signed type Hint not as expected\n%v", debugInfoString)
+			asserter.Equal(currDataHash[:], decodedUPP.(*SignedUPP).Payload, "Signed type Payload not as expected\n%v", debugInfoString)
+
+			////CHAINED section////
+			//Create 'Chained' type UPP with data
+			createdChainedUpp, err := signer.SignData(currName, currData[:], Chained)
+			requirer.NoErrorf(err, "Protocol.SignData() failed for Chained type UPP\n%v", debugInfoString)
+
+			//Check created Chained UPP using the library function: first verify, then decode and check hash/payload
+			result, err = verifier.Verify(currName, createdChainedUpp, Chained)
+			asserter.NoError(err, "UPP verify failed with an error for Chained type UPP\n%v", debugInfoString)
+			asserter.True(result, "UPP verification returned false for Chained type UPP\n%v", debugInfoString)
+			decodedUPP, err = Decode(createdChainedUpp)
+			asserter.NoError(err, "UPP decoding failed with an error for Chained type UPP\n%v", debugInfoString)
+			//Check payload (and other struct contents)
+			asserter.Equal(Chained, decodedUPP.(*ChainedUPP).Version, "Chained type Version not as expected\n%v", debugInfoString)
+			asserter.Equal(currUUIDTypeUUID, decodedUPP.(*ChainedUPP).Uuid, "Chained type UUID not as expected\n%v", debugInfoString)
+			asserter.Equal(uint8(0x00), decodedUPP.(*ChainedUPP).Hint, "Chained type Hint not as expected\n%v", debugInfoString)
+			asserter.Equal(currDataHash[:], decodedUPP.(*ChainedUPP).Payload, "Chained type Payload not as expected\n%v", debugInfoString)
+		}
 	}
 }
 
@@ -562,7 +1043,7 @@ func TestDecode(t *testing.T) {
 			testName:      "signed UPP",
 			UPP:           "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
 			protoType:     Signed,
-			UUID:          "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			UUID:          defaultUUID,
 			PrevSignature: "",
 			Hint:          0x00,
 			Payload:       "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
@@ -572,7 +1053,7 @@ func TestDecode(t *testing.T) {
 			testName:      "chained UPP",
 			UPP:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
 			protoType:     Chained,
-			UUID:          "6eac4d0b-16e6-4508-8c46-22e7451ea5a1",
+			UUID:          defaultUUID,
 			PrevSignature: "bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
 			Hint:          0x00,
 			Payload:       "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
@@ -620,67 +1101,136 @@ func TestDecode(t *testing.T) {
 			switch currTest.protoType {
 			case Signed:
 				// make sure UPP was decoded to correct type and cast type
-				requirer.IsType(&SignedUPP{}, decoded, "signed UPP input was decoded to type %T", decoded)
-				requirer.NoError(err, "Decode() returned error: %v", err)
+				requirer.IsTypef(&SignedUPP{}, decoded, "signed UPP input was decoded to type %T", decoded)
+				requirer.NoErrorf(err, "Decode() returned error: %v", err)
 				signed := decoded.(*SignedUPP)
 
 				// check if decoded UPP has expected attributes
-				asserter.Equal(currTest.protoType, signed.Version, "decoded incorrect protocol version")
-				asserter.Equal(id, signed.Uuid, "decoded incorrect uuid")
-				asserter.Equal(currTest.Hint, signed.Hint, "decoded incorrect hint")
-				asserter.Equal(payloadBytes, signed.Payload, "decoded incorrect payload")
-				asserter.Equal(signatureBytes, signed.Signature, "decoded incorrect signature")
+				asserter.Equalf(currTest.protoType, signed.Version, "decoded incorrect protocol version")
+				asserter.Equalf(id, signed.Uuid, "decoded incorrect uuid")
+				asserter.Equalf(currTest.Hint, signed.Hint, "decoded incorrect hint")
+				asserter.Equalf(payloadBytes, signed.Payload, "decoded incorrect payload")
+				asserter.Equalf(signatureBytes, signed.Signature, "decoded incorrect signature")
 
 			case Chained:
 				// make sure UPP was decoded to correct type and cast type
-				requirer.IsType(&ChainedUPP{}, decoded, "chained UPP input was decoded to type %T", decoded)
-				requirer.NoError(err, "Decode() returned error: %v", err)
+				requirer.IsTypef(&ChainedUPP{}, decoded, "chained UPP input was decoded to type %T", decoded)
+				requirer.NoErrorf(err, "Decode() returned error: %v", err)
 				chained := decoded.(*ChainedUPP)
 
 				// check if decoded UPP has expected attributes
-				asserter.Equal(currTest.protoType, chained.Version, "decoded incorrect protocol version")
-				asserter.Equal(id, chained.Uuid, "decoded incorrect uuid")
-				asserter.Equal(prevSigBytes, chained.PrevSignature, "decoded incorrect previous signature")
-				asserter.Equal(currTest.Hint, chained.Hint, "decoded incorrect hint")
-				asserter.Equal(payloadBytes, chained.Payload, "decoded incorrect payload")
-				asserter.Equal(signatureBytes, chained.Signature, "decoded incorrect signature")
+				asserter.Equalf(currTest.protoType, chained.Version, "decoded incorrect protocol version")
+				asserter.Equalf(id, chained.Uuid, "decoded incorrect uuid")
+				asserter.Equalf(prevSigBytes, chained.PrevSignature, "decoded incorrect previous signature")
+				asserter.Equalf(currTest.Hint, chained.Hint, "decoded incorrect hint")
+				asserter.Equalf(payloadBytes, chained.Payload, "decoded incorrect payload")
+				asserter.Equalf(signatureBytes, chained.Signature, "decoded incorrect signature")
 
 			default:
-				requirer.Nil(decoded, "invalid input was decoded to UPP. input was: %s", currTest.UPP)
-				requirer.Error(err, "Decode() did not return error with invalid input")
+				requirer.Nilf(decoded, "invalid input was decoded to UPP. input was: %s", currTest.UPP)
+				requirer.Errorf(err, "Decode() did not return error with invalid input")
 			}
 		})
 	}
 }
 
-// test random numbers from package "crypto/rand"
-func TestRandomNOTRDY(t *testing.T) {
+//TestRandomBitFrequency tests random numbers/bits from package "crypto/rand" (which is used in our crypto) to
+//detect (serious) problems with the cryptographic random number generation. Implements
+//the frequency/monobit test, see NIST Special Publication 800-22 2.1
+func TestRandomBitFrequency(t *testing.T) {
+	//The p-value to use for the test decision (pCalc < pLimit -> not random), p=0.01 -> 99% confidence,
+	//also means 1% of tests fail even with true random source. See NIST Special
+	//Publication 800-22 1.1.5
+	const pValueLimit = 0.01 //0.01 -> 1% Level
+
 	requirer := require.New(t)
 
 	//Frequency (Monobit) Test
-	r := rand.Reader                         // the RNG under test
-	n := 100                                 // the length of the random number to be tested for randomness
-	randomNumberUnderTest := make([]byte, n) // the random number to be tested for randomness
-	_, err := io.ReadFull(r, randomNumberUnderTest)
-	requirer.NoError(err, "generating random number failed: %v", err)
+	r := rand.Reader                             //the RNG under test
+	nBytes := 256                                //amount of random bytes to be tested
+	nBits := nBytes * 8                          //amount of bits in the random data
+	randomBytesUnderTest := make([]byte, nBytes) //the random data to be tested for randomness
+	_, err := io.ReadFull(r, randomBytesUnderTest)
+	requirer.NoError(err, "Generating random bytes failed: %v", err)
 
-	//calculate the frequency of ones and zeros in the random number
+	//calculate the frequency of ones and zeros in the random data
 	s := 0
-	for i := 0; i < n; i++ {
+	for i := 0; i < nBytes; i++ {
 		// get number of one bits (population count)
-		ones := bits.OnesCount8(randomNumberUnderTest[i])
+		ones := bits.OnesCount8(randomBytesUnderTest[i])
 		// count +1 for every one bit and -1 for every zero bit
 		s += (2 * ones) - 8
 	}
-	log.Printf("s: %v", s)
-
 	// calculate the test statistic
-	s_obs := math.Abs(float64(s)) / math.Sqrt(float64(n))
+	sObs := math.Abs(float64(s)) / math.Sqrt(float64(nBits))
+	pValueCalc := math.Erfc(sObs / math.Sqrt2)
 
-	pValue := math.Erfc(s_obs / math.Sqrt2)
-	log.Printf("pValue: %v", pValue)
+	//Debug info
+	//log.Printf("s: %v", s)
+	//log.Printf("Calculated pValue: %v", pValueCalc)
+	// for i := 0; i < nBytes-8; {
+	// 	log.Printf("%08b%08b%08b%08b%08b%08b%08b%08b\n",
+	// 		randomBytesUnderTest[i], randomBytesUnderTest[i+1],
+	// 		randomBytesUnderTest[i+2], randomBytesUnderTest[i+3],
+	// 		randomBytesUnderTest[i+4], randomBytesUnderTest[i+5],
+	// 		randomBytesUnderTest[i+6], randomBytesUnderTest[i+7])
+	// 	i += 8
+	// }
 
-	//Decision Rule at the 1% Level: If the computed P-value is < 0.01, then conclude that the sequence is non-random.
+	//Decision Rule: If the computed P-value is pValueCalc < pValueLimit, then conclude that the sequence is non-random.
 	//Otherwise, conclude that the sequence is random.
-	requirer.Greater(pValue, 0.01, "random number did not pass Frequency (Monobit) Test: %v", randomNumberUnderTest)
+	requirer.Greater(pValueCalc, pValueLimit, "Random data did not pass Frequency (Monobit) test. (pValueCalc was smaller than pValueLimit)\n"+
+		"This means with 99 %% confidence that something is wrong, but in 1 %% of tests there is a false positive.\n"+
+		"Random data was :\n%v", randomBytesUnderTest)
+}
+
+//TestECDSASignatureChanges tests if the signature of ECDSA changes for the same input using the top level protocol struct.
+//If it does not, there is likely a problem with the random number or nonce ('k') generation
+//which will allow attackers to calculate the private key from signatures.
+//Since only a 'small' number of signatures is checked this will most likely detect only 'total' failures
+//in k/nonce generation. See also  https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm#Security
+//For testing, 'signed' type UPPs are used. Both "new context for each UPP" and "one context across all UPPs" cases are tested
+func TestECDSASignatureChanges(t *testing.T) {
+	const nrOfSigsToCheck = 1000 //effective number of tests is two time this number as both "new context for each test" and "consistent context" cases are tested
+
+	requirer := require.New(t)
+
+	//Run the test with a fresh context for each test
+	signatureMap := make(map[string]bool)
+	for currTestNr := 0; currTestNr < nrOfSigsToCheck; currTestNr++ {
+		//Create new crypto context (each time)
+		protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+		requirer.NoError(err, "Creating protocol context failed")
+
+		//Create 'Signed' type UPP
+		createdUpp, err := protocol.SignData(defaultName, []byte(defaultInputData), Signed)
+		requirer.NoError(err, "Protocol.SignData() failed")
+
+		//Check if signature was already seen, if not remember it
+		signature := createdUpp[len(createdUpp)-64:]
+		if !signatureMap[hex.EncodeToString(signature)] { //if signature key does not exists in map (standard return value is false)
+			signatureMap[hex.EncodeToString(signature)] = true
+		} else { //we found a duplicate, raise an error and abort
+			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with fresh context. Private key is leaked in UPPs. Signature was: %v", currTestNr+1, hex.EncodeToString(signature))
+		}
+	}
+
+	//Run the test with a continuous context
+	signatureMap = make(map[string]bool) //reset signature map
+	//Create new crypto context (once)
+	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	requirer.NoError(err, "Creating protocol context failed")
+	for currTestNr := 0; currTestNr < nrOfSigsToCheck; currTestNr++ {
+		//Create 'Signed' type UPP
+		createdUpp, err := protocol.SignData(defaultName, []byte(defaultInputData), Signed)
+		requirer.NoError(err, "Protocol.SignData() failed")
+
+		//Check if signature was already seen, if not remember it
+		signature := createdUpp[len(createdUpp)-64:]
+		if !signatureMap[hex.EncodeToString(signature)] { //if signature key does not exists in map (standard return value is false)
+			signatureMap[hex.EncodeToString(signature)] = true
+		} else { //we found a duplicate, raise an error and abort
+			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with continuous context. Private key is leaked in UPPs. Signature was: %v", currTestNr+1, hex.EncodeToString(signature))
+		}
+	}
 }

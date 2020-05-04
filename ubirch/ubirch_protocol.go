@@ -19,6 +19,7 @@
 package ubirch
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -26,14 +27,16 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// ProtocolType definition
 type ProtocolType uint8
 
 const (
-	Plain   ProtocolType = 0x00
-	Signed  ProtocolType = 0x22
-	Chained ProtocolType = 0x23
+	Plain   ProtocolType = 0x21 // Plain protocol, without hashing and signing
+	Signed  ProtocolType = 0x22 // Signed protocol, the payload is signed
+	Chained ProtocolType = 0x23 // Chained protocol, the payload contains the previous signature and is signed
 )
 
+// Crypto Interaface for exported functionality
 type Crypto interface {
 	GetUUID(name string) (uuid.UUID, error)
 	GenerateKey(name string, id uuid.UUID) error
@@ -47,11 +50,13 @@ type Crypto interface {
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
 }
 
+// Protocol structure
 type Protocol struct {
 	Crypto
 	Signatures map[uuid.UUID][]byte
 }
 
+// SignedUPP is the Signed Ubirch Protocol Package
 type SignedUPP struct {
 	Version   ProtocolType
 	Uuid      uuid.UUID
@@ -60,6 +65,7 @@ type SignedUPP struct {
 	Signature []byte
 }
 
+// ChainedUPP is the Chained Ubirch Protocol Package
 type ChainedUPP struct {
 	Version       ProtocolType
 	Uuid          uuid.UUID
@@ -69,6 +75,7 @@ type ChainedUPP struct {
 	Signature     []byte
 }
 
+// Encode is encoding an interface into MsgPack and returns it, if successful with 'nil' error
 func Encode(v interface{}) ([]byte, error) {
 	var mh codec.MsgpackHandle
 	mh.StructToArray = true
@@ -82,6 +89,7 @@ func Encode(v interface{}) ([]byte, error) {
 	return encoded, nil
 }
 
+// Decode is decoding a protocol package into a message a returns it, if successful with 'nil' error
 func Decode(upp []byte) (interface{}, error) {
 	var mh codec.MsgpackHandle
 	mh.StructToArray = true
@@ -108,12 +116,14 @@ func Decode(upp []byte) (interface{}, error) {
 	}
 }
 
+// appendSignature appends a signature to an encoded message and returns it
 func appendSignature(encoded []byte, signature []byte) []byte {
 	encoded = append(encoded[:len(encoded)-1], 0xC4, byte(len(signature)))
 	encoded = append(encoded, signature...)
 	return encoded
 }
 
+// sign encodes, signs and appends the signature to a SignedUPP
 func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
 	encoded, err := Encode(upp)
 	if err != nil {
@@ -123,6 +133,8 @@ func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
 	return appendSignature(encoded, signature), nil
 }
 
+// sign encodes, signs and appends the signature to a ChainedUPP.
+// also the signature is stored for later usage
 func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
 	encoded, err := Encode(upp)
 	if err != nil {
@@ -133,15 +145,21 @@ func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
 	return appendSignature(encoded, signature), nil
 }
 
-//Wrapper for backwards compatibility with Sign() calls, will be removed in the future
+// Init initializes the Protocol, which is not necessary in Golang
+func (p *Protocol) Init() {
+	//Keep this function for compatibility in ubirch/ubirch-go-udp-client
+}
+
+//Sign is a wrapper for backwards compatibility with Sign() calls, will be removed in the future
 func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
 	fmt.Println("Warning: Sign() is deprecated, please use SignHash() or SignData() as appropriate")
 	return p.SignHash(name, hash, protocol)
 }
 
-// Create and sign a ubirch-protocol message using the given hash and the protocol type.
+// SignHash creates and signs a ubirch-protocol message using the given hash and the protocol type.
 // The method expects a hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
+//TODO: this should not be a public function, users should use SignData() instead.
 func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
 	const expectedHashSize = 32
 
@@ -173,6 +191,22 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 	}
 }
 
+// SignData creates and signs a ubirch-protocol message using the given user data and the protocol type.
+// The method expects the user data as input data. Data will be hashed and a UPP using
+// the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
+// from the context using the given device name.
+func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType) ([]byte, error) {
+	//Catch errors
+	if len(userData) < 1 || userData == nil {
+		return nil, fmt.Errorf("Input data is nil or empty")
+	}
+	//Calculate hash
+	//TODO: Make this dependent on the used crypto if we implement more than one
+	hash := sha256.Sum256(userData)
+
+	return p.SignHash(name, hash[:], protocol)
+}
+
 // Verify a ubirch-protocol message and return the payload.
 func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (bool, error) {
 	id, err := p.Crypto.GetUUID(name)
@@ -180,13 +214,13 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 		return false, err
 	}
 
-	if len(value) <= 64 {
+	if len(value) < 66 {
 		return false, errors.New(fmt.Sprintf("data must contain signature: len %d < 64+2 bytes", len(value)))
 	}
 
 	switch protocol {
 	case Plain:
-		return p.Crypto.Verify(id, value[:len(value)-64], value[len(value)-64:])
+		return false, errors.New("Plain type packets are deprecated") //return p.Crypto.Verify(id, value[:len(value)-64], value[len(value)-64:])
 	case Signed:
 		fallthrough
 	case Chained:

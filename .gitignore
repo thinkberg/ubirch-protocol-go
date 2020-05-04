@@ -1,4 +1,4 @@
 .idea
 *.iml
 .vscode
-protocol.json
+main/protocol.json

@@ -31,12 +31,15 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	insecuremathrand "math/rand"
 	"os"
 	"testing"
 
@@ -46,16 +49,63 @@ import (
 ////Default Values////
 // (for consistent defaults in benchmark/test table entries )
 const (
-	defaultName     = "A"
-	defaultUUID     = "6eac4d0b-16e6-4508-8c46-22e7451ea5a1"                                                                                             //"f9038b4b-d3bc-47c9-9968-ea275f1b6de8"
-	defaultPriv     = "8f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937"                                                                 //"10a0bef246575ea219e15bffbb6704d2a58b0e4aa99f101f12f0b1ce7a143559"
-	defaultPub      = "55f0feac4f2bcf879330eff348422ab3abf5237a24acaf0aef3bb876045c4e532fbd6cd8e265f6cf28b46e7e4512cd06ba84bcd3300efdadf28750f43dafd771" //"92bbd65d59aecbdf7b497fb4dcbdffa22833613868ddf35b44f5bd672496664a2cc1d228550ae36a1d0210a3b42620b634dc5d22ecde9e12f37d66eeedee3e6a"
-	defaultLastSig  = "c03821e1bbabebce351044168c5016187829bcf60988869f4d0bd3e8a905d38fa0bde9269042ad062262dd6829cc8def9e71e10d0a527671ca5707a436b1f209"
-	defaultHash     = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-	defaultDataSize = 200
+	defaultName      = "A"
+	defaultUUID      = "6eac4d0b-16e6-4508-8c46-22e7451ea5a1"                                                                                             //"f9038b4b-d3bc-47c9-9968-ea275f1b6de8"
+	defaultPriv      = "8f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937"                                                                 //"10a0bef246575ea219e15bffbb6704d2a58b0e4aa99f101f12f0b1ce7a143559"
+	defaultPub       = "55f0feac4f2bcf879330eff348422ab3abf5237a24acaf0aef3bb876045c4e532fbd6cd8e265f6cf28b46e7e4512cd06ba84bcd3300efdadf28750f43dafd771" //"92bbd65d59aecbdf7b497fb4dcbdffa22833613868ddf35b44f5bd672496664a2cc1d228550ae36a1d0210a3b42620b634dc5d22ecde9e12f37d66eeedee3e6a"
+	defaultLastSig   = "c03821e1bbabebce351044168c5016187829bcf60988869f4d0bd3e8a905d38fa0bde9269042ad062262dd6829cc8def9e71e10d0a527671ca5707a436b1f209"
+	defaultHash      = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+	defaultInputData = "cafedeadbeef11223344556677889900aabbccddeeff"
+	defaultDataSize  = 200
+	defaultSecret    = "2234567890123456"
+)
+
+////Constants////
+//constants to avoid 'magic numbers' in the code
+const (
+	lenPubkeyECDSA  = 64
+	lenPrivkeyECDSA = 32
 )
 
 //////Helper Functions//////
+
+//parameterString prints a string showing the passed parameters as a block of text (for easier/ more helpful error messages)
+//if the string is empty ("") the corresponding line is not added
+func parameterString(name string, uuidStr string, privkey string, pubkey string, lastSignature string) string {
+	paramStr := ""
+
+	if name != "" {
+		paramStr += fmt.Sprintf("Name: %v\n", name)
+	}
+	if uuidStr != "" {
+		paramStr += fmt.Sprintf("UUID: %v\n", uuidStr)
+	}
+	if privkey != "" {
+		paramStr += fmt.Sprintf("PrivKey: %v\n", privkey)
+	}
+	if pubkey != "" {
+		paramStr += fmt.Sprintf("PubKey: %v\n", pubkey)
+	}
+	if lastSignature != "" {
+		paramStr += fmt.Sprintf("lastSig: %v\n", lastSignature)
+	}
+
+	return paramStr
+}
+
+//randomString returns a random string with a length between lenMin and lenMax
+//all letters that are allowed in the string
+func randomString(lenMin int, lenMax int) string {
+	var letters = []rune(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
+
+	//generate the string
+	stringlength := insecuremathrand.Intn((lenMax+1)-lenMin) + lenMin
+	randString := make([]rune, stringlength)
+	for i := range randString {
+		randString[i] = letters[insecuremathrand.Intn(len(letters))]
+	}
+	return string(randString)
+}
 
 //loads a protocol context from a json file
 func loadProtocolContext(p *Protocol, filename string) error {
@@ -81,10 +131,24 @@ func deleteProtocolContext(filename string) error {
 	return err
 }
 
+// Get the private key bytes for the given name.
+func getPrivateKey(c *CryptoContext, name string) ([]byte, error) {
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
+	privKeyBytes, err := c.Keystore.GetKey(privKeyEntryTitle(id))
+	if err != nil {
+		return nil, err
+	}
+	return privKeyBytes, nil
+}
+
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
 func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*Protocol, error) {
 	context := &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("2234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
@@ -96,7 +160,7 @@ func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSign
 //Creates a new protocol context for a UPP verifier (only pubkey is needed)
 func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*Protocol, error) {
 	context := &CryptoContext{
-		Keystore: NewEncryptedKeystore([]byte("2234567890123456")),
+		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
 	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
@@ -243,4 +307,143 @@ func verifyUPPChain(t *testing.T, uppsArray [][]byte, startSignature []byte) err
 	}
 	//If we reach this, everything was checked without errors
 	return nil
+}
+
+//checkSignedUPP checks a signed type UPP. Parameters are passed as strings.
+//The following checks are performed: signature OK, decoding works, payload as expected
+//If everything is OK no error is returned, else the error indicates the failing check.
+func checkSignedUPP(t *testing.T, uppData []byte, expectedPayload string, pubKey string) error {
+	//Decode Pubkey for checking UPPs
+	pubkeyBytes, err := hex.DecodeString(pubKey)
+	if err != nil {
+		return fmt.Errorf("Test configuration string (pubkey) can't be decoded.\nString was: %v", pubKey)
+	}
+
+	//Check each signed UPP...
+	//...decoding/payload
+	decodedSigned, err := Decode(uppData)
+	if err != nil {
+		return fmt.Errorf("UPP could not be decoded")
+	}
+	signed := decodedSigned.(*SignedUPP)
+	expectedPayloadBytes, err := hex.DecodeString(expectedPayload)
+	if err != nil {
+		return fmt.Errorf("Test configuration string (expectedPayload) can't be decoded. \nString was: %v", expectedPayload)
+	}
+	if !bytes.Equal(expectedPayloadBytes[:], signed.Payload) {
+		return fmt.Errorf("Payload does not match expectation.\nExpected:\n%v\nGot:\n%v", hex.EncodeToString(expectedPayloadBytes[:]), hex.EncodeToString(signed.Payload))
+	}
+	//...Signature
+	verifyOK, err := verifyUPPSignature(t, uppData, pubkeyBytes)
+	if err != nil {
+		return fmt.Errorf("Signature verification could not be performed, error: %v", err)
+	}
+	if !verifyOK {
+		return fmt.Errorf("Signature is not OK")
+	}
+
+	//If we reach this, everything was checked without errors
+	return nil
+}
+
+//checkChainedUPPs checks an array of chained type UPPs. Parameters are passed as strings.
+//The following checks are performed: signatures OK, decoding works, payload as expected, chaining OK
+//If everything is OK no error is returned, else the error indicates the failing check.
+func checkChainedUPPs(t *testing.T, uppsArray [][]byte, expectedPayloads []string, startSignature string, pubKey string) error {
+	//Catch general errors
+	if len(uppsArray) == 0 {
+		return fmt.Errorf("UPP array is empty")
+	}
+	if len(uppsArray) != len(expectedPayloads) {
+		return fmt.Errorf("Number of UPPs and expected payloads not equal")
+	}
+	//Decode Pubkey for checking UPPs
+	pubkeyBytes, err := hex.DecodeString(pubKey)
+	if err != nil {
+		return fmt.Errorf("Test configuration string (pubkey) can't be decoded.\nString was: %v", pubKey)
+	}
+	//Decode last signature
+	lastSigBytes, err := hex.DecodeString(startSignature)
+	if err != nil {
+		return fmt.Errorf("Test configuration string (startSig) can't be decoded.\nString was: %v", startSignature)
+	}
+
+	//Check each chained UPP...
+	for chainedUppIndex, chainedUppData := range uppsArray {
+		//...decoding/payload/hash
+		decodedChained, err := Decode(chainedUppData)
+		if err != nil {
+			return fmt.Errorf("UPP could not be decoded for UPP at index %v, error: %v", chainedUppIndex, err)
+		}
+		chained := decodedChained.(*ChainedUPP)
+		expectedPayload, err := hex.DecodeString(expectedPayloads[chainedUppIndex])
+		if err != nil {
+			return fmt.Errorf("Test configuration string (expectedPayload) can't be decoded at index %v.\nString was: %v", chainedUppIndex, expectedPayloads[chainedUppIndex])
+		}
+		if !bytes.Equal(expectedPayload[:], chained.Payload) {
+			return fmt.Errorf("Payload does not match expectation for UPP at index %v\nExpected:\n%v\nGot:\n%v", chainedUppIndex, hex.EncodeToString(expectedPayload[:]), hex.EncodeToString(chained.Payload))
+		}
+		//...Signature
+		verifyOK, err := verifyUPPSignature(t, chainedUppData, pubkeyBytes)
+		if err != nil {
+			return fmt.Errorf("Signature verification could not be performed due to errors for UPP at index %v, error: %v", chainedUppIndex, err)
+		}
+		if !verifyOK {
+			return fmt.Errorf("Signature is not OK for UPP at index %v", chainedUppIndex)
+		}
+	}
+	//... check chain iself
+	err = verifyUPPChain(t, uppsArray, lastSigBytes)
+	if err != nil {
+		return err //return the info from the chain check error
+	}
+	//If we reach this, everything was checked without errors
+	return nil
+}
+
+func encodePrivateKeyTestHelper(privKeyBytes []byte) ([]byte, error) {
+	privKey := new(ecdsa.PrivateKey)
+	privKey.D = new(big.Int)
+	privKey.D.SetBytes(privKeyBytes)
+	privKey.PublicKey.Curve = elliptic.P256()
+	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
+
+	x509Encoded, err := x509.MarshalECPrivateKey(privKey)
+	if err != nil {
+		return nil, err
+	}
+	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: x509Encoded})
+	return pemEncoded, nil
+}
+
+func encodePublicKeyTestHelper(pubKeyBytes []byte) ([]byte, error) {
+	pubKey := new(ecdsa.PublicKey)
+	pubKey.Curve = elliptic.P256()
+	pubKey.X = &big.Int{}
+	pubKey.X.SetBytes(pubKeyBytes[0:32])
+	pubKey.Y = &big.Int{}
+	pubKey.Y.SetBytes(pubKeyBytes[32:64])
+
+	x509EncodedPub, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
+		return nil, err
+	}
+	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509EncodedPub})
+
+	return pemEncoded, nil
+}
+
+func decodePrivateKeyTestHelper(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
+	block, _ := pem.Decode(pemEncoded)
+	x509Encoded := block.Bytes
+	return x509.ParseECPrivateKey(x509Encoded)
+}
+
+func decodePublicKeyTestHelper(pemEncoded []byte) (*ecdsa.PublicKey, error) {
+	block, _ := pem.Decode(pemEncoded)
+	genericPublicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return genericPublicKey.(*ecdsa.PublicKey), nil
 }

@@ -28,7 +28,6 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
-	"github.com/ubirch/go.crypto/keystore"
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 )
 
@@ -63,12 +62,10 @@ func loadProtocolContext(p *ubirch.Protocol) error {
 func main() {
 	name := "A"
 
-	context := &ubirch.CryptoContext{
-		Keystore: &ubirch.EncryptedKeystore{
-			Keystore: &keystore.Keystore{},
-			Secret:   []byte("2234567890123456"),
-		},
-		Names: map[string]uuid.UUID{}}
+	var context = &ubirch.CryptoContext{
+		Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")),
+		Names:    map[string]uuid.UUID{},
+	}
 	p := ubirch.Protocol{
 		Crypto:     context,
 		Signatures: map[uuid.UUID][]byte{},
@@ -85,7 +82,7 @@ func main() {
 	}
 
 	data, _ := hex.DecodeString("010203040506070809FF")
-	encoded, err := p.Sign(name, data, ubirch.Chained)
+	encoded, err := p.SignData(name, data, ubirch.Chained)
 	if err != nil {
 		log.Fatalf("creating signed upp failed: %v", err)
 	}

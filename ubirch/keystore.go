@@ -35,6 +35,7 @@ type Keystorer interface {
 }
 
 // EncryptedKeystore is the reference implementation for a simple keystore.
+// The secret has to be 16 Bytes long
 type EncryptedKeystore struct {
 	*keystore.Keystore
 	Secret []byte
@@ -45,6 +46,9 @@ var _ Keystorer = (*EncryptedKeystore)(nil)
 
 // NewEncryptedKeystore returns a new freshly initialized Keystore
 func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
+	if len(secret) != 16 {
+		return nil
+	}
 	return &EncryptedKeystore{
 		Keystore: &keystore.Keystore{},
 		Secret:   secret,
