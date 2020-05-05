@@ -183,7 +183,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 	case Chained:
 		signature, found := p.Signatures[id]
 		if !found {
-			signature = make([]byte, 64)
+			signature = make([]byte, nistp256SignatureLength)
 		}
 		return ChainedUPP{protocol, id, signature, 0x00, hash, nil}.sign(p)
 	default:
@@ -209,12 +209,14 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType)
 
 // Verify a ubirch-protocol message and return the payload.
 func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (bool, error) {
+	const signatureMsgpackHeaderLength = 2 //Bytes, Length of the header for msgpack byte array containing the signature (0xc4XX)
+
 	id, err := p.Crypto.GetUUID(name)
 	if err != nil {
 		return false, err
 	}
 
-	if len(value) < 66 {
+	if len(value) < (nistp256SignatureLength + signatureMsgpackHeaderLength) {
 		return false, errors.New(fmt.Sprintf("data must contain signature: len %d < 64+2 bytes", len(value)))
 	}
 
@@ -224,8 +226,8 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 	case Signed:
 		fallthrough
 	case Chained:
-		data := value[:len(value)-66]
-		signature := value[len(value)-64:]
+		data := value[:len(value)-(nistp256SignatureLength+signatureMsgpackHeaderLength)]
+		signature := value[len(value)-nistp256SignatureLength:]
 		return p.Crypto.Verify(id, data, signature)
 	default:
 		return false, errors.New(fmt.Sprintf("unknown protocol type: %d", protocol))
