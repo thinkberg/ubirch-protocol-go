@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 
 	"github.com/google/uuid"
 )
@@ -134,6 +135,12 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	if err != nil {
 		return err
 	}
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return fmt.Errorf("can't set public key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return fmt.Errorf("can't set public key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
 	return c.Keystore.SetKey(pubKeyEntryTitle(id), pubKeyBytes)
 }
 
@@ -147,6 +154,12 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 	privKeyBytes, err := encodePrivateKey(k)
 	if err != nil {
 		return err
+	}
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return fmt.Errorf("can't set private key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return fmt.Errorf("can't set private key: keystore pointer is nil, pointer type is %T", c.Keystore)
 	}
 	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
 }
@@ -171,6 +184,12 @@ func (c *CryptoContext) GetUUID(name string) (uuid.UUID, error) {
 
 // GenerateKey generates a new key pair and stores it, using the given name and associated UUID.
 func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return fmt.Errorf("can't generate key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return fmt.Errorf("can't generate key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
 	// check for empty name
 	if name == "" {
 		return errors.New(fmt.Sprintf("generating key for empty name not possible"))
@@ -233,7 +252,7 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 // GetCSR gets a certificate signing request.
 // TODO Not yet implemented
 func (c *CryptoContext) GetCSR(name string) ([]byte, error) {
-	return nil, nil
+	return nil, fmt.Errorf("not implemented")
 }
 
 // getDecodedPublicKey gets the decoded public key for the given name.
@@ -242,7 +261,12 @@ func (c *CryptoContext) getDecodedPublicKey(name string) (*ecdsa.PublicKey, erro
 	if err != nil {
 		return nil, err
 	}
-
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return nil, fmt.Errorf("can't get public key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return nil, fmt.Errorf("can't get public key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
 	pubKey, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
@@ -283,7 +307,12 @@ func (c *CryptoContext) getDecodedPrivateKey(name string) (*ecdsa.PrivateKey, er
 	if err != nil {
 		return nil, err
 	}
-
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return nil, fmt.Errorf("can't get private key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return nil, fmt.Errorf("can't get private key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
 	privKey, err := c.Keystore.GetKey(privKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
@@ -307,11 +336,18 @@ func (c *CryptoContext) PrivateKeyExists(name string) bool {
 //  func (c *CryptoContext) Sign(name string, data []byte) ([]byte, error) {
 //		privKeyBytes, err := c.getDecodedPrivateKey(name)
 //		...
-// Sign a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
+
+// Sign returns the signature for 'data' using the private key of a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 
 	if len(data) == 0 {
 		return nil, errors.New("empty data cannot be signed")
+	}
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return nil, fmt.Errorf("can't get private key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return nil, fmt.Errorf("can't get private key: keystore pointer is nil, pointer type is %T", c.Keystore)
 	}
 	privKeyBytes, err := c.Keystore.GetKey(privKeyEntryTitle(id))
 
@@ -347,7 +383,7 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 //  func (c *CryptoContext) Verify(name string, data []byte, signature []byte) (bool, error) {
 //		pubKeyBytes, err := c.getDecodedPublicKey(name)
 //		...
-// Verify a message using a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
+// Verify that 'signature' matches 'data' using the pubkey of a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
 	const expectedSignatureLength = nistp256SignatureLength
 	if len(data) == 0 {
@@ -356,7 +392,12 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (boo
 	if len(signature) != expectedSignatureLength {
 		return false, errors.New(fmt.Sprintf("signature lenght wrong: %d != %d", len(signature), expectedSignatureLength))
 	}
-
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return false, fmt.Errorf("can't get public key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return false, fmt.Errorf("can't get public key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
 	pubKeyBytes, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
 
 	if err != nil {
