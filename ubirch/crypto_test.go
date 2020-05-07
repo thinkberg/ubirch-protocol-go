@@ -49,6 +49,62 @@ func TestCreateKeystore(t *testing.T) {
 // TODO loadProtocolContext, why is this function in the main
 // TODO: Answer, the load and store functions are outside, to keep the protocol outside the keystore
 
+//TestCryptoContext_FaultyKeystores tests proper behavior with faulty keystores such as nil/uninitialized
+func TestCryptoContext_FaultyKeystores(t *testing.T) {
+	var tests = []struct {
+		testName       string
+		faultyKeystore Keystorer
+	}{
+		{
+			testName:       "ExplicitNilNewkeystore",
+			faultyKeystore: nil, //keystore is (nil)
+		},
+		{
+			testName:       "ErrorCreatingNewKeystore",
+			faultyKeystore: NewEncryptedKeystore([]byte("")), //no proper secret given -> (*EncryptedKeystore)(nil) is returned
+		},
+	}
+	//Iterate over all tests
+	for _, currTest := range tests {
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+
+			//create the Context with the faulty keystore
+			var kstore = currTest.faultyKeystore
+			var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
+
+			//Test all the (keystore-using) functions of the CryptoContext interface for proper behavior
+			//(no panics, error returned instead)
+			//context.GenerateKey
+			testUUID := uuid.MustParse(defaultUUID)
+			err := context.GenerateKey(defaultName, testUUID)
+			asserter.Error(err, "GenerateKey() did not return an error for a faulty keystore")
+			//context.GetCSR
+			bytes, err := context.GetCSR(defaultName)
+			asserter.Error(err, "GetCSR() did not return an error for a faulty keystore")
+			asserter.Nil(bytes, "GetCSR() did return data for a faulty keystore")
+			//context.SetKey
+			err = context.SetKey(defaultName, testUUID, make([]byte, nistp256PrivkeyLength))
+			asserter.Error(err, "SetKey() did not return an error for a faulty keystore")
+			//context.PrivateKeyExists (make sure setkey is tried firstm so we don't get an error just because of "no key")
+			result := context.PrivateKeyExists(defaultName)
+			asserter.False(result, "Private key found in faulty keystore")
+			//context.SetPublicKey
+			err = context.SetPublicKey(defaultName, testUUID, make([]byte, nistp256PubkeyLength))
+			asserter.Error(err, "SetPublicKey() did not return an error for a faulty keystore")
+			//context.Sign
+			bytes, err = context.Sign(testUUID, []byte("justsomedata"))
+			asserter.Error(err, "context.Sign() did not return an error for a faulty keystore")
+			asserter.Nil(bytes, "context.Sign() did return data for a faulty keystore")
+			//context.Verify (since this does not use a matching signature, the test will always fail,
+			//but the main purpose of the test is to catch panics caused by the faulty keystore)
+			result, err = context.Verify(testUUID, []byte("justsomedata"), make([]byte, nistp256SignatureLength))
+			asserter.Error(err, "context.Verify() did not return an error for a faulty keystore")
+			asserter.False(result, "context.Verify() incorrect signature is verifiable with faulty keystore")
+		})
+	}
+}
+
 // TestTestLoadKeystore uses saveProtocolContext and loadProtocolContext to use the underlying functions
 // to set and get content from the Keystore. The content is compared to check if these methods work.
 // At the end the temporary file is deleted
