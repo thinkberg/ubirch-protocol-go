@@ -96,15 +96,15 @@ func Decode(upp []byte) (interface{}, error) {
 	mh.WriteExt = true
 
 	decoder := codec.NewDecoderBytes(upp, &mh)
-	switch upp[0] {
-	case 0x95:
+	switch upp[1] {
+	case byte(Signed):
 		msg := new(SignedUPP)
 		err := decoder.Decode(msg)
 		if err != nil {
 			return nil, err
 		}
 		return msg, nil
-	case 0x96:
+	case byte(Chained):
 		msg := new(ChainedUPP)
 		err := decoder.Decode(msg)
 		if err != nil {
@@ -112,7 +112,7 @@ func Decode(upp []byte) (interface{}, error) {
 		}
 		return msg, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("corrupt UPP: array len=%d", upp[0]))
+		return nil, errors.New(fmt.Sprintf("Invalid UPP: Undefined Protocol Type %x", upp[1]))
 	}
 }
 
@@ -234,14 +234,14 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType)
 
 // Verify a ubirch-protocol message and return the payload.
 func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (bool, error) {
-	const signatureMsgpackHeaderLength = 2 //Bytes, Length of the header for msgpack byte array containing the signature (0xc4XX)
+	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength //Bytes, Length of the signature plus msgpack header for byte array (0xc4XX)
 
 	id, err := p.Crypto.GetUUID(name)
 	if err != nil {
 		return false, err
 	}
 
-	if len(value) < (nistp256SignatureLength + signatureMsgpackHeaderLength) {
+	if len(value) <= lenMsgpackSignatureElement {
 		return false, errors.New(fmt.Sprintf("data must contain signature: len %d < 64+2 bytes", len(value)))
 	}
 
@@ -251,7 +251,7 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 	case Signed:
 		fallthrough
 	case Chained:
-		data := value[:len(value)-(nistp256SignatureLength+signatureMsgpackHeaderLength)]
+		data := value[:len(value)-lenMsgpackSignatureElement]
 		signature := value[len(value)-nistp256SignatureLength:]
 		return p.Crypto.Verify(id, data, signature)
 	default:
