@@ -96,15 +96,15 @@ func Decode(upp []byte) (interface{}, error) {
 	mh.WriteExt = true
 
 	decoder := codec.NewDecoderBytes(upp, &mh)
-	switch upp[0] {
-	case 0x95:
+	switch upp[1] {
+	case byte(Signed):
 		msg := new(SignedUPP)
 		err := decoder.Decode(msg)
 		if err != nil {
 			return nil, err
 		}
 		return msg, nil
-	case 0x96:
+	case byte(Chained):
 		msg := new(ChainedUPP)
 		err := decoder.Decode(msg)
 		if err != nil {
@@ -112,12 +112,15 @@ func Decode(upp []byte) (interface{}, error) {
 		}
 		return msg, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("corrupt UPP: array len=%d", upp[0]))
+		return nil, errors.New(fmt.Sprintf("Invalid UPP: Undefined Protocol Type %x", upp[1]))
 	}
 }
 
 // appendSignature appends a signature to an encoded message and returns it
 func appendSignature(encoded []byte, signature []byte) []byte {
+	if len(encoded) == 0 || len(signature) == 0 {
+		return nil
+	}
 	encoded = append(encoded[:len(encoded)-1], 0xC4, byte(len(signature)))
 	encoded = append(encoded, signature...)
 	return encoded
@@ -130,7 +133,17 @@ func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
 		return nil, err
 	}
 	signature, err := p.Crypto.Sign(upp.Uuid, encoded[:len(encoded)-1])
-	return appendSignature(encoded, signature), nil
+	if err != nil {
+		return nil, err
+	}
+	if len(signature) != nistp256SignatureLength {
+		return nil, fmt.Errorf("Generated signature has invalid length")
+	}
+	uppWithSig := appendSignature(encoded, signature)
+	if uppWithSig == nil {
+		return nil, fmt.Errorf("Generated UPP is nil")
+	}
+	return uppWithSig, nil
 }
 
 // sign encodes, signs and appends the signature to a ChainedUPP.
@@ -141,8 +154,18 @@ func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
 		return nil, err
 	}
 	signature, err := p.Crypto.Sign(upp.Uuid, encoded[:len(encoded)-1])
+	if err != nil {
+		return nil, err
+	}
+	if len(signature) != nistp256SignatureLength {
+		return nil, fmt.Errorf("Generated signature has invalid length")
+	}
+	uppWithSig := appendSignature(encoded, signature)
+	if uppWithSig == nil {
+		return nil, fmt.Errorf("Generated UPP is nil")
+	}
 	p.Signatures[upp.Uuid] = signature
-	return appendSignature(encoded, signature), nil
+	return uppWithSig, nil
 }
 
 // Init initializes the Protocol, which is not necessary in Golang
@@ -181,13 +204,15 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 	case Signed:
 		return SignedUPP{protocol, id, 0x00, hash, nil}.sign(p)
 	case Chained:
-		signature, found := p.Signatures[id]
+		signature, found := p.Signatures[id] //load signature of last UPP
 		if !found {
-			signature = make([]byte, 64)
+			signature = make([]byte, nistp256SignatureLength) //not found: make new chain start (all zeroes signature)
+		} else if len(signature) != nistp256SignatureLength { //found: check that loaded signature seems valid
+			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
 		}
 		return ChainedUPP{protocol, id, signature, 0x00, hash, nil}.sign(p)
 	default:
-		return nil, errors.New(fmt.Sprintf("unknown protocol type: 0x%02x", protocol))
+		return nil, fmt.Errorf("unknown protocol type: 0x%02x", protocol)
 	}
 }
 
@@ -209,12 +234,14 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType)
 
 // Verify a ubirch-protocol message and return the payload.
 func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (bool, error) {
+	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength //Bytes, Length of the signature plus msgpack header for byte array (0xc4XX)
+
 	id, err := p.Crypto.GetUUID(name)
 	if err != nil {
 		return false, err
 	}
 
-	if len(value) < 66 {
+	if len(value) <= lenMsgpackSignatureElement {
 		return false, errors.New(fmt.Sprintf("data must contain signature: len %d < 64+2 bytes", len(value)))
 	}
 
@@ -224,8 +251,8 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 	case Signed:
 		fallthrough
 	case Chained:
-		data := value[:len(value)-66]
-		signature := value[len(value)-64:]
+		data := value[:len(value)-lenMsgpackSignatureElement]
+		signature := value[len(value)-nistp256SignatureLength:]
 		return p.Crypto.Verify(id, data, signature)
 	default:
 		return false, errors.New(fmt.Sprintf("unknown protocol type: %d", protocol))

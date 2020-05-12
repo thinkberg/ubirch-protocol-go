@@ -706,6 +706,91 @@ func TestSignData_ChainedType(t *testing.T) {
 	}
 }
 
+//TestSignData_CorruptContext tests the cases where SignData() function must return an error because of the
+//context (or by extension the keystore) are corrupt with otherwise correct parameters. It uses a table with
+// explicitly defined corrupt contexts/keystores.
+func TestSignData_CorruptContext(t *testing.T) {
+	//Generate some standard structs to use in tests table
+	//empty
+	emptyKeystore := NewEncryptedKeystore([]byte(defaultSecret))
+	// for tests with nil/empty last signature (written for bug UP-1693)
+	protocolLastSigNil, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	require.NoError(t, err, "Could not create protocolLastSigNil")
+	protocolLastSigNil.Signatures[uuid.MustParse(defaultUUID)] = nil
+	protocolLastSigEmpty, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	require.NoError(t, err, "Could not create protocolLastSigEmpty")
+	protocolLastSigEmpty.Signatures[uuid.MustParse(defaultUUID)] = []byte{}
+
+	//test cases
+	var tests = []struct {
+		testName           string
+		testProtocolStruct *Protocol
+		nameForSign        string //device name to use in call to SignData(), should match context/protocol data (if desired)
+		protocolsToTest    []ProtocolType
+	}{
+		{
+			testName: "EmptyContext", //no keys, no devices in Names list
+			testProtocolStruct: &Protocol{
+				Crypto: &CryptoContext{
+					Keystore: emptyKeystore,
+					Names:    map[string]uuid.UUID{},
+				},
+				Signatures: map[uuid.UUID][]byte{},
+			},
+			nameForSign:     "",
+			protocolsToTest: []ProtocolType{Signed, Chained},
+		},
+		{
+			testName: "NameOkKeystoreEmpty", //Device is in list of devices but no key is in the Keystore (written for bug UP-1693)
+			testProtocolStruct: &Protocol{
+				Crypto: &CryptoContext{
+					Keystore: emptyKeystore,
+					Names:    map[string]uuid.UUID{defaultName: uuid.MustParse(defaultUUID)},
+				},
+				Signatures: map[uuid.UUID][]byte{},
+			},
+			nameForSign:     defaultName,
+			protocolsToTest: []ProtocolType{Signed, Chained},
+		},
+		{
+			testName:           "LastSignatureNil", //evrything OK but last signature is present but nil (written for bug UP-1693)
+			testProtocolStruct: protocolLastSigNil,
+			nameForSign:        defaultName,
+			protocolsToTest:    []ProtocolType{Chained}, //only relevant for chained
+		},
+		{
+			testName:           "LastSignatureEmpty", //evrything OK but last signature is present but empty (written for bug UP-1693)
+			testProtocolStruct: protocolLastSigEmpty,
+			nameForSign:        defaultName,
+			protocolsToTest:    []ProtocolType{Chained}, //only relevant for chained
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		//Run each test for each protocol that should be tested
+		for _, currProtocolToTest := range currTest.protocolsToTest {
+			//Create identifier to append to test name
+			protocolTypeString := fmt.Sprintf("(ProtocolType=%v)", currProtocolToTest)
+			t.Run(currTest.testName+protocolTypeString, func(t *testing.T) {
+				asserter := assert.New(t)
+				requirer := require.New(t)
+
+				//Load protocol/context/keystore from test data new crypto context
+				protocol := currTest.testProtocolStruct
+
+				//Parse default user data string
+				userDataBytes, err := hex.DecodeString(defaultInputData)
+				requirer.NoErrorf(err, "Test configuration string (defaultInputData) can't be decoded.\nString was: %v", defaultInputData)
+
+				//Call SignData() and assert error
+				_, err = protocol.SignData(currTest.nameForSign, userDataBytes, currProtocolToTest)
+				asserter.Error(err, "SignData() did not return an error for a faulty protocol context")
+			})
+		}
+	}
+}
+
 //TestECDSALibrary in its current state only tests if the ECDSA library behaves as expected
 func TestECDSALibrary(t *testing.T) {
 	asserter := assert.New(t)
