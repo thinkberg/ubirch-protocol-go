@@ -112,8 +112,36 @@ func Decode(upp []byte) (interface{}, error) {
 		}
 		return msg, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("Invalid UPP: Undefined Protocol Type %x", upp[1]))
+		return nil, fmt.Errorf("Invalid UPP: Undefined Protocol Version %x", upp[1])
 	}
+}
+
+func DecodeSigned(upp []byte) (SignedUPP, error) {
+	i, err := Decode(upp)
+	if err != nil {
+		return SignedUPP{}, err
+	}
+
+	signed, ok := i.(*SignedUPP)
+	if !ok {
+		return SignedUPP{}, fmt.Errorf("type assertion failed: input not a signed UPP")
+	}
+
+	return *signed, nil
+}
+
+func DecodeChained(upp []byte) (ChainedUPP, error) {
+	i, err := Decode(upp)
+	if err != nil {
+		return ChainedUPP{}, err
+	}
+
+	chained, ok := i.(*ChainedUPP)
+	if !ok {
+		return ChainedUPP{}, fmt.Errorf("type assertion failed: input not a chained UPP")
+	}
+
+	return *chained, nil
 }
 
 // appendSignature appends a signature to an encoded message and returns it
@@ -168,11 +196,6 @@ func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
 	return uppWithSig, nil
 }
 
-// Init initializes the Protocol, which is not necessary in Golang
-func (p *Protocol) Init() {
-	//Keep this function for compatibility in ubirch/ubirch-go-udp-client
-}
-
 //Sign is a wrapper for backwards compatibility with Sign() calls, will be removed in the future
 func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
 	fmt.Println("Warning: Sign() is deprecated, please use SignHash() or SignData() as appropriate")
@@ -185,6 +208,9 @@ func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte
 //TODO: this should not be a public function, users should use SignData() instead.
 func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
 	const expectedHashSize = 32
+	if len(hash) != expectedHashSize {
+		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
+	}
 
 	id, err := p.Crypto.GetUUID(name)
 	if err != nil {
@@ -192,10 +218,6 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 	}
 	if id == uuid.Nil { //catch error if there is an entry but the UUID is nil
 		return nil, fmt.Errorf("Entry for name found but UUID is nil")
-	}
-
-	if len(hash) != expectedHashSize {
-		return nil, fmt.Errorf("Invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
 	}
 
 	switch protocol {
@@ -220,6 +242,8 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 // The method expects the user data as input data. Data will be hashed and a UPP using
 // the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
 // from the context using the given device name.
+// FIXME this might be confusing. If the user explicitly wants to sign original data,
+//  (e.g. for msgpack key registration messages) this method name sounds like it would do that.
 func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType) ([]byte, error) {
 	//Catch errors
 	if len(userData) < 1 || userData == nil {
@@ -242,7 +266,7 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 	}
 
 	if len(value) <= lenMsgpackSignatureElement {
-		return false, errors.New(fmt.Sprintf("data must contain signature: len %d < 64+2 bytes", len(value)))
+		return false, fmt.Errorf("data must contain signature: len %d <= %d bytes", len(value), lenMsgpackSignatureElement)
 	}
 
 	switch protocol {
@@ -255,7 +279,7 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 		signature := value[len(value)-nistp256SignatureLength:]
 		return p.Crypto.Verify(id, data, signature)
 	default:
-		return false, errors.New(fmt.Sprintf("unknown protocol type: %d", protocol))
+		return false, fmt.Errorf("unknown protocol type: 0x%x", protocol)
 	}
 
 	// TODO: fix and implement automatic UPP decoding to structs
