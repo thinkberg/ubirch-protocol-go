@@ -414,8 +414,5 @@ func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (boo
 	s.SetBytes(signature[nistp256SLength:])
 
 	hash := sha256.Sum256(data)
-	if ecdsa.Verify(pub, hash[:], r, s) {
-		return true, nil
-	}
-	return false, errors.New("signature verification failed")
+	return ecdsa.Verify(pub, hash[:], r, s), nil
 }
