@@ -53,6 +53,11 @@ func TestNewEncryptedKeystore(t *testing.T) {
 //			get the public key
 //			get the private key
 func TestEncryptedKeystore_GetKey(t *testing.T) {
+	const (
+		expectedJSONPubkey  = "55f0feac4f2bcf879330eff348422ab3abf5237a24acaf0aef3bb876045c4e532fbd6cd8e265f6cf28b46e7e4512cd06ba84bcd3300efdadf28750f43dafd771"
+		expectedJSONPrivkey = "8f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937"
+		expectedJSONUUID    = "6eac4d0b-16e6-4508-8c46-22e7451ea5a1"
+	)
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	//Set up test objects and parameters
@@ -63,7 +68,7 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 	}
 	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
 	requirer.NoErrorf(loadProtocolContext(&p, "test3.json"), "Failed loading protocol context")
-	id := uuid.MustParse(defaultUUID)
+	id := uuid.MustParse(expectedJSONUUID)
 	// Get the public key
 	pubKeyEncoded, err := testKeystore.GetKey(pubKeyEntryTitle(id))
 	asserter.NoErrorf(err, "failed to get the public key")
@@ -73,7 +78,7 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 	pubKeyBytes := pubKey.X.Bytes()
 	pubKeyBytes = append(pubKeyBytes, pubKey.Y.Bytes()...)
 	pubKeyString := hex.EncodeToString(pubKeyBytes)
-	asserter.Equalf(defaultPub, pubKeyString, "not equal")
+	asserter.Equalf(expectedJSONPubkey, pubKeyString, "not equal")
 	// Get the private key
 	privKeyEncoded, err := testKeystore.GetKey(privKeyEntryTitle(id))
 	asserter.NoErrorf(err, "failed to get the privlic key")
@@ -82,7 +87,7 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 	privKey, err := decodePrivateKeyTestHelper(privKeyEncoded)
 	privKeyBytes := privKey.D.Bytes()
 	privKeyString := hex.EncodeToString(privKeyBytes)
-	asserter.Equalf(defaultPriv, privKeyString, "not equal")
+	asserter.Equalf(expectedJSONPrivkey, privKeyString, "not equal")
 }
 
 // test, where the get method should fail

@@ -144,7 +144,8 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 //		Get the UUID for unknown Name
 func TestCryptoContext_GetUUID(t *testing.T) {
 	const (
-		unknownName = "NOBODY"
+		unknownName      = "NOBODY"
+		expectedJSONUUID = "6eac4d0b-16e6-4508-8c46-22e7451ea5a1"
 	)
 	// prepare
 	asserter := assert.New(t)
@@ -161,7 +162,7 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading protocol context")
 	id, err = p.GetUUID(defaultName)
 	asserter.NoErrorf(err, "Cannot get UUID")
-	asserter.Equalf(id, uuid.MustParse(defaultUUID), "the uuid is not correct")
+	asserter.Equalf(id, uuid.MustParse(expectedJSONUUID), "the uuid is not correct")
 
 	// test the unknown UUID
 	id, err = p.GetUUID(unknownName)
@@ -479,7 +480,7 @@ func TestCryptoContext_Verify(t *testing.T) {
 			testName:          "DEFAULT",
 			name:              defaultName,
 			UUID:              defaultUUID,
-			publicKey:         defaultPub,
+			publicKey:         "55f0feac4f2bcf879330eff348422ab3abf5237a24acaf0aef3bb876045c4e532fbd6cd8e265f6cf28b46e7e4512cd06ba84bcd3300efdadf28750f43dafd771",
 			signatureToVerify: "b9fbd39289ac3d464662bb1277d183b697282bc08c56b6dba986b32f7a2778134441b006683a242733a80ef7f732cdbb6e9455d33f7a4350086b075db8f10d75",
 			dataToVerify:      defaultHash,
 		},
