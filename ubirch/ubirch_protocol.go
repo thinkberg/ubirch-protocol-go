@@ -40,7 +40,7 @@ const (
 type Crypto interface {
 	GetUUID(name string) (uuid.UUID, error)
 	GenerateKey(name string, id uuid.UUID) error
-	GetCSR(name string) ([]byte, error)
+	GetCSR(name string, subjectCountry string, subjectOrganization string) ([]byte, error)
 	GetPublicKey(name string) ([]byte, error)
 	PrivateKeyExists(name string) bool
 	SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error

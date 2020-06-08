@@ -251,14 +251,18 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 }
 
 // GetCSR gets a certificate signing request.
-func (c *CryptoContext) GetCSR(name string) ([]byte, error) {
+func (c *CryptoContext) GetCSR(name string, subjectCountry string, subjectOrganization string) ([]byte, error) {
+	uid, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
 
 	template := &x509.CertificateRequest{
 		SignatureAlgorithm: x509.ECDSAWithSHA256,
 		Subject: pkix.Name{
-			Country:      []string{"DE"},
-			Organization: []string{"ubirch GmbH"},
-			CommonName:   c.Names[name].String(),
+			Country:      []string{subjectCountry},
+			Organization: []string{subjectOrganization},
+			CommonName:   uid.String(),
 		},
 	}
 
