@@ -24,6 +24,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -250,9 +251,27 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 }
 
 // GetCSR gets a certificate signing request.
-// TODO Not yet implemented
-func (c *CryptoContext) GetCSR(name string) ([]byte, error) {
-	return nil, fmt.Errorf("not implemented")
+func (c *CryptoContext) GetCSR(name string, subjectCountry string, subjectOrganization string) ([]byte, error) {
+	uid, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
+	template := &x509.CertificateRequest{
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+		Subject: pkix.Name{
+			Country:      []string{subjectCountry},
+			Organization: []string{subjectOrganization},
+			CommonName:   uid.String(),
+		},
+	}
+
+	priv, err := c.getDecodedPrivateKey(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return x509.CreateCertificateRequest(rand.Reader, template, priv)
 }
 
 // getDecodedPublicKey gets the decoded public key for the given name.
