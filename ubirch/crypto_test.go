@@ -80,7 +80,7 @@ func TestCryptoContext_FaultyKeystores(t *testing.T) {
 			err := context.GenerateKey(defaultName, testUUID)
 			asserter.Error(err, "GenerateKey() did not return an error for a faulty keystore")
 			//context.GetCSR
-			bytes, err := context.GetCSR(defaultName)
+			bytes, err := context.GetCSR(defaultName, "DE", "Test GmbH")
 			asserter.Error(err, "GetCSR() did not return an error for a faulty keystore")
 			asserter.Nil(bytes, "GetCSR() did return data for a faulty keystore")
 			//context.SetKey
