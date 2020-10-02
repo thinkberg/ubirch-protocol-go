@@ -212,14 +212,13 @@ func appendSignature(encoded []byte, signature []byte) []byte {
 	return encoded
 }
 
-// sign encodes, signs and appends the signature to a UPP
-// also saves the signature for chained UPPs
-func (p *Protocol) sign(upp UPP) ([]byte, error) {
+// sign encodes, signs and appends the signature to a SignedUPP
+func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
 	encoded, err := Encode(upp)
 	if err != nil {
 		return nil, err
 	}
-	signature, err := p.Crypto.Sign(upp.GetUuid(), encoded[:len(encoded)-1])
+	signature, err := p.Crypto.Sign(upp.Uuid, encoded[:len(encoded)-1])
 	if err != nil {
 		return nil, err
 	}
@@ -230,13 +229,28 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 	if uppWithSig == nil {
 		return nil, fmt.Errorf("Generated UPP is nil")
 	}
+	return uppWithSig, nil
+}
 
-	// save the signature for chained UPPs
-	_, isChained := upp.(*ChainedUPP)
-	if isChained {
-		p.Signatures[upp.GetUuid()] = signature
+// sign encodes, signs and appends the signature to a ChainedUPP.
+// also the signature is stored for later usage
+func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
+	encoded, err := Encode(upp)
+	if err != nil {
+		return nil, err
 	}
-
+	signature, err := p.Crypto.Sign(upp.Uuid, encoded[:len(encoded)-1])
+	if err != nil {
+		return nil, err
+	}
+	if len(signature) != nistp256SignatureLength {
+		return nil, fmt.Errorf("Generated signature has invalid length")
+	}
+	uppWithSig := appendSignature(encoded, signature)
+	if uppWithSig == nil {
+		return nil, fmt.Errorf("Generated UPP is nil")
+	}
+	p.Signatures[upp.Uuid] = signature
 	return uppWithSig, nil
 }
 
@@ -268,7 +282,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 	case Plain:
 		return nil, fmt.Errorf("Plain type packets are deprecated") //p.Crypto.Sign(id, value)
 	case Signed:
-		return p.sign(SignedUPP{protocol, id, 0x00, hash, nil})
+		return SignedUPP{protocol, id, 0x00, hash, nil}.sign(p)
 	case Chained:
 		signature, found := p.Signatures[id] //load signature of last UPP
 		if !found {
@@ -276,7 +290,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 		} else if len(signature) != nistp256SignatureLength { //found: check that loaded signature seems valid
 			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
 		}
-		return p.sign(ChainedUPP{protocol, id, signature, 0x00, hash, nil})
+		return ChainedUPP{protocol, id, signature, 0x00, hash, nil}.sign(p)
 	default:
 		return nil, fmt.Errorf("unknown protocol type: 0x%02x", protocol)
 	}
