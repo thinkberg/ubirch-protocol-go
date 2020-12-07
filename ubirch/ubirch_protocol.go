@@ -56,6 +56,16 @@ type Protocol struct {
 	Signatures map[uuid.UUID][]byte
 }
 
+// interface for Ubirch Protocol Packages
+type UPP interface {
+	GetVersion() ProtocolType
+	GetUuid() uuid.UUID
+	GetPrevSignature() []byte
+	GetHint() uint8
+	GetPayload() []byte
+	GetSignature() []byte
+}
+
 // SignedUPP is the Signed Ubirch Protocol Package
 type SignedUPP struct {
 	Version   ProtocolType
@@ -63,6 +73,30 @@ type SignedUPP struct {
 	Hint      uint8
 	Payload   []byte
 	Signature []byte
+}
+
+func (upp SignedUPP) GetVersion() ProtocolType {
+	return upp.Version
+}
+
+func (upp SignedUPP) GetUuid() uuid.UUID {
+	return upp.Uuid
+}
+
+func (upp SignedUPP) GetPrevSignature() []byte {
+	return nil
+}
+
+func (upp SignedUPP) GetHint() uint8 {
+	return upp.Hint
+}
+
+func (upp SignedUPP) GetPayload() []byte {
+	return upp.Payload
+}
+
+func (upp SignedUPP) GetSignature() []byte {
+	return upp.Signature
 }
 
 // ChainedUPP is the Chained Ubirch Protocol Package
@@ -75,22 +109,46 @@ type ChainedUPP struct {
 	Signature     []byte
 }
 
-// Encode is encoding an interface into MsgPack and returns it, if successful with 'nil' error
-func Encode(v interface{}) ([]byte, error) {
+func (upp ChainedUPP) GetVersion() ProtocolType {
+	return upp.Version
+}
+
+func (upp ChainedUPP) GetUuid() uuid.UUID {
+	return upp.Uuid
+}
+
+func (upp ChainedUPP) GetPrevSignature() []byte {
+	return upp.PrevSignature
+}
+
+func (upp ChainedUPP) GetHint() uint8 {
+	return upp.Hint
+}
+
+func (upp ChainedUPP) GetPayload() []byte {
+	return upp.Payload
+}
+
+func (upp ChainedUPP) GetSignature() []byte {
+	return upp.Signature
+}
+
+// Encode encodes a UPP into MsgPack and returns it, if successful with 'nil' error
+func Encode(upp UPP) ([]byte, error) {
 	var mh codec.MsgpackHandle
 	mh.StructToArray = true
 	mh.WriteExt = true
 
 	encoded := make([]byte, 128)
 	encoder := codec.NewEncoderBytes(&encoded, &mh)
-	if err := encoder.Encode(v); err != nil {
+	if err := encoder.Encode(upp); err != nil {
 		return nil, err
 	}
 	return encoded, nil
 }
 
-// Decode is decoding a protocol package into a message a returns it, if successful with 'nil' error
-func Decode(upp []byte) (interface{}, error) {
+// Decode decodes a protocol package into a UPP a returns it, if successful with 'nil' error
+func Decode(upp []byte) (UPP, error) {
 	var mh codec.MsgpackHandle
 	mh.StructToArray = true
 	mh.WriteExt = true
@@ -154,13 +212,14 @@ func appendSignature(encoded []byte, signature []byte) []byte {
 	return encoded
 }
 
-// sign encodes, signs and appends the signature to a SignedUPP
-func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
+// sign encodes, signs and appends the signature to a UPP
+// also saves the signature for chained UPPs
+func (p *Protocol) sign(upp UPP) ([]byte, error) {
 	encoded, err := Encode(upp)
 	if err != nil {
 		return nil, err
 	}
-	signature, err := p.Crypto.Sign(upp.Uuid, encoded[:len(encoded)-1])
+	signature, err := p.Crypto.Sign(upp.GetUuid(), encoded[:len(encoded)-1])
 	if err != nil {
 		return nil, err
 	}
@@ -171,28 +230,12 @@ func (upp SignedUPP) sign(p *Protocol) ([]byte, error) {
 	if uppWithSig == nil {
 		return nil, fmt.Errorf("Generated UPP is nil")
 	}
-	return uppWithSig, nil
-}
 
-// sign encodes, signs and appends the signature to a ChainedUPP.
-// also the signature is stored for later usage
-func (upp ChainedUPP) sign(p *Protocol) ([]byte, error) {
-	encoded, err := Encode(upp)
-	if err != nil {
-		return nil, err
+	// save the signature for chained UPPs
+	if _, isChained := upp.(*ChainedUPP); isChained {
+		p.Signatures[upp.GetUuid()] = signature
 	}
-	signature, err := p.Crypto.Sign(upp.Uuid, encoded[:len(encoded)-1])
-	if err != nil {
-		return nil, err
-	}
-	if len(signature) != nistp256SignatureLength {
-		return nil, fmt.Errorf("Generated signature has invalid length")
-	}
-	uppWithSig := appendSignature(encoded, signature)
-	if uppWithSig == nil {
-		return nil, fmt.Errorf("Generated UPP is nil")
-	}
-	p.Signatures[upp.Uuid] = signature
+
 	return uppWithSig, nil
 }
 
@@ -224,7 +267,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 	case Plain:
 		return nil, fmt.Errorf("Plain type packets are deprecated") //p.Crypto.Sign(id, value)
 	case Signed:
-		return SignedUPP{protocol, id, 0x00, hash, nil}.sign(p)
+		return p.sign(&SignedUPP{protocol, id, 0x00, hash, nil})
 	case Chained:
 		signature, found := p.Signatures[id] //load signature of last UPP
 		if !found {
@@ -232,7 +275,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 		} else if len(signature) != nistp256SignatureLength { //found: check that loaded signature seems valid
 			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
 		}
-		return ChainedUPP{protocol, id, signature, 0x00, hash, nil}.sign(p)
+		return p.sign(&ChainedUPP{protocol, id, signature, 0x00, hash, nil})
 	default:
 		return nil, fmt.Errorf("unknown protocol type: 0x%02x", protocol)
 	}
@@ -281,24 +324,4 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 	default:
 		return false, fmt.Errorf("unknown protocol type: 0x%x", protocol)
 	}
-
-	// TODO: fix and implement automatic UPP decoding to structs
-	//switch protocol {
-	//case Plain:
-	//	return data, nil
-	//case Signed:
-	//	upp, err := Decode(value)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	return upp.(SignedUPP), nil
-	//case Chained:
-	//	upp, err := Decode(value)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	return upp.(ChainedUPP), nil
-	//default:
-	//	return nil, errors.New(fmt.Sprintf("unknown message type: %d", protocol))
-	//}
 }
