@@ -26,12 +26,12 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// ProtocolType definition
-type ProtocolType uint8
+// ProtocolVersion definition
+type ProtocolVersion uint8
 
 const (
-	Signed  ProtocolType = 0x22 // Signed protocol, the payload is signed
-	Chained ProtocolType = 0x23 // Chained protocol, the payload contains the previous signature and is signed
+	Signed  ProtocolVersion = 0x22 // Signed protocol, the payload is signed
+	Chained ProtocolVersion = 0x23 // Chained protocol, the payload contains the previous signature and is signed
 )
 
 // Crypto Interaface for exported functionality
@@ -56,7 +56,7 @@ type Protocol struct {
 
 // interface for Ubirch Protocol Packages
 type UPP interface {
-	GetVersion() ProtocolType
+	GetVersion() ProtocolVersion
 	GetUuid() uuid.UUID
 	GetPrevSignature() []byte
 	GetHint() uint8
@@ -66,14 +66,14 @@ type UPP interface {
 
 // SignedUPP is the Signed Ubirch Protocol Package
 type SignedUPP struct {
-	Version   ProtocolType
+	Version   ProtocolVersion
 	Uuid      uuid.UUID
 	Hint      uint8
 	Payload   []byte
 	Signature []byte
 }
 
-func (upp SignedUPP) GetVersion() ProtocolType {
+func (upp SignedUPP) GetVersion() ProtocolVersion {
 	return upp.Version
 }
 
@@ -99,7 +99,7 @@ func (upp SignedUPP) GetSignature() []byte {
 
 // ChainedUPP is the Chained Ubirch Protocol Package
 type ChainedUPP struct {
-	Version       ProtocolType
+	Version       ProtocolVersion
 	Uuid          uuid.UUID
 	PrevSignature []byte
 	Hint          uint8
@@ -107,7 +107,7 @@ type ChainedUPP struct {
 	Signature     []byte
 }
 
-func (upp ChainedUPP) GetVersion() ProtocolType {
+func (upp ChainedUPP) GetVersion() ProtocolVersion {
 	return upp.Version
 }
 
@@ -238,7 +238,7 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 }
 
 //Sign is a wrapper for backwards compatibility with Sign() calls, will be removed in the future
-func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
+func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
 	fmt.Println("Warning: Sign() is deprecated, please use SignHash() or SignData() as appropriate")
 	return p.SignHash(name, hash, protocol)
 }
@@ -246,7 +246,7 @@ func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte
 // SignHash creates and signs a ubirch-protocol message using the given hash and the protocol type.
 // The method expects a hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
-func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
+func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
 	const expectedHashSize = 32
 	if len(hash) != expectedHashSize {
 		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
@@ -282,7 +282,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 // from the context using the given device name.
 // FIXME this method name might be confusing. If the user explicitly wants to sign original data,
 //  (e.g. for msgpack key registration messages) the method name sounds like it would do that.
-func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType) ([]byte, error) {
+func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersion) ([]byte, error) {
 	//Catch errors
 	if userData == nil || len(userData) < 1 {
 		return nil, fmt.Errorf("Input data is nil or empty")

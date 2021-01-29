@@ -43,7 +43,7 @@ func BenchmarkSign(b *testing.B) {
 		devicePrivateKey string
 		deviceLastSig    string
 		inputSizeBytes   int
-		signProtocol     ProtocolType
+		signProtocol     ProtocolVersion
 	}{
 		{"Signed-32Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 32, Signed},
 		{"Signed-64Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 64, Signed},
@@ -94,7 +94,7 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 		devicePrivateKey  string
 		deviceLastSig     string
 		userDataSizeBytes int
-		signProtocol      ProtocolType
+		signProtocol      ProtocolVersion
 	}{
 		{"Signed-defaultDataSize", defaultName, defaultUUID, defaultPriv, defaultLastSig, defaultDataSize, Signed},
 		{"Signed-1kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024, Signed},

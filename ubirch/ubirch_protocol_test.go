@@ -123,7 +123,7 @@ func TestSignHash_Fails(t *testing.T) {
 		lastSigForContext    string
 		nameForSign          string
 		hashForSign          string
-		protocolsToTest      []ProtocolType
+		protocolsToTest      []ProtocolVersion
 	}{
 		{
 			testName:             "NameNotPresent",
@@ -133,7 +133,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          "naamee",
 			hashForSign:          defaultHash,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "ContextNotInitializedEmptyName",
@@ -143,7 +143,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          "",
 			hashForSign:          defaultHash,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "ContextNotInitializedNonEmptyName",
@@ -153,7 +153,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          "a",
 			hashForSign:          defaultHash,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "EmptyName",
@@ -163,7 +163,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    defaultLastSig,
 			nameForSign:          "",
 			hashForSign:          defaultHash,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "UUIDAndPrivKeyNotSet",
@@ -173,7 +173,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          defaultName,
 			hashForSign:          defaultHash,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "PrivkeyNotSet",
@@ -183,7 +183,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          defaultName,
 			hashForSign:          defaultHash,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "EmptyHash",
@@ -193,7 +193,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    defaultLastSig,
 			nameForSign:          defaultName,
 			hashForSign:          "",
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "33ByteHash",
@@ -203,7 +203,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    defaultLastSig,
 			nameForSign:          defaultName,
 			hashForSign:          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "31ByteHash",
@@ -213,7 +213,7 @@ func TestSignHash_Fails(t *testing.T) {
 			lastSigForContext:    defaultLastSig,
 			nameForSign:          defaultName,
 			hashForSign:          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 	}
 
@@ -303,7 +303,7 @@ func TestSignData_Fails(t *testing.T) {
 		lastSigForContext    string
 		nameForSign          string
 		dataForSign          string
-		protocolsToTest      []ProtocolType
+		protocolsToTest      []ProtocolVersion
 	}{
 		{
 			testName:             "emptyData",
@@ -313,7 +313,7 @@ func TestSignData_Fails(t *testing.T) {
 			lastSigForContext:    defaultLastSig,
 			nameForSign:          defaultName,
 			dataForSign:          "",
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "NameNotPresent",
@@ -323,7 +323,7 @@ func TestSignData_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          "naamee",
 			dataForSign:          defaultInputData,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "ContextNotInitializedEmptyName",
@@ -333,7 +333,7 @@ func TestSignData_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          "",
 			dataForSign:          defaultInputData,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "ContextNotInitializedNonEmptyName",
@@ -343,7 +343,7 @@ func TestSignData_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          "a",
 			dataForSign:          defaultInputData,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "EmptyName",
@@ -353,7 +353,7 @@ func TestSignData_Fails(t *testing.T) {
 			lastSigForContext:    defaultLastSig,
 			nameForSign:          "",
 			dataForSign:          defaultInputData,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "UUIDAndPrivKeyNotSet",
@@ -363,7 +363,7 @@ func TestSignData_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          defaultName,
 			dataForSign:          defaultInputData,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "PrivkeyNotSet",
@@ -373,7 +373,7 @@ func TestSignData_Fails(t *testing.T) {
 			lastSigForContext:    "",
 			nameForSign:          defaultName,
 			dataForSign:          defaultInputData,
-			protocolsToTest:      []ProtocolType{Signed, Chained},
+			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 	}
 
@@ -726,7 +726,7 @@ func TestSignData_CorruptContext(t *testing.T) {
 		testName           string
 		testProtocolStruct *Protocol
 		nameForSign        string //device name to use in call to SignData(), should match context/protocol data (if desired)
-		protocolsToTest    []ProtocolType
+		protocolsToTest    []ProtocolVersion
 	}{
 		{
 			testName: "EmptyContext", //no keys, no devices in Names list
@@ -738,7 +738,7 @@ func TestSignData_CorruptContext(t *testing.T) {
 				Signatures: map[uuid.UUID][]byte{},
 			},
 			nameForSign:     "",
-			protocolsToTest: []ProtocolType{Signed, Chained},
+			protocolsToTest: []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName: "NameOkKeystoreEmpty", //Device is in list of devices but no key is in the Keystore (written for bug UP-1693)
@@ -750,19 +750,19 @@ func TestSignData_CorruptContext(t *testing.T) {
 				Signatures: map[uuid.UUID][]byte{},
 			},
 			nameForSign:     defaultName,
-			protocolsToTest: []ProtocolType{Signed, Chained},
+			protocolsToTest: []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:           "LastSignatureNil", //evrything OK but last signature is present but nil (written for bug UP-1693)
 			testProtocolStruct: protocolLastSigNil,
 			nameForSign:        defaultName,
-			protocolsToTest:    []ProtocolType{Chained}, //only relevant for chained
+			protocolsToTest:    []ProtocolVersion{Chained}, //only relevant for chained
 		},
 		{
 			testName:           "LastSignatureEmpty", //evrything OK but last signature is present but empty (written for bug UP-1693)
 			testProtocolStruct: protocolLastSigEmpty,
 			nameForSign:        defaultName,
-			protocolsToTest:    []ProtocolType{Chained}, //only relevant for chained
+			protocolsToTest:    []ProtocolVersion{Chained}, //only relevant for chained
 		},
 	}
 
@@ -1110,7 +1110,7 @@ func TestDecode(t *testing.T) {
 	var tests = []struct {
 		testName      string
 		UPP           string
-		protoType     ProtocolType
+		protoType     ProtocolVersion
 		UUID          string
 		PrevSignature string
 		Hint          uint8
