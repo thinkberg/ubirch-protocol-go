@@ -168,7 +168,7 @@ func Decode(upp []byte) (UPP, error) {
 		}
 		return chainedUPP, nil
 	default:
-		return nil, fmt.Errorf("Invalid UPP: Undefined Protocol Version %x", upp[1])
+		return nil, fmt.Errorf("Invalid Protocol Version 0x%02x", upp[1])
 	}
 }
 
@@ -246,7 +246,6 @@ func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolType) ([]byte
 // SignHash creates and signs a ubirch-protocol message using the given hash and the protocol type.
 // The method expects a hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
-//TODO: this should not be a public function, users should use SignData() instead.
 func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]byte, error) {
 	const expectedHashSize = 32
 	if len(hash) != expectedHashSize {
@@ -273,7 +272,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 		}
 		return p.sign(&ChainedUPP{protocol, id, signature, 0x00, hash, nil})
 	default:
-		return nil, fmt.Errorf("unknown protocol type: 0x%02x", protocol)
+		return nil, fmt.Errorf("Invalid Protocol Version: 0x%02x", protocol)
 	}
 }
 
@@ -281,11 +280,11 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 // The method expects the user data as input data. Data will be hashed and a UPP using
 // the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
 // from the context using the given device name.
-// FIXME this might be confusing. If the user explicitly wants to sign original data,
-//  (e.g. for msgpack key registration messages) this method name sounds like it would do that.
+// FIXME this method name might be confusing. If the user explicitly wants to sign original data,
+//  (e.g. for msgpack key registration messages) the method name sounds like it would do that.
 func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType) ([]byte, error) {
 	//Catch errors
-	if len(userData) < 1 || userData == nil {
+	if userData == nil || len(userData) < 1 {
 		return nil, fmt.Errorf("Input data is nil or empty")
 	}
 	//Calculate hash
