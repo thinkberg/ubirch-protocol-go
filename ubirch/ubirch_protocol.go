@@ -30,8 +30,10 @@ import (
 type ProtocolVersion uint8
 
 const (
-	Signed  ProtocolVersion = 0x22 // Signed protocol, the payload is signed
-	Chained ProtocolVersion = 0x23 // Chained protocol, the payload contains the previous signature and is signed
+	Signed           ProtocolVersion = 0x22 // Signed protocol, the payload is signed
+	Chained          ProtocolVersion = 0x23 // Chained protocol, the payload contains the previous signature and is signed
+	minSignedUPPLen                  = 89
+	minChainedUPPLen                 = 155
 )
 
 // Crypto Interaface for exported functionality
@@ -147,6 +149,10 @@ func Encode(upp UPP) ([]byte, error) {
 
 // Decode decodes a protocol package into a UPP a returns it, if successful with 'nil' error
 func Decode(upp []byte) (UPP, error) {
+	if upp == nil || len(upp) < minSignedUPPLen {
+		return nil, fmt.Errorf("input nil or invalid length")
+	}
+
 	var mh codec.MsgpackHandle
 	mh.StructToArray = true
 	mh.WriteExt = true
@@ -173,6 +179,10 @@ func Decode(upp []byte) (UPP, error) {
 }
 
 func DecodeSigned(upp []byte) (SignedUPP, error) {
+	if upp == nil || len(upp) < minSignedUPPLen {
+		return SignedUPP{}, fmt.Errorf("input nil or invalid length")
+	}
+
 	i, err := Decode(upp)
 	if err != nil {
 		return SignedUPP{}, err
@@ -187,6 +197,10 @@ func DecodeSigned(upp []byte) (SignedUPP, error) {
 }
 
 func DecodeChained(upp []byte) (ChainedUPP, error) {
+	if upp == nil || len(upp) < minChainedUPPLen {
+		return ChainedUPP{}, fmt.Errorf("input nil or invalid length")
+	}
+
 	i, err := Decode(upp)
 	if err != nil {
 		return ChainedUPP{}, err
@@ -309,7 +323,7 @@ func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 
 	_, err = Decode(value)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("Decoding UPP failed: %v", err)
 	}
 
 	data := value[:len(value)-lenMsgpackSignatureElement]
