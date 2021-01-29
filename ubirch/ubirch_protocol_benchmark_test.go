@@ -45,12 +45,6 @@ func BenchmarkSign(b *testing.B) {
 		inputSizeBytes   int
 		signProtocol     ProtocolType
 	}{
-		{"Plain-32Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 32, Plain},
-		{"Plain-64Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 64, Plain},
-		{"Plain-1kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024, Plain},
-		{"Plain-100kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Plain},
-		{"Plain-1MB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Plain},
-
 		{"Signed-32Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 32, Signed},
 		{"Signed-64Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 64, Signed},
 		{"Signed-1kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024, Signed},

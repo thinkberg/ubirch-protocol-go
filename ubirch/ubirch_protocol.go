@@ -30,7 +30,6 @@ import (
 type ProtocolType uint8
 
 const (
-	Plain   ProtocolType = 0x21 // Plain protocol, without hashing and signing
 	Signed  ProtocolType = 0x22 // Signed protocol, the payload is signed
 	Chained ProtocolType = 0x23 // Chained protocol, the payload contains the previous signature and is signed
 )
@@ -263,8 +262,6 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolType) ([]
 	}
 
 	switch protocol {
-	case Plain:
-		return nil, fmt.Errorf("Plain type packets are deprecated") //p.Crypto.Sign(id, value)
 	case Signed:
 		return p.sign(&SignedUPP{protocol, id, 0x00, hash, nil})
 	case Chained:
