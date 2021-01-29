@@ -165,12 +165,21 @@ func Decode(upp []byte) (UPP, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(signedUPP.GetSignature()) != nistp256SignatureLength {
+			return nil, fmt.Errorf("invalid signature length")
+		}
 		return signedUPP, nil
 	case byte(Chained):
 		chainedUPP := new(ChainedUPP)
 		err := decoder.Decode(chainedUPP)
 		if err != nil {
 			return nil, err
+		}
+		if len(chainedUPP.GetSignature()) != nistp256SignatureLength {
+			return nil, fmt.Errorf("invalid signature length")
+		}
+		if len(chainedUPP.GetPrevSignature()) != nistp256SignatureLength {
+			return nil, fmt.Errorf("invalid previous signature length")
 		}
 		return chainedUPP, nil
 	default:
@@ -244,7 +253,7 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 	}
 
 	// save the signature for chained UPPs
-	if _, isChained := upp.(*ChainedUPP); isChained {
+	if upp.GetVersion() == Chained {
 		p.Signatures[upp.GetUuid()] = signature
 	}
 
@@ -310,17 +319,14 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 
 // Verify a ubirch-protocol message and return the payload.
 func (p *Protocol) Verify(name string, value []byte) (bool, error) {
-	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength //Bytes, Length of the signature plus msgpack header for byte array (0xc4XX)
+	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
 
 	id, err := p.Crypto.GetUUID(name)
 	if err != nil {
 		return false, err
 	}
 
-	if len(value) <= lenMsgpackSignatureElement {
-		return false, fmt.Errorf("data must contain signature: len %d <= %d bytes", len(value), lenMsgpackSignatureElement)
-	}
-
+	// check if input is a valid UPP
 	_, err = Decode(value)
 	if err != nil {
 		return false, fmt.Errorf("Decoding UPP failed: %v", err)
