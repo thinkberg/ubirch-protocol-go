@@ -20,7 +20,6 @@ package ubirch
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -156,19 +155,19 @@ func Decode(upp []byte) (UPP, error) {
 	decoder := codec.NewDecoderBytes(upp, &mh)
 	switch upp[1] {
 	case byte(Signed):
-		msg := new(SignedUPP)
-		err := decoder.Decode(msg)
+		signedUPP := new(SignedUPP)
+		err := decoder.Decode(signedUPP)
 		if err != nil {
 			return nil, err
 		}
-		return msg, nil
+		return signedUPP, nil
 	case byte(Chained):
-		msg := new(ChainedUPP)
-		err := decoder.Decode(msg)
+		chainedUPP := new(ChainedUPP)
+		err := decoder.Decode(chainedUPP)
 		if err != nil {
 			return nil, err
 		}
-		return msg, nil
+		return chainedUPP, nil
 	default:
 		return nil, fmt.Errorf("Invalid UPP: Undefined Protocol Version %x", upp[1])
 	}
@@ -300,7 +299,7 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolType)
 }
 
 // Verify a ubirch-protocol message and return the payload.
-func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (bool, error) {
+func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength //Bytes, Length of the signature plus msgpack header for byte array (0xc4XX)
 
 	id, err := p.Crypto.GetUUID(name)
@@ -312,16 +311,12 @@ func (p *Protocol) Verify(name string, value []byte, protocol ProtocolType) (boo
 		return false, fmt.Errorf("data must contain signature: len %d <= %d bytes", len(value), lenMsgpackSignatureElement)
 	}
 
-	switch protocol {
-	case Plain:
-		return false, errors.New("Plain type packets are deprecated") //return p.Crypto.Verify(id, value[:len(value)-64], value[len(value)-64:])
-	case Signed:
-		fallthrough
-	case Chained:
-		data := value[:len(value)-lenMsgpackSignatureElement]
-		signature := value[len(value)-nistp256SignatureLength:]
-		return p.Crypto.Verify(id, data, signature)
-	default:
-		return false, fmt.Errorf("unknown protocol type: 0x%x", protocol)
+	_, err = Decode(value)
+	if err != nil {
+		return false, err
 	}
+
+	data := value[:len(value)-lenMsgpackSignatureElement]
+	signature := value[len(value)-nistp256SignatureLength:]
+	return p.Crypto.Verify(id, data, signature)
 }

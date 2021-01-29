@@ -824,7 +824,6 @@ func TestProtocol_Verify(t *testing.T) {
 		UUID                string
 		pubKey              string
 		input               string
-		protoType           ProtocolType
 		signatureVerifiable bool
 		throwsError         bool
 	}{
@@ -835,7 +834,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
-			protoType:           Signed,
 			signatureVerifiable: true,
 			throwsError:         false,
 		},
@@ -846,7 +844,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5f9c19d1f",
-			protoType:           Signed,
 			signatureVerifiable: true,
 			throwsError:         false,
 		},
@@ -857,7 +854,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4204bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459ac440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a",
-			protoType:           Chained,
 			signatureVerifiable: true,
 			throwsError:         false,
 		},
@@ -868,29 +864,16 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
-			protoType:           Chained,
 			signatureVerifiable: true,
 			throwsError:         false,
 		},
 		{
-			testName:            "chained type verify for signed UPP, but still passes",
+			testName:            "type not supported",
 			nameForProtocol:     defaultName,
 			nameForVerify:       defaultName,
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
-			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
-			protoType:           Signed,
-			signatureVerifiable: true,
-			throwsError:         false,
-		},
-		{
-			testName:            "plain Type not supported",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
-			pubKey:              defaultPub,
-			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
-			protoType:           Plain,
+			input:               "9521c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
@@ -901,7 +884,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
-			protoType:           Chained,
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
@@ -912,7 +894,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
-			protoType:           Chained,
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
@@ -923,7 +904,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
-			protoType:           Chained,
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
@@ -934,7 +914,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "",
-			protoType:           Chained,
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
@@ -944,8 +923,7 @@ func TestProtocol_Verify(t *testing.T) {
 			nameForVerify:       defaultName,
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
-			input:               "9623c4116eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
-			protoType:           Chained,
+			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdd",
 			signatureVerifiable: false,
 			throwsError:         false,
 		},
@@ -956,7 +934,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
-			protoType:           Signed,
 			signatureVerifiable: false,
 			throwsError:         false,
 		},
@@ -966,8 +943,7 @@ func TestProtocol_Verify(t *testing.T) {
 			nameForVerify:       defaultName,
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
-			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
-			protoType:           0x67,
+			input:               "9567c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
@@ -978,7 +954,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
-			protoType:           Signed,
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
@@ -989,7 +964,6 @@ func TestProtocol_Verify(t *testing.T) {
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
-			protoType:           Signed,
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
@@ -1010,13 +984,13 @@ func TestProtocol_Verify(t *testing.T) {
 			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.input)
 
 			// verify test input
-			verified, err := protocol.Verify(currTest.nameForVerify, inputBytes, currTest.protoType)
-			if currTest.signatureVerifiable == true {
+			verified, err := protocol.Verify(currTest.nameForVerify, inputBytes)
+			if currTest.signatureVerifiable {
 				asserter.Truef(verified, "test input was not verifiable. Input was %s", currTest.input)
 			} else {
 				asserter.Falsef(verified, "test input was verifiable. Input was %s", currTest.input)
 			}
-			if currTest.throwsError == true {
+			if currTest.throwsError {
 				asserter.Errorf(err, "protocol.Verify() returned  no error")
 			} else {
 				asserter.NoErrorf(err, "protocol.Verify() returned error: %v", err)
@@ -1098,7 +1072,7 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 			requirer.NoErrorf(err, "Protocol.SignData() failed for Signed type UPP\n%v", debugInfoString)
 
 			//Check created Signed UPP using the library function: first verify, then decode and check hash/payload
-			result, err := verifier.Verify(currName, createdSignedUpp, Signed)
+			result, err := verifier.Verify(currName, createdSignedUpp)
 			asserter.NoError(err, "UPP verify failed with an error for Signed type UPP\n%v", debugInfoString)
 			asserter.True(result, "UPP verification returned false for Signed type UPP\n%v", debugInfoString)
 			decodedUPP, err := Decode(createdSignedUpp)
@@ -1115,7 +1089,7 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 			requirer.NoErrorf(err, "Protocol.SignData() failed for Chained type UPP\n%v", debugInfoString)
 
 			//Check created Chained UPP using the library function: first verify, then decode and check hash/payload
-			result, err = verifier.Verify(currName, createdChainedUpp, Chained)
+			result, err = verifier.Verify(currName, createdChainedUpp)
 			asserter.NoError(err, "UPP verify failed with an error for Chained type UPP\n%v", debugInfoString)
 			asserter.True(result, "UPP verification returned false for Chained type UPP\n%v", debugInfoString)
 			decodedUPP, err = Decode(createdChainedUpp)
