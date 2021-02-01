@@ -279,13 +279,13 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 	case Signed:
 		return p.sign(&SignedUPP{protocol, id, 0x00, hash, nil})
 	case Chained:
-		signature, found := p.Signatures[id] //load signature of last UPP
+		prevSignature, found := p.Signatures[id] // load signature of last UPP
 		if !found {
-			signature = make([]byte, p.Crypto.GetSignatureLength()) //not found: make new chain start (all zeroes signature)
-		} else if len(signature) != p.Crypto.GetSignatureLength() { //found: check that loaded signature seems valid
+			prevSignature = make([]byte, p.Crypto.GetSignatureLength()) // not found: make new chain start (all zeroes signature)
+		} else if len(prevSignature) != p.Crypto.GetSignatureLength() { // found: check that loaded signature has valid length
 			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
 		}
-		return p.sign(&ChainedUPP{protocol, id, signature, 0x00, hash, nil})
+		return p.sign(&ChainedUPP{protocol, id, prevSignature, 0x00, hash, nil})
 	default:
 		return nil, fmt.Errorf("Invalid Protocol Version: 0x%02x", protocol)
 	}
@@ -325,6 +325,9 @@ func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 	}
 	if len(upp.GetSignature()) != p.Crypto.GetSignatureLength() {
 		return false, fmt.Errorf("invalid signature length")
+	}
+	if upp.GetVersion() == Chained && len(upp.GetPrevSignature()) != p.Crypto.GetSignatureLength() {
+		return false, fmt.Errorf("invalid previous signature length")
 	}
 
 	data := value[:len(value)-lenMsgpackSignatureElement]
