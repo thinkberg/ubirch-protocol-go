@@ -45,7 +45,6 @@ type Crypto interface {
 	PrivateKeyExists(name string) bool
 	SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error
 	SetKey(name string, id uuid.UUID, privKeyBytes []byte) error
-	GetSignatureLength() int
 
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
@@ -236,7 +235,7 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(signature) != p.Crypto.GetSignatureLength() {
+	if len(signature) != nistp256SignatureLength {
 		return nil, fmt.Errorf("Generated signature has invalid length")
 	}
 	uppWithSig := appendSignature(encoded, signature)
@@ -281,8 +280,8 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 	case Chained:
 		prevSignature, found := p.Signatures[id] // load signature of last UPP
 		if !found {
-			prevSignature = make([]byte, p.Crypto.GetSignatureLength()) // not found: make new chain start (all zeroes signature)
-		} else if len(prevSignature) != p.Crypto.GetSignatureLength() { // found: check that loaded signature has valid length
+			prevSignature = make([]byte, nistp256SignatureLength) // not found: make new chain start (all zeroes signature)
+		} else if len(prevSignature) != nistp256SignatureLength { // found: check that loaded signature has valid length
 			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
 		}
 		return p.sign(&ChainedUPP{protocol, id, prevSignature, 0x00, hash, nil})
@@ -311,7 +310,7 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 
 // Verify a ubirch-protocol message and return the payload.
 func (p *Protocol) Verify(name string, value []byte) (bool, error) {
-	lenMsgpackSignatureElement := 2 + p.Crypto.GetSignatureLength() // length of the signature plus msgpack header for byte array (0xc4XX)
+	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
 
 	id, err := p.Crypto.GetUUID(name)
 	if err != nil {
@@ -323,14 +322,14 @@ func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("decoding UPP failed: %v", err)
 	}
-	if len(upp.GetSignature()) != p.Crypto.GetSignatureLength() {
+	if len(upp.GetSignature()) != nistp256SignatureLength {
 		return false, fmt.Errorf("invalid signature length")
 	}
-	if upp.GetVersion() == Chained && len(upp.GetPrevSignature()) != p.Crypto.GetSignatureLength() {
+	if upp.GetVersion() == Chained && len(upp.GetPrevSignature()) != nistp256SignatureLength {
 		return false, fmt.Errorf("invalid previous signature length")
 	}
 
 	data := value[:len(value)-lenMsgpackSignatureElement]
-	signature := value[len(value)-p.Crypto.GetSignatureLength():]
+	signature := value[len(value)-nistp256SignatureLength:]
 	return p.Crypto.Verify(id, data, signature)
 }

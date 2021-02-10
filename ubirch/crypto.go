@@ -52,10 +52,6 @@ type CryptoContext struct {
 	Names    map[string]uuid.UUID
 }
 
-func (c *CryptoContext) GetSignatureLength() int {
-	return nistp256SignatureLength
-}
-
 // Ensure CryptoContext implements the Crypto interface
 var _ Crypto = (*CryptoContext)(nil)
 
