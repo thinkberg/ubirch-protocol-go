@@ -32,8 +32,8 @@ type ProtocolVersion uint8
 const (
 	Signed           ProtocolVersion = 0x22 // Signed protocol, the payload is signed
 	Chained          ProtocolVersion = 0x23 // Chained protocol, the payload contains the previous signature and is signed
-	minSignedUPPLen                  = 89
-	minChainedUPPLen                 = 155
+	minSignedUPPLen                  = 90
+	minChainedUPPLen                 = 156
 )
 
 // Crypto Interaface for exported functionality
