@@ -32,8 +32,8 @@ type ProtocolVersion uint8
 const (
 	Signed           ProtocolVersion = 0x22 // Signed protocol, the Ubirch Protocol Package is signed
 	Chained          ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
-	minSignedUPPLen                  = 90   // minimal length of a signed Ubirch Protocol Package
-	minChainedUPPLen                 = 156  // minimal length of a chained Ubirch Protocol Package
+	minSignedUPPLen                  = 89   // minimal length of a signed Ubirch Protocol Package
+	minChainedUPPLen                 = 155  // minimal length of a chained Ubirch Protocol Package
 )
 
 // Crypto Interaface for exported functionality
