@@ -172,7 +172,7 @@ func Decode(upp []byte) (UPP, error) {
 		}
 		return chainedUPP, nil
 	default:
-		return nil, fmt.Errorf("Invalid Protocol Version 0x%02x", upp[1])
+		return nil, fmt.Errorf("invalid protocol version: 0x%02x", upp[1])
 	}
 }
 
@@ -226,11 +226,11 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 		return nil, err
 	}
 	if len(signature) != nistp256SignatureLength {
-		return nil, fmt.Errorf("Generated signature has invalid length")
+		return nil, fmt.Errorf("generated signature has invalid length")
 	}
 	uppWithSig := appendSignature(encoded, signature)
 	if uppWithSig == nil {
-		return nil, fmt.Errorf("Generated UPP is nil")
+		return nil, fmt.Errorf("generated UPP is nil")
 	}
 
 	// save the signature for chained UPPs
@@ -261,7 +261,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 		return nil, err
 	}
 	if id == uuid.Nil { //catch error if there is an entry but the UUID is nil
-		return nil, fmt.Errorf("Entry for name found but UUID is nil")
+		return nil, fmt.Errorf("entry for name found but UUID is nil")
 	}
 
 	switch protocol {
@@ -276,7 +276,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 		}
 		return p.sign(&ChainedUPP{protocol, id, prevSignature, 0x00, hash, nil})
 	default:
-		return nil, fmt.Errorf("Invalid Protocol Version: 0x%02x", protocol)
+		return nil, fmt.Errorf("invalid protocol version: 0x%02x", protocol)
 	}
 }
 
@@ -289,7 +289,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersion) ([]byte, error) {
 	//Catch errors
 	if userData == nil || len(userData) < 1 {
-		return nil, fmt.Errorf("Input data is nil or empty")
+		return nil, fmt.Errorf("input data is nil or empty")
 	}
 	//Calculate hash
 	//TODO: Make this dependent on the used crypto if we implement more than one
@@ -302,24 +302,23 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
 
+	if len(value) <= lenMsgpackSignatureElement {
+		return false, fmt.Errorf("input not verifiable: len %d <= %d bytes", len(value), lenMsgpackSignatureElement)
+	}
+
 	id, err := p.GetUUID(name)
 	if err != nil {
 		return false, err
 	}
 
-	// check if input is a valid UPP
-	upp, err := Decode(value)
-	if err != nil {
-		return false, fmt.Errorf("decoding UPP failed: %v", err)
+	switch value[1] {
+	case byte(Signed):
+		fallthrough
+	case byte(Chained):
+		data := value[:len(value)-lenMsgpackSignatureElement]
+		signature := value[len(value)-nistp256SignatureLength:]
+		return p.Crypto.Verify(id, data, signature)
+	default:
+		return false, fmt.Errorf("invalid protocol version: 0x%02x", value[1])
 	}
-	if len(upp.GetSignature()) != nistp256SignatureLength {
-		return false, fmt.Errorf("invalid signature length")
-	}
-	if upp.GetVersion() == Chained && len(upp.GetPrevSignature()) != nistp256SignatureLength {
-		return false, fmt.Errorf("invalid previous signature length")
-	}
-
-	data := value[:len(value)-lenMsgpackSignatureElement]
-	signature := value[len(value)-nistp256SignatureLength:]
-	return p.Crypto.Verify(id, data, signature)
 }
