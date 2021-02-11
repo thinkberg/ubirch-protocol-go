@@ -1248,6 +1248,20 @@ func TestDecode(t *testing.T) {
 				requirer.Nilf(decoded, "invalid input was decoded to UPP. input was: %s", currTest.UPP)
 				requirer.Errorf(err, "Decode() did not return error with invalid input")
 			}
+
+			if decoded != nil {
+				// check interface
+				asserter.Equalf(currTest.protoType, decoded.GetVersion(), "interface returned incorrect protocol version")
+				asserter.Equalf(id, decoded.GetUuid(), "interface returned incorrect uuid")
+				if currTest.protoType == Signed {
+					asserter.Nilf(decoded.GetPrevSignature(), "interface returned incorrect prev signature (not nil)")
+				} else {
+					asserter.Equalf(prevSigBytes, decoded.GetPrevSignature(), "decoded incorrect previous signature")
+				}
+				asserter.Equalf(currTest.Hint, decoded.GetHint(), "interface returned incorrect hint")
+				asserter.Equalf(payloadBytes, decoded.GetPayload(), "interface returned incorrect payload")
+				asserter.Equalf(signatureBytes, decoded.GetSignature(), "interface returned incorrect signature")
+			}
 		})
 	}
 }
