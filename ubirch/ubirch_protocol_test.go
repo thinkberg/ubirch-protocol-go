@@ -1252,6 +1252,274 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+// TestDecodeSigned tests the DecodeSigned function of the ubirch package.
+// To test invalid input, don't set the `protoType`-attribute of the test-struct (defaults to 0).
+// If the input is decoded successfully despite being invalid, the test should fail.
+func TestDecodeSigned(t *testing.T) {
+	var tests = []struct {
+		testName  string
+		UPP       string
+		protoType ProtocolVersion
+		UUID      string
+		Hint      uint8
+		Payload   string
+		Signature string
+	}{
+		{
+			testName:  "signed UPP",
+			UPP:       "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			protoType: Signed,
+			UUID:      defaultUUID,
+			Hint:      0x00,
+			Payload:   "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+			Signature: "bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+		},
+		{
+			testName: "chained UPP",
+			UPP:      "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid UPP",
+			UPP:      "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+		},
+		{
+			testName: "incomplete UPP",
+			UPP:      "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcda",
+		},
+		{
+			testName: "empty input",
+			UPP:      "",
+		},
+		{
+			testName: "invalid version",
+			UPP:      "9600c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "wrong version (chained UPP with version 0x22)",
+			UPP:      "9622c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "wrong version (signed UPP with version 0x23)",
+			UPP:      "9523c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+		},
+		{
+			testName: "invalid UUID (too long)",
+			UPP:      "9623c411666eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid UUID (too short)",
+			UPP:      "9623c40aac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid UUID (string)",
+			UPP:      "9623d9203536626439623835366336653461323462663731663261633264653130313833c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid hint (negative fixnum)",
+			UPP:      "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fce0c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid hint (uint 16)",
+			UPP:      "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fccdffffc4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid signature (uint 64)",
+			UPP:      "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bcfbc2a01322c679b96",
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			// parse test parameters into correct types
+			var id uuid.UUID
+			var err error
+			if currTest.UUID != "" {
+				id, err = uuid.Parse(currTest.UUID)
+				requirer.NoErrorf(err, "Parsing UUID from string failed: %v, string was: %v", err, currTest.UUID)
+			}
+
+			payloadBytes, err := hex.DecodeString(currTest.Payload)
+			requirer.NoErrorf(err, "Decoding test Payload from string failed: %v, string was: %v", err, currTest.Payload)
+
+			signatureBytes, err := hex.DecodeString(currTest.Signature)
+			requirer.NoErrorf(err, "Decoding test Signature from string failed: %v, string was: %v", err, currTest.Signature)
+
+			uppBytes, err := hex.DecodeString(currTest.UPP)
+			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.UPP)
+
+			// decode test input
+			decoded, err := DecodeSigned(uppBytes)
+
+			switch currTest.protoType {
+			case Signed:
+				// make sure UPP was decoded to correct type and cast type
+				requirer.IsTypef(&SignedUPP{}, decoded, "signed UPP input was decoded to type %T", decoded)
+				requirer.NoErrorf(err, "DecodeSigned() returned error: %v", err)
+
+				// check if decoded UPP has expected attributes
+				asserter.Equalf(currTest.protoType, decoded.Version, "decoded incorrect protocol version")
+				asserter.Equalf(id, decoded.Uuid, "decoded incorrect uuid")
+				asserter.Equalf(currTest.Hint, decoded.Hint, "decoded incorrect hint")
+				asserter.Equalf(payloadBytes, decoded.Payload, "decoded incorrect payload")
+				asserter.Equalf(signatureBytes, decoded.Signature, "decoded incorrect signature")
+
+				// check interface
+				asserter.Equalf(currTest.protoType, decoded.GetVersion(), "interface returned incorrect protocol version")
+				asserter.Equalf(id, decoded.GetUuid(), "interface returned incorrect uuid")
+				asserter.Nilf(decoded.GetPrevSignature(), "interface returned incorrect prev signature (not nil)")
+				asserter.Equalf(currTest.Hint, decoded.GetHint(), "interface returned incorrect hint")
+				asserter.Equalf(payloadBytes, decoded.GetPayload(), "interface returned incorrect payload")
+				asserter.Equalf(signatureBytes, decoded.GetSignature(), "interface returned incorrect signature")
+
+			default:
+				requirer.Nilf(decoded, "invalid input was decoded to UPP. input was: %s", currTest.UPP)
+				requirer.Errorf(err, "DecodeSigned() did not return error with invalid input")
+			}
+		})
+	}
+}
+
+// TestDecodeChained tests the DecodeChained function of the ubirch package.
+// To test invalid input, don't set the `protoType`-attribute of the test-struct (defaults to 0).
+// If the input is decoded successfully despite being invalid, the test should fail.
+func TestDecodeChained(t *testing.T) {
+	var tests = []struct {
+		testName      string
+		UPP           string
+		protoType     ProtocolVersion
+		UUID          string
+		PrevSignature string
+		Hint          uint8
+		Payload       string
+		Signature     string
+	}{
+		{
+			testName:      "chained UPP",
+			UPP:           "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+			protoType:     Chained,
+			UUID:          defaultUUID,
+			PrevSignature: "bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+			Hint:          0x00,
+			Payload:       "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+			Signature:     "62328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "signed UPP",
+			UPP:      "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+		},
+		{
+			testName: "invalid UPP",
+			UPP:      "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+		},
+		{
+			testName: "incomplete UPP",
+			UPP:      "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcda",
+		},
+		{
+			testName: "empty input",
+			UPP:      "",
+		},
+		{
+			testName: "invalid version",
+			UPP:      "9600c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "wrong version (chained UPP with version 0x22)",
+			UPP:      "9622c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "wrong version (signed UPP with version 0x23)",
+			UPP:      "9523c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
+		},
+		{
+			testName: "invalid UUID (too long)",
+			UPP:      "9623c411666eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid UUID (too short)",
+			UPP:      "9623c40aac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid UUID (string)",
+			UPP:      "9623d9203536626439623835366336653461323462663731663261633264653130313833c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc00c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid hint (negative fixnum)",
+			UPP:      "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fce0c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid hint (uint 16)",
+			UPP:      "9623c4106eac4d0b16e645088c4622e7451ea5a1c440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fccdffffc4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc44062328171c464a73084c25728ddfa2959b5cd5f440451bf9b9a6aec11de4612d654bb3b2378aa5a88137ba8b3cce582a13d7a58a8742acbbf67d198448fb0ad70",
+		},
+		{
+			testName: "invalid signature (uint 64)",
+			UPP:      "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bcfbc2a01322c679b96",
+		},
+	}
+
+	//Iterate over all tests
+	for _, currTest := range tests {
+		t.Run(currTest.testName, func(t *testing.T) {
+			asserter := assert.New(t)
+			requirer := require.New(t)
+
+			// parse test parameters into correct types
+			var id uuid.UUID
+			var err error
+			if currTest.UUID != "" {
+				id, err = uuid.Parse(currTest.UUID)
+				requirer.NoErrorf(err, "Parsing UUID from string failed: %v, string was: %v", err, currTest.UUID)
+			}
+
+			prevSigBytes, err := hex.DecodeString(currTest.PrevSignature)
+			requirer.NoErrorf(err, "Decoding test PrevSignature from string failed: %v, string was: %v", err, currTest.PrevSignature)
+
+			payloadBytes, err := hex.DecodeString(currTest.Payload)
+			requirer.NoErrorf(err, "Decoding test Payload from string failed: %v, string was: %v", err, currTest.Payload)
+
+			signatureBytes, err := hex.DecodeString(currTest.Signature)
+			requirer.NoErrorf(err, "Decoding test Signature from string failed: %v, string was: %v", err, currTest.Signature)
+
+			uppBytes, err := hex.DecodeString(currTest.UPP)
+			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.UPP)
+
+			// decode test input
+			decoded, err := DecodeChained(uppBytes)
+
+			switch currTest.protoType {
+			case Chained:
+				// make sure UPP was decoded to correct type and cast type
+				requirer.IsTypef(&ChainedUPP{}, decoded, "chained UPP input was decoded to type %T", decoded)
+				requirer.NoErrorf(err, "DecodeChained() returned error: %v", err)
+
+				// check if decoded UPP has expected attributes
+				asserter.Equalf(currTest.protoType, decoded.Version, "decoded incorrect protocol version")
+				asserter.Equalf(id, decoded.Uuid, "decoded incorrect uuid")
+				asserter.Equalf(prevSigBytes, decoded.PrevSignature, "decoded incorrect previous signature")
+				asserter.Equalf(currTest.Hint, decoded.Hint, "decoded incorrect hint")
+				asserter.Equalf(payloadBytes, decoded.Payload, "decoded incorrect payload")
+				asserter.Equalf(signatureBytes, decoded.Signature, "decoded incorrect signature")
+
+				// check interface
+				asserter.Equalf(currTest.protoType, decoded.GetVersion(), "interface returned incorrect protocol version")
+				asserter.Equalf(id, decoded.GetUuid(), "interface returned incorrect uuid")
+				asserter.Equalf(prevSigBytes, decoded.GetPrevSignature(), "decoded incorrect previous signature")
+				asserter.Equalf(currTest.Hint, decoded.GetHint(), "interface returned returned incorrect hint")
+				asserter.Equalf(payloadBytes, decoded.GetPayload(), "interface returned incorrect payload")
+				asserter.Equalf(signatureBytes, decoded.GetSignature(), "interface returned incorrect signature")
+
+			default:
+				requirer.Nilf(decoded, "invalid input was decoded to chained UPP. input was: %s", currTest.UPP)
+				requirer.Errorf(err, "DecodeChained() did not return error with invalid input")
+			}
+		})
+	}
+}
+
 //TestRandomBitFrequency tests random numbers/bits from package "crypto/rand" (which is used in our crypto) to
 //detect (serious) problems with the cryptographic random number generation. Implements
 //the frequency/monobit test, see NIST Special Publication 800-22 2.1
