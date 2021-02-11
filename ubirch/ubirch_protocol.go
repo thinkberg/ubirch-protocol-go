@@ -256,7 +256,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
 	}
 
-	id, err := p.Crypto.GetUUID(name)
+	id, err := p.GetUUID(name)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
 
-	id, err := p.Crypto.GetUUID(name)
+	id, err := p.GetUUID(name)
 	if err != nil {
 		return false, err
 	}
