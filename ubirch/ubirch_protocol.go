@@ -176,32 +176,32 @@ func Decode(upp []byte) (UPP, error) {
 	}
 }
 
-func DecodeSigned(upp []byte) (SignedUPP, error) {
+func DecodeSigned(upp []byte) (*SignedUPP, error) {
 	i, err := Decode(upp)
 	if err != nil {
-		return SignedUPP{}, err
+		return nil, err
 	}
 
 	signed, ok := i.(*SignedUPP)
 	if !ok {
-		return SignedUPP{}, fmt.Errorf("type assertion failed: input not a signed UPP")
+		return nil, fmt.Errorf("type assertion failed: input not a signed UPP")
 	}
 
-	return *signed, nil
+	return signed, nil
 }
 
-func DecodeChained(upp []byte) (ChainedUPP, error) {
+func DecodeChained(upp []byte) (*ChainedUPP, error) {
 	i, err := Decode(upp)
 	if err != nil {
-		return ChainedUPP{}, err
+		return nil, err
 	}
 
 	chained, ok := i.(*ChainedUPP)
 	if !ok {
-		return ChainedUPP{}, fmt.Errorf("type assertion failed: input not a chained UPP")
+		return nil, fmt.Errorf("type assertion failed: input not a chained UPP")
 	}
 
-	return *chained, nil
+	return chained, nil
 }
 
 // appendSignature appends a signature to an encoded message and returns it
