@@ -943,7 +943,7 @@ func TestProtocol_Verify(t *testing.T) {
 			nameForVerify:       defaultName,
 			UUID:                defaultUUID,
 			pubKey:              defaultPub,
-			input:               "9567c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
+			input:               "9567c4106eac4d0b16e645088c4622e7451ea5a100c420bb279974f73212fd0a3c507913ba0c974bf2b5bc92988896faa267edd0806335c4400b4b7ac56f571be787664d839b02e9dc4114145f69f0e7b644222db9e97b3d273e6a0a5219473b57d0afee5c4254c8d9ac31c2ccb080d2c2a9363df7459f0774",
 			signatureVerifiable: false,
 			throwsError:         true,
 		},
