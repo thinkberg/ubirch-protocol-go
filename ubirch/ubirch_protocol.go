@@ -145,7 +145,7 @@ func Encode(upp UPP) ([]byte, error) {
 	return encoded, nil
 }
 
-// Decode raw protocol package data (bytes) into an UPP (structured) and returns it, if successful with 'nil' error
+// Decode decodes raw protocol package data (bytes) into an UPP (structured) and returns it, if successful with 'nil' error
 func Decode(upp []byte) (UPP, error) {
 	if upp == nil || len(upp) < 2 {
 		return nil, fmt.Errorf("input nil or invalid length")
@@ -299,11 +299,14 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 }
 
 // Verify the signature of a ubirch-protocol message.
-func (p *Protocol) Verify(name string, value []byte) (bool, error) {
-	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
+func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
+	const (
+		lenMsgpackSignatureElement = 2 + nistp256SignatureLength    // length of the signature plus msgpack header for byte array (0xc4XX)
+		minLen                     = 2 + lenMsgpackSignatureElement // we expect at least one byte msgpack array header plus one byte version identifier as data to be verified
+	)
 
-	if len(value) <= lenMsgpackSignatureElement {
-		return false, fmt.Errorf("input not verifiable (too short): len %d <= %d bytes", len(value), lenMsgpackSignatureElement)
+	if len(upp) < minLen {
+		return false, fmt.Errorf("input not verifiable (too short): len %d <= %d bytes", len(upp), minLen)
 	}
 
 	id, err := p.GetUUID(name)
@@ -311,14 +314,14 @@ func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 		return false, err
 	}
 
-	switch value[1] {
+	switch upp[1] {
 	case byte(Signed):
 		fallthrough
 	case byte(Chained):
-		data := value[:len(value)-lenMsgpackSignatureElement]
-		signature := value[len(value)-nistp256SignatureLength:]
+		data := upp[:len(upp)-lenMsgpackSignatureElement]
+		signature := upp[len(upp)-nistp256SignatureLength:]
 		return p.Crypto.Verify(id, data, signature)
 	default:
-		return false, fmt.Errorf("invalid protocol version: 0x%02x", value[1])
+		return false, fmt.Errorf("invalid protocol version: 0x%02x", upp[1])
 	}
 }
