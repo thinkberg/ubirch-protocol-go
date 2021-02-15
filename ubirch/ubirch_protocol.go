@@ -145,7 +145,7 @@ func Encode(upp UPP) ([]byte, error) {
 	return encoded, nil
 }
 
-// Decode decodes a protocol package into a UPP a returns it, if successful with 'nil' error
+// Decode raw protocol package data (bytes) into an UPP (structured) and returns it, if successful with 'nil' error
 func Decode(upp []byte) (UPP, error) {
 	if upp == nil || len(upp) < 2 {
 		return nil, fmt.Errorf("input nil or invalid length")
