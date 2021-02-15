@@ -868,7 +868,7 @@ func TestProtocol_Verify(t *testing.T) {
 			throwsError:         false,
 		},
 		{
-			testName:            "type not supported",
+			testName:            "type not supported (plain type)",
 			nameForProtocol:     defaultName,
 			nameForVerify:       defaultName,
 			UUID:                defaultUUID,
