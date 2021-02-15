@@ -34,7 +34,7 @@ const (
 	Chained ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
 )
 
-// Crypto Interaface for exported functionality
+// Crypto Interface for exported functionality
 type Crypto interface {
 	GetUUID(name string) (uuid.UUID, error)
 	GenerateKey(name string, id uuid.UUID) error
@@ -303,7 +303,7 @@ func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
 
 	if len(value) <= lenMsgpackSignatureElement {
-		return false, fmt.Errorf("input not verifiable: len %d <= %d bytes", len(value), lenMsgpackSignatureElement)
+		return false, fmt.Errorf("input not verifiable (too short): len %d <= %d bytes", len(value), lenMsgpackSignatureElement)
 	}
 
 	id, err := p.GetUUID(name)
