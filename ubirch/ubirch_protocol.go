@@ -298,7 +298,7 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 	return p.SignHash(name, hash[:], protocol)
 }
 
-// Verify a ubirch-protocol message and return the payload.
+// Verify the signature of a ubirch-protocol message.
 func (p *Protocol) Verify(name string, value []byte) (bool, error) {
 	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
 
