@@ -19,6 +19,7 @@
 package ubirch
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 
@@ -324,4 +325,20 @@ func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
 	default:
 		return false, fmt.Errorf("invalid protocol version: 0x%02x", upp[1])
 	}
+}
+
+// CheckChain compares the signature bytes of a previous ubirch-protocol message with the previous signature bytes
+// of a second ubirch-protocol message
+func CheckChain(prev []byte, chained []byte) (bool, error) {
+	prevUPP, err := Decode(prev)
+	if err != nil {
+		return false, err
+	}
+
+	chainedUPP, err := DecodeChained(chained)
+	if err != nil {
+		return false, err
+	}
+
+	return bytes.Equal(prevUPP.GetSignature(), chainedUPP.GetPrevSignature()), nil
 }
