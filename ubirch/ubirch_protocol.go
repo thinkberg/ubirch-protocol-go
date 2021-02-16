@@ -171,6 +171,9 @@ func Decode(upp []byte) (UPP, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// saity checks
+
 		return chainedUPP, nil
 	default:
 		return nil, fmt.Errorf("invalid protocol version: 0x%02x", upp[1])
@@ -335,9 +338,17 @@ func CheckChain(prev []byte, chained []byte) (bool, error) {
 		return false, err
 	}
 
+	if len(prevUPP.GetSignature()) == 0 {
+		return false, fmt.Errorf("signature of first UPP missing")
+	}
+
 	chainedUPP, err := DecodeChained(chained)
 	if err != nil {
 		return false, err
+	}
+
+	if len(chainedUPP.GetPrevSignature()) == 0 {
+		return false, fmt.Errorf("previous signature of second UPP missing")
 	}
 
 	return bytes.Equal(prevUPP.GetSignature(), chainedUPP.GetPrevSignature()), nil
