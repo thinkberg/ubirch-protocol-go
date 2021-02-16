@@ -339,7 +339,7 @@ func CheckChain(prev []byte, chained []byte) (bool, error) {
 	}
 
 	if len(prevUPP.GetSignature()) == 0 {
-		return false, fmt.Errorf("signature of first UPP missing")
+		return false, fmt.Errorf("signature field of previous UPP is empty")
 	}
 
 	chainedUPP, err := DecodeChained(chained)
@@ -348,7 +348,7 @@ func CheckChain(prev []byte, chained []byte) (bool, error) {
 	}
 
 	if len(chainedUPP.GetPrevSignature()) == 0 {
-		return false, fmt.Errorf("previous signature of second UPP missing")
+		return false, fmt.Errorf("previous signature field of chained UPP empty")
 	}
 
 	return bytes.Equal(prevUPP.GetSignature(), chainedUPP.GetPrevSignature()), nil
