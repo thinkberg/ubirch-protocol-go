@@ -171,9 +171,6 @@ func Decode(upp []byte) (UPP, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		// saity checks
-
 		return chainedUPP, nil
 	default:
 		return nil, fmt.Errorf("invalid protocol version: 0x%02x", upp[1])
