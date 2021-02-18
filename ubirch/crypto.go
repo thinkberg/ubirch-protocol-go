@@ -266,7 +266,7 @@ func (c *CryptoContext) GetCSR(name string, subjectCountry string, subjectOrgani
 		},
 	}
 
-	priv, err := c.getDecodedPrivateKey(name)
+	priv, err := c.getDecodedPrivateKey(uid)
 	if err != nil {
 		return nil, err
 	}
@@ -324,29 +324,32 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 }
 
 // getDecodedPrivateKey gets the decoded private key for the given name.
-func (c *CryptoContext) getDecodedPrivateKey(name string) (*ecdsa.PrivateKey, error) {
-	id, err := c.GetUUID(name)
-	if err != nil {
-		return nil, err
-	}
+func (c *CryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, error) {
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
 		return nil, fmt.Errorf("can't get private key: keystore is nil")
 	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
 		return nil, fmt.Errorf("can't get private key: keystore pointer is nil, pointer type is %T", c.Keystore)
 	}
+
+	// get encoded private key from keystore
 	privKey, err := c.Keystore.GetKey(privKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
 	}
 
 	// decode the key
-	return decodePrivateKey(privKey) //todo, check if this is necessary
+	return decodePrivateKey(privKey)
 }
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
 func (c *CryptoContext) PrivateKeyExists(name string) bool {
-	_, err := c.getDecodedPrivateKey(name)
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return false
+	}
+
+	_, err = c.getDecodedPrivateKey(id)
 	if err != nil {
 		return false
 	}
