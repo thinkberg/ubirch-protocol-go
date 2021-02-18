@@ -298,15 +298,12 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 	return p.SignHash(name, hash[:], protocol)
 }
 
-// Verify the signature of a ubirch-protocol message.
+// Verify verifies the signature of a ubirch-protocol message.
 func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
-	const (
-		lenMsgpackSignatureElement = 2 + nistp256SignatureLength    // length of the signature plus msgpack header for byte array (0xc4XX)
-		minLen                     = 2 + lenMsgpackSignatureElement // we expect at least one byte msgpack array header plus one byte version identifier as data to be verified
-	)
+	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
 
-	if len(upp) < minLen {
-		return false, fmt.Errorf("input not verifiable (too short): len %d <= %d bytes", len(upp), minLen)
+	if len(upp) <= lenMsgpackSignatureElement {
+		return false, fmt.Errorf("input not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
 	}
 
 	id, err := p.GetUUID(name)
@@ -314,14 +311,7 @@ func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
 		return false, err
 	}
 
-	switch upp[1] {
-	case byte(Signed):
-		fallthrough
-	case byte(Chained):
-		data := upp[:len(upp)-lenMsgpackSignatureElement]
-		signature := upp[len(upp)-nistp256SignatureLength:]
-		return p.Crypto.Verify(id, data, signature)
-	default:
-		return false, fmt.Errorf("invalid protocol version: 0x%02x", upp[1])
-	}
+	data := upp[:len(upp)-lenMsgpackSignatureElement]
+	signature := upp[len(upp)-nistp256SignatureLength:]
+	return p.Crypto.Verify(id, data, signature)
 }
