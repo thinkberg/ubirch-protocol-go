@@ -275,15 +275,17 @@ func (c *CryptoContext) GetCSR(name string, subjectCountry string, subjectOrgani
 }
 
 // getDecodedPublicKey gets the decoded public key for the given name.
-func (c *CryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error) {
+func (c *CryptoContext) getDecodedPublicKey(name string) (*ecdsa.PublicKey, error) {
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
 		return nil, fmt.Errorf("can't get public key: keystore is nil")
 	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
 		return nil, fmt.Errorf("can't get public key: keystore pointer is nil, pointer type is %T", c.Keystore)
 	}
-
-	// get encoded public key from keystore
 	pubKey, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
@@ -295,12 +297,7 @@ func (c *CryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, err
 
 // GetPublicKey gets the public key bytes for the given name.
 func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
-	id, err := c.GetUUID(name)
-	if err != nil {
-		return nil, err
-	}
-
-	decodedPubKey, err := c.getDecodedPublicKey(id)
+	decodedPubKey, err := c.getDecodedPublicKey(name)
 	if err != nil {
 		return nil, fmt.Errorf("decoding public key from keystore failed: %s", err)
 	}
@@ -356,6 +353,12 @@ func (c *CryptoContext) PrivateKeyExists(name string) bool {
 	return true
 }
 
+// TODO
+//  // Sign a message using a signing key corresponding to a specific name.
+//  func (c *CryptoContext) Sign(name string, data []byte) ([]byte, error) {
+//		privKeyBytes, err := c.getDecodedPrivateKey(name)
+//		...
+
 // Sign returns the signature for 'data' using the private key of a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 
@@ -397,18 +400,33 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	return append(paddedR, paddedS...), nil
 }
 
-// Verify verifies that 'signature' matches 'data' using the public key with a specific UUID.
-// Need to get the UUID via CryptoContext#GetUUID().
-// Returns 'true' and 'nil' error if signature was verifiable.
+// TODO
+//  // Verify a message using a verifying key corresponding to a specific name.
+//  func (c *CryptoContext) Verify(name string, data []byte, signature []byte) (bool, error) {
+//		pubKeyBytes, err := c.getDecodedPublicKey(name)
+//		...
+// Verify that 'signature' matches 'data' using the pubkey of a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
+	const expectedSignatureLength = nistp256SignatureLength
 	if len(data) == 0 {
-		return false, fmt.Errorf("empty data cannot be verified")
+		return false, errors.New("empty data cannot be verified")
 	}
-	if len(signature) != nistp256SignatureLength {
-		return false, fmt.Errorf("wrong signature length: expected: %d, got: %d", nistp256SignatureLength, len(signature))
+	if len(signature) != expectedSignatureLength {
+		return false, errors.New(fmt.Sprintf("signature lenght wrong: %d != %d", len(signature), expectedSignatureLength))
+	}
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return false, fmt.Errorf("can't get public key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return false, fmt.Errorf("can't get public key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
+	pubKeyBytes, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
+
+	if err != nil {
+		return false, err
 	}
 
-	pub, err := c.getDecodedPublicKey(id)
+	pub, err := decodePublicKey(pubKeyBytes)
 	if err != nil {
 		return false, err
 	}
