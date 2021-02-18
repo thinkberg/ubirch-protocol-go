@@ -30,8 +30,10 @@ import (
 type ProtocolVersion uint8
 
 const (
-	Signed  ProtocolVersion = 0x22 // Signed protocol, the Ubirch Protocol Package is signed
-	Chained ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	Signed           ProtocolVersion = 0x22 // Signed protocol, the Ubirch Protocol Package is signed
+	Chained          ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	minLenSignedUPP                  = 89   // minimal length of a signed Ubirch Protocol Package in bytes (0 bytes payload)
+	minLenChainedUPP                 = 155  // minimal length of a chained Ubirch Protocol Package in bytes (0 bytes payload)
 )
 
 // Crypto Interface for exported functionality
@@ -320,9 +322,15 @@ func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
 		if header != byte(0x95) {
 			return false, fmt.Errorf("invalid msgpack header for signed UPP: 0x%02x", header)
 		}
+		if len(upp) < minLenSignedUPP {
+			return false, fmt.Errorf("input too short for a signed UPP: len %d <= %d bytes", len(upp), minLenSignedUPP)
+		}
 	case byte(Chained):
 		if header != byte(0x96) {
 			return false, fmt.Errorf("invalid msgpack header for chained UPP: 0x%02x", header)
+		}
+		if len(upp) < minLenChainedUPP {
+			return false, fmt.Errorf("input too short for a chained UPP: len %d <= %d bytes", len(upp), minLenChainedUPP)
 		}
 	default:
 		return false, fmt.Errorf("invalid Ubirch Protocol Version: 0x%02x", version)
