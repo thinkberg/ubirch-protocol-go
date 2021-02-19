@@ -19,6 +19,7 @@
 package ubirch
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 
@@ -314,4 +315,29 @@ func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
 	data := upp[:len(upp)-lenMsgpackSignatureElement]
 	signature := upp[len(upp)-nistp256SignatureLength:]
 	return p.Crypto.Verify(id, data, signature)
+}
+
+// CheckChain compares the signature bytes of a previous ubirch protocol package with the previous signature bytes of
+// a subsequent chained ubirch protocol package and returns true if they match.
+// Returns an error if one of the UPPs is invalid.
+func CheckChain(previousUPP []byte, subsequentUPP []byte) (bool, error) {
+	prevUPP, err := Decode(previousUPP)
+	if err != nil {
+		return false, err
+	}
+
+	if len(prevUPP.GetSignature()) == 0 {
+		return false, fmt.Errorf("signature field of previous UPP is empty")
+	}
+
+	chainedUPP, err := DecodeChained(subsequentUPP)
+	if err != nil {
+		return false, err
+	}
+
+	if len(chainedUPP.GetPrevSignature()) == 0 {
+		return false, fmt.Errorf("previous signature field of chained UPP empty")
+	}
+
+	return bytes.Equal(prevUPP.GetSignature(), chainedUPP.GetPrevSignature()), nil
 }
