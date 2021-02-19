@@ -327,10 +327,11 @@ func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
 	}
 }
 
-// CheckChain compares the signature bytes of a previous ubirch-protocol message with the previous signature bytes of
-// a second ubirch-protocol message and returns true if they match. Returns an error if one of the UPPs is invalid.
-func CheckChain(prev []byte, chained []byte) (bool, error) {
-	prevUPP, err := Decode(prev)
+// CheckChain compares the signature bytes of a previous ubirch protocol package with the previous signature bytes of
+// a subsequent chained ubirch protocol package and returns true if they match.
+// Returns an error if one of the UPPs is invalid.
+func CheckChain(previousUPP []byte, subsequentUPP []byte) (bool, error) {
+	prevUPP, err := Decode(previousUPP)
 	if err != nil {
 		return false, err
 	}
@@ -339,7 +340,7 @@ func CheckChain(prev []byte, chained []byte) (bool, error) {
 		return false, fmt.Errorf("signature field of previous UPP is empty")
 	}
 
-	chainedUPP, err := DecodeChained(chained)
+	chainedUPP, err := DecodeChained(subsequentUPP)
 	if err != nil {
 		return false, err
 	}
