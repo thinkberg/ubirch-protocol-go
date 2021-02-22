@@ -342,6 +342,24 @@ func (c *CryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, e
 	return decodePrivateKey(privKey)
 }
 
+// FIXME this method just for testing purpose
+func (c *CryptoContext) getPrivateKey(name string) error {
+	id, err := c.GetUUID(name)
+	if err != nil {
+		return err
+	}
+
+	decodedPrivKey, err := c.getDecodedPrivateKey(id)
+	if err != nil {
+		return fmt.Errorf("decoding private key from keystore failed: %s", err)
+	}
+	if decodedPrivKey.Curve.Params().Name != "P-256" {
+		return fmt.Errorf("private key from keystore has unexpected type: %s", decodedPrivKey.Curve.Params().Name)
+	}
+
+	return nil
+}
+
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
 func (c *CryptoContext) PrivateKeyExists(name string) bool {
 	id, err := c.GetUUID(name)

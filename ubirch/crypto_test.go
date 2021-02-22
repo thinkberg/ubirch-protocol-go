@@ -169,13 +169,15 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	asserter.Equalf(id, uuid.Nil, "the uuid is not Nil")
 }
 
-// TestCryptoContext_SetPublicKey Tests the set function for a public key
-//		Set a public key with correct length
-//		Set a public key, which is too long
-//		Set a public key, which is too short
-//		Set a public key, which is nil
+// TestCryptoContext_SetKey Tests the set function for a private key
+//		Set a private key with correct length
+//		Set a private key, which is too long
+//		Set a private key, which is too short
+//		Set a private key, which is nil
+//		Set a private key, which has correct length but is invalid elliptic curve private key value
 func TestCryptoContext_SetKey(t *testing.T) {
 	asserter := assert.New(t)
+	requirer := require.New(t)
 	//Set up test objects and parameters
 	var context = &CryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
@@ -184,10 +186,12 @@ func TestCryptoContext_SetKey(t *testing.T) {
 
 	id := uuid.MustParse(defaultUUID)
 	privBytesCorrect, err := hex.DecodeString(defaultPriv)
-	asserter.NoErrorf(err, "Decoding private Key Bytes failed")
+	requirer.NoErrorf(err, "Decoding private Key Bytes failed")
 
 	privBytesTooLong := append(privBytesCorrect, 0xFF)
 	privBytesTooShort := privBytesCorrect[1:]
+	privBytesInvalid, err := hex.DecodeString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+	requirer.NoErrorf(err, "Decoding invalid key bytes failed")
 
 	// Test valid key length
 	asserter.Nilf(context.SetKey(defaultName, id, privBytesCorrect), "set key with correct length failed")
@@ -197,6 +201,10 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	asserter.Errorf(context.SetKey(defaultName, id, privBytesTooLong), "not recognized too long key")
 	// Test a key, which is empty
 	asserter.Errorf(context.SetKey(defaultName, id, nil), "not recognized empty key")
+	// Test a key, which has correct length but is not a valid elliptic curve point
+	asserter.Errorf(context.SetKey(defaultName, id, privBytesInvalid), "not recognized invalid key")
+
+	asserter.NoErrorf(context.getPrivateKey(defaultName), "Getting key failed")
 }
 
 // TestCryptoContext_SetPublicKey Tests the set function for a public key
