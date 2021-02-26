@@ -61,6 +61,13 @@ func encodePrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// ensure validity of private key
+	_, err = x509.ParseECPrivateKey(x509Encoded)
+	if err != nil {
+		return nil, err
+	}
+
 	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: x509Encoded})
 	return pemEncoded, nil
 }
@@ -71,8 +78,14 @@ func encodePublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509EncodedPub})
 
+	// ensure validity of public key
+	_, err = x509.ParsePKIXPublicKey(x509EncodedPub)
+	if err != nil {
+		return nil, err
+	}
+
+	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509EncodedPub})
 	return pemEncoded, nil
 }
 
