@@ -203,8 +203,6 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	asserter.Errorf(context.SetKey(defaultName, id, nil), "not recognized empty key")
 	// Test a key, which is an invalid elliptic curve private key value
 	asserter.Errorf(context.SetKey(defaultName, id, privBytesInvalid), "not recognized invalid key")
-
-	asserter.NoErrorf(context.getPrivateKey(defaultName), "Getting key failed")
 }
 
 // TestCryptoContext_SetPublicKey Tests the set function for a public key
@@ -241,9 +239,6 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 	asserter.Errorf(context.SetPublicKey(defaultName, id, nil), "not recognized empty key")
 	// Test a key, which is an invalid elliptic curve public key value
 	asserter.Errorf(context.SetPublicKey(defaultName, id, pubBytesInvalid), "not recognized invalid key")
-
-	_, err = context.GetPublicKey(defaultName)
-	asserter.NoErrorf(err, "Getting key failed")
 }
 
 // TestCryptoContext_GenerateKey tests the generation of a KeyPair

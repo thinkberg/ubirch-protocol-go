@@ -61,13 +61,6 @@ func encodePrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// ensure validity of private key
-	_, err = x509.ParseECPrivateKey(x509Encoded)
-	if err != nil {
-		return nil, err
-	}
-
 	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: x509Encoded})
 	return pemEncoded, nil
 }
@@ -78,13 +71,6 @@ func encodePublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// ensure validity of public key
-	_, err = x509.ParsePKIXPublicKey(x509EncodedPub)
-	if err != nil {
-		return nil, err
-	}
-
 	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509EncodedPub})
 	return pemEncoded, nil
 }
@@ -156,7 +142,6 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	if err != nil {
 		return err
 	}
-
 	return c.Keystore.SetKey(pubKeyEntryTitle(id), pubKeyBytes)
 }
 
@@ -178,7 +163,6 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 	if err != nil {
 		return err
 	}
-
 	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
 }
 
@@ -362,24 +346,6 @@ func (c *CryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, e
 
 	// decode the key
 	return decodePrivateKey(privKey)
-}
-
-// FIXME this method just for testing purpose
-func (c *CryptoContext) getPrivateKey(name string) error {
-	id, err := c.GetUUID(name)
-	if err != nil {
-		return err
-	}
-
-	decodedPrivKey, err := c.getDecodedPrivateKey(id)
-	if err != nil {
-		return fmt.Errorf("decoding private key from keystore failed: %s", err)
-	}
-	if decodedPrivKey.Curve.Params().Name != "P-256" {
-		return fmt.Errorf("private key from keystore has unexpected type: %s", decodedPrivKey.Curve.Params().Name)
-	}
-
-	return nil
 }
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
