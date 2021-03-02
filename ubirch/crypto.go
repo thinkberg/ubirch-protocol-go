@@ -223,7 +223,7 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 	pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
 
 	if !pubKey.IsOnCurve(pubKey.X, pubKey.Y) {
-		return fmt.Errorf("invalid public key value: x and y points not on curve")
+		return fmt.Errorf("invalid public key value: point not on curve")
 	}
 
 	return c.storePublicKey(name, id, pubKey)
