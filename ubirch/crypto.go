@@ -223,7 +223,7 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 	pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
 
 	if !pubKey.IsOnCurve(pubKey.X, pubKey.Y) {
-		return fmt.Errorf("invalid NIST P-256 curve public key value")
+		return fmt.Errorf("invalid public key value: x and y points not on curve")
 	}
 
 	return c.storePublicKey(name, id, pubKey)
@@ -250,7 +250,7 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 
 	curveOrder := privKey.PublicKey.Curve.Params().N
 	if privKey.D.Cmp(curveOrder) >= 0 {
-		return fmt.Errorf("invalid NIST P-256 curve private key value")
+		return fmt.Errorf("invalid private key value: value is greater or equal curve order")
 	}
 
 	return c.storeKey(name, id, privKey)
