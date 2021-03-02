@@ -245,10 +245,10 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 	privKey := new(ecdsa.PrivateKey)
 	privKey.D = new(big.Int)
 	privKey.D.SetBytes(privKeyBytes)
-	privKey.Curve = elliptic.P256()
-	privKey.X, privKey.Y = privKey.Curve.ScalarBaseMult(privKey.D.Bytes())
+	privKey.PublicKey.Curve = elliptic.P256()
+	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
 
-	curveOrder := privKey.Curve.Params().N
+	curveOrder := privKey.PublicKey.Curve.Params().N
 	if privKey.D.Cmp(curveOrder) >= 0 {
 		return fmt.Errorf("invalid NIST P-256 curve private key value")
 	}
