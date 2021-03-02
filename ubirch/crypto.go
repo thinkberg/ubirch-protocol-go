@@ -72,7 +72,6 @@ func encodePublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
 		return nil, err
 	}
 	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: x509EncodedPub})
-
 	return pemEncoded, nil
 }
 
@@ -127,6 +126,13 @@ func pubKeyEntryTitle(id uuid.UUID) string {
 
 // storePublicKey stores the public Key, returns 'nil', if successful
 func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return fmt.Errorf("can't set public key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return fmt.Errorf("can't set public key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
+
 	if c.Names == nil {
 		c.Names = make(map[string]uuid.UUID, 1)
 	}
@@ -136,17 +142,18 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	if err != nil {
 		return err
 	}
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return fmt.Errorf("can't set public key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return fmt.Errorf("can't set public key: keystore pointer is nil, pointer type is %T", c.Keystore)
-	}
 	return c.Keystore.SetKey(pubKeyEntryTitle(id), pubKeyBytes)
 }
 
 // storePrivateKey stores the private Key, returns 'nil', if successful
 func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return fmt.Errorf("can't set private key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return fmt.Errorf("can't set private key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
+
 	if c.Names == nil {
 		c.Names = make(map[string]uuid.UUID, 1)
 	}
@@ -155,12 +162,6 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 	privKeyBytes, err := encodePrivateKey(k)
 	if err != nil {
 		return err
-	}
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return fmt.Errorf("can't set private key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return fmt.Errorf("can't set private key: keystore pointer is nil, pointer type is %T", c.Keystore)
 	}
 	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
 }
@@ -185,12 +186,6 @@ func (c *CryptoContext) GetUUID(name string) (uuid.UUID, error) {
 
 // GenerateKey generates a new key pair and stores it, using the given name and associated UUID.
 func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return fmt.Errorf("can't generate key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return fmt.Errorf("can't generate key: keystore pointer is nil, pointer type is %T", c.Keystore)
-	}
 	// check for empty name
 	if name == "" {
 		return errors.New(fmt.Sprintf("generating key for empty name not possible"))
@@ -198,10 +193,12 @@ func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
 	if id == uuid.Nil {
 		return errors.New(fmt.Sprintf("generating key for uuid = \"Nil\" not possible"))
 	}
+
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
 	}
+
 	return c.storeKey(name, id, k)
 }
 
@@ -209,7 +206,7 @@ func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
 func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error {
 	const expectedKeyLength = nistp256PubkeyLength
 	if len(pubKeyBytes) != expectedKeyLength {
-		return errors.New(fmt.Sprintf("public key length wrong: %d != %d", len(pubKeyBytes), expectedKeyLength))
+		return fmt.Errorf("public key length wrong: %d != %d", len(pubKeyBytes), expectedKeyLength)
 	}
 	if name == "" {
 		return errors.New(fmt.Sprintf("Setting key for empty name not possible"))
@@ -224,6 +221,10 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 	pubKey.X.SetBytes(pubKeyBytes[0:nistp256XLength])
 	pubKey.Y = &big.Int{}
 	pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
+
+	if !pubKey.IsOnCurve(pubKey.X, pubKey.Y) {
+		return fmt.Errorf("invalid public key value: point not on curve")
+	}
 
 	return c.storePublicKey(name, id, pubKey)
 }
@@ -246,6 +247,11 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 	privKey.D.SetBytes(privKeyBytes)
 	privKey.PublicKey.Curve = elliptic.P256()
 	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
+
+	curveOrder := privKey.PublicKey.Curve.Params().N
+	if privKey.D.Cmp(curveOrder) >= 0 {
+		return fmt.Errorf("invalid private key value: value is greater or equal curve order")
+	}
 
 	return c.storeKey(name, id, privKey)
 }
@@ -358,23 +364,11 @@ func (c *CryptoContext) PrivateKeyExists(name string) bool {
 
 // Sign returns the signature for 'data' using the private key of a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
-
 	if len(data) == 0 {
 		return nil, errors.New("empty data cannot be signed")
 	}
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return nil, fmt.Errorf("can't get private key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return nil, fmt.Errorf("can't get private key: keystore pointer is nil, pointer type is %T", c.Keystore)
-	}
-	privKeyBytes, err := c.Keystore.GetKey(privKeyEntryTitle(id))
 
-	if err != nil {
-		return nil, err
-	}
-
-	priv, err := decodePrivateKey(privKeyBytes)
+	priv, err := c.getDecodedPrivateKey(id)
 	if err != nil {
 		return nil, err
 	}
