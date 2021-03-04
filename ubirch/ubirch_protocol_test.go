@@ -1625,10 +1625,10 @@ func TestECDSASignatureChanges(t *testing.T) {
 	}
 }
 
-// TestCheckChain tests the CheckChainLink function of the ubirch protocol library.
+// TestCheckChainLink tests the CheckChainLink function of the ubirch protocol library.
 // To test invalid input, don't set the `protoType`-attribute of the test-struct (defaults to 0).
 // If the input is decoded successfully despite being invalid, the test should fail.
-func TestCheckChain(t *testing.T) {
+func TestCheckChainLink(t *testing.T) {
 	var tests = []struct {
 		testName      string
 		prevUPP       string
