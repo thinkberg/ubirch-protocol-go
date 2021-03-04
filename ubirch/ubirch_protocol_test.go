@@ -1625,107 +1625,79 @@ func TestECDSASignatureChanges(t *testing.T) {
 	}
 }
 
-// TestCheckChain tests the CheckChain function of the ubirch protocol library.
+// TestCheckChain tests the CheckChainLink function of the ubirch protocol library.
 // To test invalid input, don't set the `protoType`-attribute of the test-struct (defaults to 0).
 // If the input is decoded successfully despite being invalid, the test should fail.
 func TestCheckChain(t *testing.T) {
 	var tests = []struct {
-		testName     string
-		prevUPP      string
-		chainedUPP   string
-		isChained    bool
-		returnsError bool
+		testName      string
+		prevUPP       string
+		subsequentUPP string
+		isChained     bool
+		returnsError  bool
 	}{
 		{
-			testName:     "valid chain of chained UPPs",
-			prevUPP:      "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee19",
-			chainedUPP:   "9623c410ba70ad8ba5644e589a3b224ac0f0153fc440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee1900c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
-			isChained:    true,
-			returnsError: false,
+			testName:      "valid chain of chained UPPs",
+			prevUPP:       "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee19",
+			subsequentUPP: "9623c410ba70ad8ba5644e589a3b224ac0f0153fc440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee1900c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
+			isChained:     true,
+			returnsError:  false,
 		},
 		{
-			testName:     "valid chain with signed UPP",
-			prevUPP:      "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c420de3858d827ffd41ff7dcc2b0729951766886081d97f925c75b3ad0fa6c7b14e2c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a",
-			chainedUPP:   "9623c41056bd9b856c6e4a24bf71f2ac2de10183c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a00c420a47e722dc95396e8f2e78e89293544a551d3cf73f99232cfdb8fed7eb31bd567c440273e0d2a33b4b019e4e49c260abb182987bdd7fbab1bf68da549ad168acbf79c22ff03bae9324b2299e0d13aa5283080ea3036b96de0e51c4612d3dded578e0a",
-			isChained:    true,
-			returnsError: false,
+			testName:      "valid chain with signed UPP",
+			prevUPP:       "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c420de3858d827ffd41ff7dcc2b0729951766886081d97f925c75b3ad0fa6c7b14e2c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a",
+			subsequentUPP: "9623c41056bd9b856c6e4a24bf71f2ac2de10183c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a00c420a47e722dc95396e8f2e78e89293544a551d3cf73f99232cfdb8fed7eb31bd567c440273e0d2a33b4b019e4e49c260abb182987bdd7fbab1bf68da549ad168acbf79c22ff03bae9324b2299e0d13aa5283080ea3036b96de0e51c4612d3dded578e0a",
+			isChained:     true,
+			returnsError:  false,
 		},
 		{
-			testName:     "both input UPPs are signed (not chained)",
-			prevUPP:      "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c4207c2871a46846f4b32e56c219d969e1d54576fd43830b30485670cd7e0208fff9c44068a0502ec315127c018bc3b75f7af084a6f751a7f6cd1a849da977518b1b31319169c282c5830d933ca8b082c8b2b79ef384fd8356d57c486aa57c79b647830f",
-			chainedUPP:   "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c42068cf72a074155754ce0ef903a330fea4516a80ef0116a84cedc7bfb0dc8c6af0c4400c8965b4ee5b52b6e95b19a0bae3c156b460ed8b2f77025bf48019848f5a9070145c88f2586c25e09f247a26bebebbdb9d931f887e5579f2f052ddbf41634e07",
-			isChained:    false,
-			returnsError: true,
+			testName:      "both input UPPs are signed (not chained)",
+			prevUPP:       "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c4207c2871a46846f4b32e56c219d969e1d54576fd43830b30485670cd7e0208fff9c44068a0502ec315127c018bc3b75f7af084a6f751a7f6cd1a849da977518b1b31319169c282c5830d933ca8b082c8b2b79ef384fd8356d57c486aa57c79b647830f",
+			subsequentUPP: "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c42068cf72a074155754ce0ef903a330fea4516a80ef0116a84cedc7bfb0dc8c6af0c4400c8965b4ee5b52b6e95b19a0bae3c156b460ed8b2f77025bf48019848f5a9070145c88f2586c25e09f247a26bebebbdb9d931f887e5579f2f052ddbf41634e07",
+			isChained:     false,
+			returnsError:  true,
 		},
 		{
-			testName:     "first UPP is empty",
-			prevUPP:      "",
-			chainedUPP:   "9623c41056bd9b856c6e4a24bf71f2ac2de10183c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a00c420a47e722dc95396e8f2e78e89293544a551d3cf73f99232cfdb8fed7eb31bd567c440273e0d2a33b4b019e4e49c260abb182987bdd7fbab1bf68da549ad168acbf79c22ff03bae9324b2299e0d13aa5283080ea3036b96de0e51c4612d3dded578e0a",
-			isChained:    false,
-			returnsError: true,
+			testName:      "UPPs with empty signatures",
+			prevUPP:       "9623c410ba70ad8ba5644e589a3b224ac0f0153fc40000c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c400",
+			subsequentUPP: "9623c410ba70ad8ba5644e589a3b224ac0f0153fc40000c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c400",
+			isChained:     false,
+			returnsError:  true,
 		},
 		{
-			testName:     "second UPP is empty",
-			prevUPP:      "9623c41056bd9b856c6e4a24bf71f2ac2de10183c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a00c420a47e722dc95396e8f2e78e89293544a551d3cf73f99232cfdb8fed7eb31bd567c440273e0d2a33b4b019e4e49c260abb182987bdd7fbab1bf68da549ad168acbf79c22ff03bae9324b2299e0d13aa5283080ea3036b96de0e51c4612d3dded578e0a",
-			chainedUPP:   "",
-			isChained:    false,
-			returnsError: true,
+			testName:      "first UPP with empty signature",
+			prevUPP:       "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c420de3858d827ffd41ff7dcc2b0729951766886081d97f925c75b3ad0fa6c7b14e2c400",
+			subsequentUPP: "9623c41056bd9b856c6e4a24bf71f2ac2de10183c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a00c420a47e722dc95396e8f2e78e89293544a551d3cf73f99232cfdb8fed7eb31bd567c440273e0d2a33b4b019e4e49c260abb182987bdd7fbab1bf68da549ad168acbf79c22ff03bae9324b2299e0d13aa5283080ea3036b96de0e51c4612d3dded578e0a",
+			isChained:     false,
+			returnsError:  true,
 		},
 		{
-			testName:     "first UPP is invalid",
-			prevUPP:      "9600c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee19",
-			chainedUPP:   "9623c410ba70ad8ba5644e589a3b224ac0f0153fc440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee1900c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
-			isChained:    false,
-			returnsError: true,
+			testName:      "second UPP with empty previous signature",
+			prevUPP:       "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c420de3858d827ffd41ff7dcc2b0729951766886081d97f925c75b3ad0fa6c7b14e2c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a",
+			subsequentUPP: "9623c41056bd9b856c6e4a24bf71f2ac2de10183c40000c420a47e722dc95396e8f2e78e89293544a551d3cf73f99232cfdb8fed7eb31bd567c440273e0d2a33b4b019e4e49c260abb182987bdd7fbab1bf68da549ad168acbf79c22ff03bae9324b2299e0d13aa5283080ea3036b96de0e51c4612d3dded578e0a",
+			isChained:     false,
+			returnsError:  true,
 		},
 		{
-			testName:     "second UPP is invalid",
-			prevUPP:      "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee19",
-			chainedUPP:   "9600c410ba70ad8ba5644e589a3b224ac0f0153fc440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee1900c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
-			isChained:    false,
-			returnsError: true,
+			testName:      "input not chained",
+			prevUPP:       "9623c410ba70ad8ba5644e589a3b224ac0f0153fc440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee1900c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
+			subsequentUPP: "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee19",
+			isChained:     false,
+			returnsError:  false,
 		},
 		{
-			testName:     "UPPs with empty signatures",
-			prevUPP:      "9623c410ba70ad8ba5644e589a3b224ac0f0153fc40000c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c400",
-			chainedUPP:   "9623c410ba70ad8ba5644e589a3b224ac0f0153fc40000c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c400",
-			isChained:    false,
-			returnsError: true,
+			testName:      "signature of first upp one byte too short",
+			prevUPP:       "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c43fd6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee",
+			subsequentUPP: "9623c410ba70ad8ba5644e589a3b224ac0f0153fc440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee1900c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
+			isChained:     false,
+			returnsError:  false,
 		},
 		{
-			testName:     "first UPP with empty signature",
-			prevUPP:      "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c420de3858d827ffd41ff7dcc2b0729951766886081d97f925c75b3ad0fa6c7b14e2c400",
-			chainedUPP:   "9623c41056bd9b856c6e4a24bf71f2ac2de10183c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a00c420a47e722dc95396e8f2e78e89293544a551d3cf73f99232cfdb8fed7eb31bd567c440273e0d2a33b4b019e4e49c260abb182987bdd7fbab1bf68da549ad168acbf79c22ff03bae9324b2299e0d13aa5283080ea3036b96de0e51c4612d3dded578e0a",
-			isChained:    false,
-			returnsError: true,
-		},
-		{
-			testName:     "second UPP with empty previous signature",
-			prevUPP:      "9522c41056bd9b856c6e4a24bf71f2ac2de1018300c420de3858d827ffd41ff7dcc2b0729951766886081d97f925c75b3ad0fa6c7b14e2c4405819a9df6b4dc176a753a30ccd4b606b37265042876267138426525c12e7a06f92eb2b30dbc1142e7dd73d1376f390671be2790e1e432fce68fc1f28da9ca60a",
-			chainedUPP:   "9623c41056bd9b856c6e4a24bf71f2ac2de10183c40000c420a47e722dc95396e8f2e78e89293544a551d3cf73f99232cfdb8fed7eb31bd567c440273e0d2a33b4b019e4e49c260abb182987bdd7fbab1bf68da549ad168acbf79c22ff03bae9324b2299e0d13aa5283080ea3036b96de0e51c4612d3dded578e0a",
-			isChained:    false,
-			returnsError: true,
-		},
-		{
-			testName:     "input not chained",
-			prevUPP:      "9623c410ba70ad8ba5644e589a3b224ac0f0153fc440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee1900c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
-			chainedUPP:   "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee19",
-			isChained:    false,
-			returnsError: false,
-		},
-		{
-			testName:     "signature of first upp one byte too short",
-			prevUPP:      "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c43fd6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee",
-			chainedUPP:   "9623c410ba70ad8ba5644e589a3b224ac0f0153fc440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee1900c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
-			isChained:    false,
-			returnsError: false,
-		},
-		{
-			testName:     "prev signature of second upp one byte too short",
-			prevUPP:      "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee19",
-			chainedUPP:   "9623c410ba70ad8ba5644e589a3b224ac0f0153fc43fd6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee00c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
-			isChained:    false,
-			returnsError: false,
+			testName:      "prev signature of second upp one byte too short",
+			prevUPP:       "9623c410ba70ad8ba5644e589a3b224ac0f0153fc4404a9d2c0090b362595d8289a118363d31e9db66e18a153056fdd959a76d0ef7c8dedfbcc7cd83d482bc5bd1fd4f6d4fcc083d20f74f5ee497f16c08ea9b6799f200c42055f640b3b97b7fce1422a56b7fa5cfe21092d8837cf300e0428ad050fbde6a52c440d6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee19",
+			subsequentUPP: "9623c410ba70ad8ba5644e589a3b224ac0f0153fc43fd6421175b745e77d87abbeb3ca2cfd956e677f73ab7a7984ce8633c98ba1a9a680d53af48d5c1dc795661792b59e6795a5542be87c1fc46be4d0816b3bfcee00c4207a1223d6b5dc387b5a7682be5ad8d478cfd00506b4de2584aaf937ad09df2b44c440ebbc5ab7d1c40fb513bb751fcf954f3f1c9055acf9d456eeba63cd0f86c9f2cf6f52d1618870baad90c5c5b8c30dd5e9969b0cf4d2ab41c1a4fed11ef7803517",
+			isChained:     false,
+			returnsError:  false,
 		},
 	}
 
@@ -1738,14 +1710,20 @@ func TestCheckChain(t *testing.T) {
 			// parse test parameters into correct types
 			var err error
 
-			prevUPP, err := hex.DecodeString(currTest.prevUPP)
+			prevBytes, err := hex.DecodeString(currTest.prevUPP)
 			requirer.NoErrorf(err, "Decoding test prevUPP from string failed: %v, string was: %v", err, currTest.prevUPP)
 
-			chainedUPP, err := hex.DecodeString(currTest.chainedUPP)
-			requirer.NoErrorf(err, "Decoding test chainedUPP from string failed: %v, string was: %v", err, currTest.chainedUPP)
+			prevUPP, err := Decode(prevBytes)
+			requirer.NoErrorf(err, "Decoding test prevUPP from bytes failed: %v, string was: %v", err, currTest.prevUPP)
+
+			subsequentBytes, err := hex.DecodeString(currTest.subsequentUPP)
+			requirer.NoErrorf(err, "Decoding test subsequentUPP from string failed: %v, string was: %v", err, currTest.subsequentUPP)
+
+			subsequentUPP, err := Decode(subsequentBytes)
+			requirer.NoErrorf(err, "Decoding test subsequentUPP from bytes failed: %v, string was: %v", err, currTest.subsequentUPP)
 
 			// decode test input
-			chainOK, err := CheckChain(prevUPP, chainedUPP)
+			chainOK, err := CheckChainLink(prevUPP, subsequentUPP)
 			if currTest.isChained {
 				asserter.Truef(chainOK, "chain check failed with valid input")
 			} else {
