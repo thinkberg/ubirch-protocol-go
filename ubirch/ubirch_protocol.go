@@ -31,8 +31,10 @@ import (
 type ProtocolVersion uint8
 
 const (
-	Signed  ProtocolVersion = 0x22 // Signed protocol, the Ubirch Protocol Package is signed
-	Chained ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	Signed                     ProtocolVersion = 0x22                        // Signed protocol, the Ubirch Protocol Package is signed
+	Chained                    ProtocolVersion = 0x23                        // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	expectedHashSize                           = 32                          // length of a SHA256 hash
+	lenMsgpackSignatureElement                 = 2 + nistp256SignatureLength // length of a signature plus msgpack header for byte array (0xc4XX)
 )
 
 // Crypto Interface for exported functionality
@@ -255,7 +257,6 @@ func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolVersion) ([]b
 // The method expects a hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
 func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
-	const expectedHashSize = 32
 	if len(hash) != expectedHashSize {
 		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
 	}
@@ -263,9 +264,6 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 	id, err := p.GetUUID(name)
 	if err != nil {
 		return nil, err
-	}
-	if id == uuid.Nil { //catch error if there is an entry but the UUID is nil
-		return nil, fmt.Errorf("entry for name found but UUID is nil")
 	}
 
 	switch protocol {
@@ -304,8 +302,6 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 
 // Verify verifies the signature of a ubirch-protocol message.
 func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
-	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
-
 	if len(upp) <= lenMsgpackSignatureElement {
 		return false, fmt.Errorf("input not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
 	}
