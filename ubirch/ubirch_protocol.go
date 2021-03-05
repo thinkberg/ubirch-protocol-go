@@ -268,7 +268,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 
 	switch protocol {
 	case Signed:
-		return p.sign(&SignedUPP{protocol, id, 0x00, hash, nil})
+		return p.sign(&SignedUPP{Signed, id, 0x00, hash, nil})
 	case Chained:
 		prevSignature, found := p.Signatures[id] // load signature of last UPP
 		if !found {
@@ -276,7 +276,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 		} else if len(prevSignature) != nistp256SignatureLength { // found: check that loaded signature has valid length
 			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
 		}
-		return p.sign(&ChainedUPP{protocol, id, prevSignature, 0x00, hash, nil})
+		return p.sign(&ChainedUPP{Chained, id, prevSignature, 0x00, hash, nil})
 	default:
 		return nil, fmt.Errorf("invalid protocol version: 0x%02x", protocol)
 	}
