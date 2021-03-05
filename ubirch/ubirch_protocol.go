@@ -206,13 +206,12 @@ func DecodeChained(upp []byte) (*ChainedUPP, error) {
 }
 
 // appendSignature appends a signature to an encoded message and returns it
-func appendSignature(encoded []byte, signature []byte) []byte {
-	if len(encoded) == 0 || len(signature) == 0 {
+func appendSignature(data []byte, signature []byte) []byte {
+	if len(data) == 0 || len(signature) == 0 {
 		return nil
 	}
-	encoded = append(encoded[:len(encoded)-1], 0xC4, byte(len(signature)))
-	encoded = append(encoded, signature...)
-	return encoded
+	data = append(data, 0xC4, byte(len(signature)))
+	return append(data, signature...)
 }
 
 // sign encodes, signs and appends the signature to a UPP
@@ -222,16 +221,20 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	signature, err := p.Crypto.Sign(upp.GetUuid(), encoded[:len(encoded)-1])
+
+	uppWithoutSig := encoded[:len(encoded)-1]
+
+	signature, err := p.Crypto.Sign(upp.GetUuid(), uppWithoutSig)
 	if err != nil {
 		return nil, err
 	}
 	if len(signature) != nistp256SignatureLength {
 		return nil, fmt.Errorf("generated signature has invalid length")
 	}
-	uppWithSig := appendSignature(encoded, signature)
+
+	uppWithSig := appendSignature(uppWithoutSig, signature)
 	if uppWithSig == nil {
-		return nil, fmt.Errorf("generated UPP is nil")
+		return nil, fmt.Errorf("appending signature to UPP data failed")
 	}
 
 	// save the signature for chained UPPs
