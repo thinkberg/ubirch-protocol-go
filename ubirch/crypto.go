@@ -124,6 +124,27 @@ func pubKeyEntryTitle(id uuid.UUID) string {
 //	return r, s, nil
 //}
 
+// storePrivateKey stores the private Key, returns 'nil', if successful
+func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return fmt.Errorf("can't set private key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return fmt.Errorf("can't set private key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
+
+	if c.Names == nil {
+		c.Names = make(map[string]uuid.UUID, 1)
+	}
+	c.Names[name] = id
+
+	privKeyBytes, err := encodePrivateKey(k)
+	if err != nil {
+		return err
+	}
+	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
+}
+
 // storePublicKey stores the public Key, returns 'nil', if successful
 func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
 	//check for invalid keystore
@@ -145,25 +166,42 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 	return c.Keystore.SetKey(pubKeyEntryTitle(id), pubKeyBytes)
 }
 
-// storePrivateKey stores the private Key, returns 'nil', if successful
-func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+// getDecodedPrivateKey gets the decoded private key for the given name.
+func (c *CryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, error) {
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
-		return fmt.Errorf("can't set private key: keystore is nil")
+		return nil, fmt.Errorf("can't get private key: keystore is nil")
 	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return fmt.Errorf("can't set private key: keystore pointer is nil, pointer type is %T", c.Keystore)
+		return nil, fmt.Errorf("can't get private key: keystore pointer is nil, pointer type is %T", c.Keystore)
 	}
 
-	if c.Names == nil {
-		c.Names = make(map[string]uuid.UUID, 1)
-	}
-	c.Names[name] = id
-
-	privKeyBytes, err := encodePrivateKey(k)
+	// get encoded private key from keystore
+	privKey, err := c.Keystore.GetKey(privKeyEntryTitle(id))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
+
+	// decode the key
+	return decodePrivateKey(privKey)
+}
+
+// getDecodedPublicKey gets the decoded public key for the given name.
+func (c *CryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error) {
+	//check for invalid keystore
+	if c.Keystore == nil { //check for 'direct' nil
+		return nil, fmt.Errorf("can't get public key: keystore is nil")
+	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
+		return nil, fmt.Errorf("can't get public key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	}
+
+	// get encoded public key from keystore
+	pubKey, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
+	if err != nil {
+		return nil, err
+	}
+
+	// decode the key
+	return decodePublicKey(pubKey)
 }
 
 // storeKey stores the Private Key, as well as the Public Key, returns 'nil', if successful
@@ -280,25 +318,6 @@ func (c *CryptoContext) GetCSR(name string, subjectCountry string, subjectOrgani
 	return x509.CreateCertificateRequest(rand.Reader, template, priv)
 }
 
-// getDecodedPublicKey gets the decoded public key for the given name.
-func (c *CryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error) {
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return nil, fmt.Errorf("can't get public key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return nil, fmt.Errorf("can't get public key: keystore pointer is nil, pointer type is %T", c.Keystore)
-	}
-
-	// get encoded public key from keystore
-	pubKey, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
-	if err != nil {
-		return nil, err
-	}
-
-	// decode the key
-	return decodePublicKey(pubKey)
-}
-
 // GetPublicKey gets the public key bytes for the given name.
 func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 	id, err := c.GetUUID(name)
@@ -327,25 +346,6 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 	pubKeyBytes = append(pubKeyBytes, paddedY...)
 
 	return pubKeyBytes, nil
-}
-
-// getDecodedPrivateKey gets the decoded private key for the given name.
-func (c *CryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, error) {
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return nil, fmt.Errorf("can't get private key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return nil, fmt.Errorf("can't get private key: keystore pointer is nil, pointer type is %T", c.Keystore)
-	}
-
-	// get encoded private key from keystore
-	privKey, err := c.Keystore.GetKey(privKeyEntryTitle(id))
-	if err != nil {
-		return nil, err
-	}
-
-	// decode the key
-	return decodePrivateKey(privKey)
 }
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.

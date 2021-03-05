@@ -31,8 +31,10 @@ import (
 type ProtocolVersion uint8
 
 const (
-	Signed  ProtocolVersion = 0x22 // Signed protocol, the Ubirch Protocol Package is signed
-	Chained ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	Signed                     ProtocolVersion = 0x22                        // Signed protocol, the Ubirch Protocol Package is signed
+	Chained                    ProtocolVersion = 0x23                        // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	expectedHashSize                           = 32                          // length of a SHA256 hash
+	lenMsgpackSignatureElement                 = 2 + nistp256SignatureLength // length of a signature plus msgpack header for byte array (0xc4XX)
 )
 
 // Crypto Interface for exported functionality
@@ -206,13 +208,12 @@ func DecodeChained(upp []byte) (*ChainedUPP, error) {
 }
 
 // appendSignature appends a signature to an encoded message and returns it
-func appendSignature(encoded []byte, signature []byte) []byte {
-	if len(encoded) == 0 || len(signature) == 0 {
+func appendSignature(data []byte, signature []byte) []byte {
+	if len(data) == 0 || len(signature) == 0 {
 		return nil
 	}
-	encoded = append(encoded[:len(encoded)-1], 0xC4, byte(len(signature)))
-	encoded = append(encoded, signature...)
-	return encoded
+	data = append(data, 0xC4, byte(len(signature)))
+	return append(data, signature...)
 }
 
 // sign encodes, signs and appends the signature to a UPP
@@ -222,16 +223,20 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	signature, err := p.Crypto.Sign(upp.GetUuid(), encoded[:len(encoded)-1])
+
+	uppWithoutSig := encoded[:len(encoded)-1]
+
+	signature, err := p.Crypto.Sign(upp.GetUuid(), uppWithoutSig)
 	if err != nil {
 		return nil, err
 	}
 	if len(signature) != nistp256SignatureLength {
 		return nil, fmt.Errorf("generated signature has invalid length")
 	}
-	uppWithSig := appendSignature(encoded, signature)
+
+	uppWithSig := appendSignature(uppWithoutSig, signature)
 	if uppWithSig == nil {
-		return nil, fmt.Errorf("generated UPP is nil")
+		return nil, fmt.Errorf("appending signature to UPP data failed")
 	}
 
 	// save the signature for chained UPPs
@@ -252,7 +257,6 @@ func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolVersion) ([]b
 // The method expects a hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
 func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
-	const expectedHashSize = 32
 	if len(hash) != expectedHashSize {
 		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
 	}
@@ -261,13 +265,10 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 	if err != nil {
 		return nil, err
 	}
-	if id == uuid.Nil { //catch error if there is an entry but the UUID is nil
-		return nil, fmt.Errorf("entry for name found but UUID is nil")
-	}
 
 	switch protocol {
 	case Signed:
-		return p.sign(&SignedUPP{protocol, id, 0x00, hash, nil})
+		return p.sign(&SignedUPP{Signed, id, 0x00, hash, nil})
 	case Chained:
 		prevSignature, found := p.Signatures[id] // load signature of last UPP
 		if !found {
@@ -275,7 +276,7 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 		} else if len(prevSignature) != nistp256SignatureLength { // found: check that loaded signature has valid length
 			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
 		}
-		return p.sign(&ChainedUPP{protocol, id, prevSignature, 0x00, hash, nil})
+		return p.sign(&ChainedUPP{Chained, id, prevSignature, 0x00, hash, nil})
 	default:
 		return nil, fmt.Errorf("invalid protocol version: 0x%02x", protocol)
 	}
@@ -301,8 +302,6 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 
 // Verify verifies the signature of a ubirch-protocol message.
 func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
-	const lenMsgpackSignatureElement = 2 + nistp256SignatureLength // length of the signature plus msgpack header for byte array (0xc4XX)
-
 	if len(upp) <= lenMsgpackSignatureElement {
 		return false, fmt.Errorf("input not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
 	}
