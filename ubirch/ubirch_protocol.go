@@ -317,27 +317,15 @@ func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
 	return p.Crypto.Verify(id, data, signature)
 }
 
-// CheckChain compares the signature bytes of a previous ubirch protocol package with the previous signature bytes of
+// CheckChainLink compares the signature bytes of a previous ubirch protocol package with the previous signature bytes of
 // a subsequent chained ubirch protocol package and returns true if they match.
 // Returns an error if one of the UPPs is invalid.
-func CheckChain(previousUPP []byte, subsequentUPP []byte) (bool, error) {
-	prevUPP, err := Decode(previousUPP)
-	if err != nil {
-		return false, err
-	}
-
-	if len(prevUPP.GetSignature()) == 0 {
+func CheckChainLink(previousUPP UPP, subsequentUPP UPP) (bool, error) {
+	if len(previousUPP.GetSignature()) == 0 {
 		return false, fmt.Errorf("signature field of previous UPP is empty")
 	}
-
-	chainedUPP, err := DecodeChained(subsequentUPP)
-	if err != nil {
-		return false, err
+	if len(subsequentUPP.GetPrevSignature()) == 0 {
+		return false, fmt.Errorf("previous signature field of subsequent UPP empty")
 	}
-
-	if len(chainedUPP.GetPrevSignature()) == 0 {
-		return false, fmt.Errorf("previous signature field of chained UPP empty")
-	}
-
-	return bytes.Equal(prevUPP.GetSignature(), chainedUPP.GetPrevSignature()), nil
+	return bytes.Equal(previousUPP.GetSignature(), subsequentUPP.GetPrevSignature()), nil
 }
