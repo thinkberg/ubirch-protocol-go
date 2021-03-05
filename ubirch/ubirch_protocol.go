@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/ugorji/go/codec"
@@ -56,7 +55,6 @@ type Crypto interface {
 type Protocol struct {
 	Crypto
 	Signatures map[uuid.UUID][]byte
-	mutex      sync.Mutex
 }
 
 // interface for Ubirch Protocol Packages
@@ -272,8 +270,6 @@ func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) 
 	case Signed:
 		return p.sign(&SignedUPP{Signed, id, 0x00, hash, nil})
 	case Chained:
-		p.mutex.Lock()
-		defer p.mutex.Unlock()
 		prevSignature, found := p.Signatures[id] // load signature of last UPP
 		if !found {
 			prevSignature = make([]byte, nistp256SignatureLength) // not found: make new chain start (all zeroes signature)
