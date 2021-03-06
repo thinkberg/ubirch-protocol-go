@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/ugorji/go/codec"
@@ -60,6 +61,7 @@ type Crypto interface {
 type Protocol struct {
 	Crypto
 	Signatures map[uuid.UUID][]byte
+	mutex      sync.Mutex
 }
 
 // interface for Ubirch Protocol Packages
@@ -300,6 +302,9 @@ func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolV
 	case Signed:
 		return p.sign(&SignedUPP{Signed, id, hint, hash, nil})
 	case Chained:
+		p.mutex.Lock()
+		defer p.mutex.Unlock()
+
 		prevSignature, found := p.Signatures[id] // load signature of last UPP
 		if !found {
 			prevSignature = make([]byte, nistp256SignatureLength) // not found: make new chain start (all zeroes signature)
@@ -315,7 +320,7 @@ func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolV
 // Verify verifies the signature of a ubirch-protocol message.
 func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
 	if len(upp) <= lenMsgpackSignatureElement {
-		return false, fmt.Errorf("input not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
+		return false, fmt.Errorf("UPP not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
 	}
 
 	id, err := p.GetUUID(name)
