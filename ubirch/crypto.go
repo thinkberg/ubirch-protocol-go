@@ -242,15 +242,14 @@ func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
 
 //SetPublicKey sets the public key (64 bytes)
 func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error {
-	const expectedKeyLength = nistp256PubkeyLength
-	if len(pubKeyBytes) != expectedKeyLength {
-		return fmt.Errorf("public key length wrong: %d != %d", len(pubKeyBytes), expectedKeyLength)
+	if len(pubKeyBytes) != nistp256PubkeyLength {
+		return fmt.Errorf("unexpected length for ECDSA public key: expected: %d, got: %d", nistp256PubkeyLength, len(pubKeyBytes))
 	}
 	if name == "" {
-		return errors.New(fmt.Sprintf("Setting key for empty name not possible"))
+		return fmt.Errorf("empty name")
 	}
 	if id == uuid.Nil {
-		return errors.New(fmt.Sprintf("Setting key for uuid = \"Nil\" not possible"))
+		return fmt.Errorf("UUID has \"Nil\"-value")
 	}
 
 	pubKey := new(ecdsa.PublicKey)
@@ -269,15 +268,14 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 
 //SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
 func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) error {
-	const expectedKeyLength = nistp256PrivkeyLength
-	if len(privKeyBytes) != expectedKeyLength {
-		return errors.New(fmt.Sprintf("private key lenght wrong: %d != %d", len(privKeyBytes), expectedKeyLength))
+	if len(privKeyBytes) != nistp256PrivkeyLength {
+		return fmt.Errorf("unexpected length for ECDSA private key: expected: %d, got: %d", nistp256PrivkeyLength, len(privKeyBytes))
 	}
 	if name == "" {
-		return errors.New(fmt.Sprintf("Setting key for empty name not possible"))
+		return fmt.Errorf("empty name")
 	}
 	if id == uuid.Nil {
-		return errors.New(fmt.Sprintf("Setting key for uuid = \"Nil\" not possible"))
+		return fmt.Errorf("UUID has \"Nil\"-value")
 	}
 
 	privKey := new(ecdsa.PrivateKey)
