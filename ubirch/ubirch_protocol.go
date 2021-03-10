@@ -29,10 +29,15 @@ import (
 
 // ProtocolVersion definition
 type ProtocolVersion uint8
+type Hint uint8
 
 const (
-	Signed                     ProtocolVersion = 0x22                        // Signed protocol, the Ubirch Protocol Package is signed
-	Chained                    ProtocolVersion = 0x23                        // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	Signed                     ProtocolVersion = 0x22 // Signed protocol, the Ubirch Protocol Package is signed
+	Chained                    ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	Binary                     Hint            = 0x00
+	Disable                    Hint            = 0xFA
+	Enable                     Hint            = 0xFB
+	Delete                     Hint            = 0xFC
 	expectedHashSize                           = 32                          // length of a SHA256 hash
 	lenMsgpackSignatureElement                 = 2 + nistp256SignatureLength // length of a signature plus msgpack header for byte array (0xc4XX)
 )
@@ -62,7 +67,7 @@ type UPP interface {
 	GetVersion() ProtocolVersion
 	GetUuid() uuid.UUID
 	GetPrevSignature() []byte
-	GetHint() uint8
+	GetHint() Hint
 	GetPayload() []byte
 	GetSignature() []byte
 }
@@ -71,7 +76,7 @@ type UPP interface {
 type SignedUPP struct {
 	Version   ProtocolVersion
 	Uuid      uuid.UUID
-	Hint      uint8
+	Hint      Hint
 	Payload   []byte
 	Signature []byte
 }
@@ -88,7 +93,7 @@ func (upp SignedUPP) GetPrevSignature() []byte {
 	return nil
 }
 
-func (upp SignedUPP) GetHint() uint8 {
+func (upp SignedUPP) GetHint() Hint {
 	return upp.Hint
 }
 
@@ -105,7 +110,7 @@ type ChainedUPP struct {
 	Version       ProtocolVersion
 	Uuid          uuid.UUID
 	PrevSignature []byte
-	Hint          uint8
+	Hint          Hint
 	Payload       []byte
 	Signature     []byte
 }
@@ -122,7 +127,7 @@ func (upp ChainedUPP) GetPrevSignature() []byte {
 	return upp.PrevSignature
 }
 
-func (upp ChainedUPP) GetHint() uint8 {
+func (upp ChainedUPP) GetHint() Hint {
 	return upp.Hint
 }
 
@@ -253,37 +258,15 @@ func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolVersion) ([]b
 	return p.SignHash(name, hash, protocol)
 }
 
-// SignHash creates and signs a ubirch-protocol message using the given hash and the protocol type.
-// The method expects a hash as input data.
+// SignHash creates and signs a ubirch-protocol message using the given hash and the protocol version.
+// The method expects a SHA256 hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
 func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
-	if len(hash) != expectedHashSize {
-		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
-	}
-
-	id, err := p.GetUUID(name)
-	if err != nil {
-		return nil, err
-	}
-
-	switch protocol {
-	case Signed:
-		return p.sign(&SignedUPP{Signed, id, 0x00, hash, nil})
-	case Chained:
-		prevSignature, found := p.Signatures[id] // load signature of last UPP
-		if !found {
-			prevSignature = make([]byte, nistp256SignatureLength) // not found: make new chain start (all zeroes signature)
-		} else if len(prevSignature) != nistp256SignatureLength { // found: check that loaded signature has valid length
-			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
-		}
-		return p.sign(&ChainedUPP{Chained, id, prevSignature, 0x00, hash, nil})
-	default:
-		return nil, fmt.Errorf("invalid protocol version: 0x%02x", protocol)
-	}
+	return p.SignHashExtended(name, hash, protocol, Binary)
 }
 
-// SignData creates and signs a ubirch-protocol message using the given user data and the protocol type.
-// The method expects the user data as input data. Data will be hashed and a UPP using
+// SignData creates and signs a ubirch-protocol message using the given user data and the protocol version.
+// The method expects the user data as input data. Data will be SHA256 hashed and a UPP using
 // the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
 // from the context using the given device name.
 // FIXME this method name might be confusing. If the user explicitly wants to sign original data,
@@ -298,6 +281,35 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 	hash := sha256.Sum256(userData)
 
 	return p.SignHash(name, hash[:], protocol)
+}
+
+// SignHashExtended creates and signs a ubirch-protocol message using the given hash, hint and protocol version.
+// The method expects a SHA256 hash as input data.
+// Returns a standard ubirch-protocol packet (UPP)
+func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolVersion, hint Hint) ([]byte, error) {
+	if len(hash) != expectedHashSize {
+		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
+	}
+
+	id, err := p.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
+	switch protocol {
+	case Signed:
+		return p.sign(&SignedUPP{Signed, id, hint, hash, nil})
+	case Chained:
+		prevSignature, found := p.Signatures[id] // load signature of last UPP
+		if !found {
+			prevSignature = make([]byte, nistp256SignatureLength) // not found: make new chain start (all zeroes signature)
+		} else if len(prevSignature) != nistp256SignatureLength { // found: check that loaded signature has valid length
+			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
+		}
+		return p.sign(&ChainedUPP{Chained, id, prevSignature, hint, hash, nil})
+	default:
+		return nil, fmt.Errorf("invalid protocol version: 0x%02x", protocol)
+	}
 }
 
 // Verify verifies the signature of a ubirch-protocol message.
