@@ -258,15 +258,15 @@ func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolVersion) ([]b
 	return p.SignHash(name, hash, protocol)
 }
 
-// SignHash creates and signs a ubirch-protocol message using the given hash and the protocol type.
-// The method expects a hash as input data.
+// SignHash creates and signs a ubirch-protocol message using the given hash and the protocol version.
+// The method expects a SHA256 hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
 func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
 	return p.SignHashExtended(name, hash, protocol, Binary)
 }
 
-// SignData creates and signs a ubirch-protocol message using the given user data and the protocol type.
-// The method expects the user data as input data. Data will be hashed and a UPP using
+// SignData creates and signs a ubirch-protocol message using the given user data and the protocol version.
+// The method expects the user data as input data. Data will be SHA256 hashed and a UPP using
 // the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
 // from the context using the given device name.
 // FIXME this method name might be confusing. If the user explicitly wants to sign original data,
@@ -283,6 +283,9 @@ func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersi
 	return p.SignHash(name, hash[:], protocol)
 }
 
+// SignHashExtended creates and signs a ubirch-protocol message using the given hash, hint and protocol version.
+// The method expects a SHA256 hash as input data.
+// Returns a standard ubirch-protocol packet (UPP)
 func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolVersion, hint Hint) ([]byte, error) {
 	if len(hash) != expectedHashSize {
 		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
