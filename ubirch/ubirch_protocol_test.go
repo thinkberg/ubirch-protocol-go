@@ -1070,7 +1070,7 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 			//Check payload (and other struct contents)
 			asserter.Equal(Signed, decodedUPP.(*SignedUPP).Version, "Signed type Version not as expected\n%v", debugInfoString)
 			asserter.Equal(currUUIDTypeUUID, decodedUPP.(*SignedUPP).Uuid, "Signed type UUID not as expected\n%v", debugInfoString)
-			asserter.Equal(uint8(0x00), decodedUPP.(*SignedUPP).Hint, "Signed type Hint not as expected\n%v", debugInfoString)
+			asserter.Equal(Hint(0x00), decodedUPP.(*SignedUPP).Hint, "Signed type Hint not as expected\n%v", debugInfoString)
 			asserter.Equal(currDataHash[:], decodedUPP.(*SignedUPP).Payload, "Signed type Payload not as expected\n%v", debugInfoString)
 
 			////CHAINED section////
@@ -1087,7 +1087,7 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 			//Check payload (and other struct contents)
 			asserter.Equal(Chained, decodedUPP.(*ChainedUPP).Version, "Chained type Version not as expected\n%v", debugInfoString)
 			asserter.Equal(currUUIDTypeUUID, decodedUPP.(*ChainedUPP).Uuid, "Chained type UUID not as expected\n%v", debugInfoString)
-			asserter.Equal(uint8(0x00), decodedUPP.(*ChainedUPP).Hint, "Chained type Hint not as expected\n%v", debugInfoString)
+			asserter.Equal(Hint(0x00), decodedUPP.(*ChainedUPP).Hint, "Chained type Hint not as expected\n%v", debugInfoString)
 			asserter.Equal(currDataHash[:], decodedUPP.(*ChainedUPP).Payload, "Chained type Payload not as expected\n%v", debugInfoString)
 		}
 	}
@@ -1103,7 +1103,7 @@ func TestDecode(t *testing.T) {
 		protoType     ProtocolVersion
 		UUID          string
 		PrevSignature string
-		Hint          uint8
+		Hint          Hint
 		Payload       string
 		Signature     string
 	}{
@@ -1265,7 +1265,7 @@ func TestDecodeSigned(t *testing.T) {
 		UPP       string
 		protoType ProtocolVersion
 		UUID      string
-		Hint      uint8
+		Hint      Hint
 		Payload   string
 		Signature string
 	}{
@@ -1397,7 +1397,7 @@ func TestDecodeChained(t *testing.T) {
 		protoType     ProtocolVersion
 		UUID          string
 		PrevSignature string
-		Hint          uint8
+		Hint          Hint
 		Payload       string
 		Signature     string
 	}{
