@@ -246,10 +246,10 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 		return fmt.Errorf("unexpected length for ECDSA public key: expected: %d, got: %d", nistp256PubkeyLength, len(pubKeyBytes))
 	}
 	if name == "" {
-		return fmt.Errorf("empty name")
+		return fmt.Errorf("setting key for empty name not possible")
 	}
 	if id == uuid.Nil {
-		return fmt.Errorf("UUID has \"Nil\"-value")
+		return fmt.Errorf("setting key for uuid = \"Nil\" not possible")
 	}
 
 	pubKey := new(ecdsa.PublicKey)
@@ -272,10 +272,10 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 		return fmt.Errorf("unexpected length for ECDSA private key: expected: %d, got: %d", nistp256PrivkeyLength, len(privKeyBytes))
 	}
 	if name == "" {
-		return fmt.Errorf("empty name")
+		return fmt.Errorf("setting key for empty name not possible")
 	}
 	if id == uuid.Nil {
-		return fmt.Errorf("UUID has \"Nil\"-value")
+		return fmt.Errorf("setting key for uuid = \"Nil\" not possible")
 	}
 
 	privKey := new(ecdsa.PrivateKey)
