@@ -320,7 +320,7 @@ func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolV
 // Verify verifies the signature of a ubirch-protocol message.
 func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
 	if len(upp) <= lenMsgpackSignatureElement {
-		return false, fmt.Errorf("UPP not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
+		return false, fmt.Errorf("input not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
 	}
 
 	id, err := p.GetUUID(name)
