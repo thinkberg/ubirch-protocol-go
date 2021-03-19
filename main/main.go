@@ -62,13 +62,11 @@ func loadProtocolContext(p *ubirch.Protocol) error {
 func main() {
 	name := "A"
 
-	var context = &ubirch.CryptoContext{
-		Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")), //this is only a demo code secret, use a real secret here in your code
-		Names:    map[string]uuid.UUID{},
-	}
 	p := ubirch.Protocol{
-		Crypto:     context,
-		Signatures: map[uuid.UUID][]byte{},
+		Crypto: &ubirch.CryptoContext{
+			Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")), //this is only a demo code secret, use a real secret here in your code
+			Names:    map[string]uuid.UUID{},
+		},
 	}
 
 	err := loadProtocolContext(&p)

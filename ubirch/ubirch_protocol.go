@@ -60,8 +60,37 @@ type Crypto interface {
 // Protocol structure
 type Protocol struct {
 	Crypto
-	signatures map[uuid.UUID][]byte
-	mutex      sync.Mutex
+	signatures     map[uuid.UUID][]byte
+	signatureMutex sync.RWMutex
+	mutex          sync.Mutex
+}
+
+func (p *Protocol) GetSignature(id uuid.UUID) []byte {
+	p.signatureMutex.RLock()
+	if p.signatures == nil {
+		p.signatures = make(map[uuid.UUID][]byte)
+	}
+	sign, found := p.signatures[id]
+	p.signatureMutex.RUnlock()
+
+	if !found {
+		return make([]byte, nistp256SignatureLength)
+	}
+	return sign
+}
+
+func (p *Protocol) SetSignature(id uuid.UUID, signature []byte) {
+	p.signatureMutex.Lock()
+	if p.signatures == nil {
+		p.signatures = make(map[uuid.UUID][]byte)
+
+	}
+	p.signatures[id] = signature
+	p.signatureMutex.Unlock()
+}
+
+func (p *Protocol) ResetSignature(id uuid.UUID) {
+	p.SetSignature(id, make([]byte, nistp256SignatureLength))
 }
 
 // interface for Ubirch Protocol Packages
@@ -248,7 +277,7 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 
 	// save the signature for chained UPPs
 	if upp.GetVersion() == Chained {
-		p.Signatures[upp.GetUuid()] = signature
+		p.SetSignature(upp.GetUuid(), signature)
 	}
 
 	return uppWithSig, nil
@@ -305,10 +334,8 @@ func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolV
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
 
-		prevSignature, found := p.signatures[id] // load signature of last UPP
-		if !found {
-			prevSignature = make([]byte, nistp256SignatureLength) // not found: make new chain start (all zeroes signature)
-		} else if len(prevSignature) != nistp256SignatureLength { // found: check that loaded signature has valid length
+		prevSignature := p.GetSignature(id)                // load signature of last UPP
+		if len(prevSignature) != nistp256SignatureLength { // check that loaded signature has valid length
 			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
 		}
 		return p.sign(&ChainedUPP{Chained, id, prevSignature, hint, hash, nil})
