@@ -716,10 +716,10 @@ func TestSignData_CorruptContext(t *testing.T) {
 	// for tests with nil/empty last signature (written for bug UP-1693)
 	protocolLastSigNil, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
 	require.NoError(t, err, "Could not create protocolLastSigNil")
-	protocolLastSigNil.Signatures[uuid.MustParse(defaultUUID)] = nil
+	protocolLastSigNil.signatures[uuid.MustParse(defaultUUID)] = nil
 	protocolLastSigEmpty, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
 	require.NoError(t, err, "Could not create protocolLastSigEmpty")
-	protocolLastSigEmpty.Signatures[uuid.MustParse(defaultUUID)] = []byte{}
+	protocolLastSigEmpty.signatures[uuid.MustParse(defaultUUID)] = []byte{}
 
 	//test cases
 	var tests = []struct {
@@ -735,7 +735,7 @@ func TestSignData_CorruptContext(t *testing.T) {
 					Keystore: emptyKeystore,
 					Names:    map[string]uuid.UUID{},
 				},
-				Signatures: map[uuid.UUID][]byte{},
+				signatures: map[uuid.UUID][]byte{},
 			},
 			nameForSign:     "",
 			protocolsToTest: []ProtocolVersion{Signed, Chained},
@@ -747,7 +747,7 @@ func TestSignData_CorruptContext(t *testing.T) {
 					Keystore: emptyKeystore,
 					Names:    map[string]uuid.UUID{defaultName: uuid.MustParse(defaultUUID)},
 				},
-				Signatures: map[uuid.UUID][]byte{},
+				signatures: map[uuid.UUID][]byte{},
 			},
 			nameForSign:     defaultName,
 			protocolsToTest: []ProtocolVersion{Signed, Chained},

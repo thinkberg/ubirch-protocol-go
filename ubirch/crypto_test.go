@@ -115,7 +115,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
@@ -128,7 +128,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p2 := Protocol{Crypto: context2, Signatures: map[uuid.UUID][]byte{}}
+	p2 := Protocol{Crypto: context2, signatures: map[uuid.UUID][]byte{}}
 	asserter.NoErrorf(loadProtocolContext(&p2, "temp.json"), "Failed loading protocol context")
 	pubKeyBytesLoad, err := p2.GetPublicKey(defaultName)
 	asserter.Nilf(err, "Getting Public key failed")
@@ -150,7 +150,7 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	asserter := assert.New(t)
 	var kstore = NewEncryptedKeystore([]byte(defaultSecret))
 	var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
-	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 
 	// test the correct UUID but before loading the context
 	id, err := p.GetUUID(defaultName)
@@ -251,7 +251,7 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 
 	//Generate Key with valid name and valid uuid
 	id := uuid.MustParse(defaultUUID)
@@ -298,7 +298,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 	// check for non existing key
 	pubKeyBytes, err := p.GetPublicKey(unknownName)
 	asserter.Errorf(err, "Getting non existing Public key did not fail as expected")
@@ -333,7 +333,7 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 	// check for non existing key
 	privKeyBytes, err := getPrivateKey(context, unknownName)
 	asserter.Errorf(err, "Getting non exisitng Public key failed")
@@ -362,7 +362,7 @@ func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
 	// 	Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 	// 	Names:    map[string]uuid.UUID{},
 	// }
-	// p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	// p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 	// certificate, err := p.GetCSR(defaultName)
 	// asserter.Nilf(err, "Getting CSR failed")
 	// asserter.NotNilf(certificate, "The Certificate is \"Nil\"")
@@ -617,7 +617,7 @@ func TestCryptoContext_PrivateKeyExists_NOTRDY(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 	// check for non existing key
 	asserter.Falsef(p.PrivateKeyExists(unknownName), "Key for unknown Name should not exist")
 

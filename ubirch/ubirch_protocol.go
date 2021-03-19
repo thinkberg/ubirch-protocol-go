@@ -60,7 +60,7 @@ type Crypto interface {
 // Protocol structure
 type Protocol struct {
 	Crypto
-	Signatures map[uuid.UUID][]byte
+	signatures map[uuid.UUID][]byte
 	mutex      sync.Mutex
 }
 
@@ -305,7 +305,7 @@ func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolV
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
 
-		prevSignature, found := p.Signatures[id] // load signature of last UPP
+		prevSignature, found := p.signatures[id] // load signature of last UPP
 		if !found {
 			prevSignature = make([]byte, nistp256SignatureLength) // not found: make new chain start (all zeroes signature)
 		} else if len(prevSignature) != nistp256SignatureLength { // found: check that loaded signature has valid length

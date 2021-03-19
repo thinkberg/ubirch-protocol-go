@@ -65,7 +65,7 @@ func BenchmarkSign(b *testing.B) {
 			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 			Names:    map[string]uuid.UUID{},
 		}
-		p := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+		p := &Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 		//Load reference data into context
 		setProtocolContext(p, bm.deviceName, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
 		//Generate pseudrandom input data
@@ -114,7 +114,7 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 			Names:    map[string]uuid.UUID{},
 		}
-		p := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+		p := &Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 		//Load reference data into context
 		setProtocolContext(p, bm.deviceName, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
 		//Generate pseudrandom input data

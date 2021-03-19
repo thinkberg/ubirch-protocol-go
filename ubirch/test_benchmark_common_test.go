@@ -151,7 +151,7 @@ func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSign
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	protocol := &Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 	//Load reference data into context
 	err := setProtocolContext(protocol, Name, UUID, PrivKey, "", LastSignature)
 	return protocol, err
@@ -163,7 +163,7 @@ func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*Proto
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	protocol := &Protocol{Crypto: context, Signatures: map[uuid.UUID][]byte{}}
+	protocol := &Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
 	//Load reference data into context
 	err := setProtocolContext(protocol, Name, UUID, "", PubKey, "")
 	return protocol, err
@@ -230,7 +230,7 @@ func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, P
 		if len(lastSigBytes) != 64 {
 			return fmt.Errorf("Last signature to set is != 64 bytes")
 		}
-		p.Signatures[id] = lastSigBytes
+		p.signatures[id] = lastSigBytes
 	}
 
 	return nil
