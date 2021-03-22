@@ -60,18 +60,18 @@ type Crypto interface {
 // Protocol structure
 type Protocol struct {
 	Crypto
-	signatures     map[uuid.UUID][]byte
-	signatureMutex sync.RWMutex
-	mutex          sync.Mutex
+	signatures      map[uuid.UUID][]byte
+	signaturesMutex sync.RWMutex
+	chainMutex      sync.Mutex
 }
 
 func (p *Protocol) GetSignature(id uuid.UUID) []byte {
-	p.signatureMutex.RLock()
+	p.signaturesMutex.RLock()
 	if p.signatures == nil {
 		p.signatures = make(map[uuid.UUID][]byte)
 	}
 	sign, found := p.signatures[id]
-	p.signatureMutex.RUnlock()
+	p.signaturesMutex.RUnlock()
 
 	if !found {
 		return make([]byte, nistp256SignatureLength)
@@ -80,13 +80,12 @@ func (p *Protocol) GetSignature(id uuid.UUID) []byte {
 }
 
 func (p *Protocol) SetSignature(id uuid.UUID, signature []byte) {
-	p.signatureMutex.Lock()
+	p.signaturesMutex.Lock()
 	if p.signatures == nil {
 		p.signatures = make(map[uuid.UUID][]byte)
-
 	}
 	p.signatures[id] = signature
-	p.signatureMutex.Unlock()
+	p.signaturesMutex.Unlock()
 }
 
 func (p *Protocol) ResetSignature(id uuid.UUID) {
@@ -331,8 +330,8 @@ func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolV
 	case Signed:
 		return p.sign(&SignedUPP{Signed, id, hint, hash, nil})
 	case Chained:
-		p.mutex.Lock()
-		defer p.mutex.Unlock()
+		p.chainMutex.Lock()
+		defer p.chainMutex.Unlock()
 
 		prevSignature := p.GetSignature(id)                // load signature of last UPP
 		if len(prevSignature) != nistp256SignatureLength { // check that loaded signature has valid length
