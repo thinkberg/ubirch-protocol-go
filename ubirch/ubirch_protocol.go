@@ -20,9 +20,7 @@ package ubirch
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/ugorji/go/codec"
@@ -39,8 +37,9 @@ const (
 	Disable                    Hint            = 0xFA
 	Enable                     Hint            = 0xFB
 	Delete                     Hint            = 0xFC
-	expectedHashSize                           = 32                          // length of a SHA256 hash
-	lenMsgpackSignatureElement                 = 2 + nistp256SignatureLength // length of a signature plus msgpack header for byte array (0xc4XX)
+	HashLen                                    = 32 // length of a SHA256 hash
+	SignatureLen                               = nistp256SignatureLength
+	lenMsgpackSignatureElement                 = 2 + SignatureLen // length of a signature plus msgpack header for byte array (0xc4XX)
 )
 
 // Crypto Interface for exported functionality
@@ -60,36 +59,6 @@ type Crypto interface {
 // Protocol structure
 type Protocol struct {
 	Crypto
-	signatures      map[uuid.UUID][]byte
-	signaturesMutex sync.RWMutex
-	chainMutex      sync.Mutex
-}
-
-func (p *Protocol) GetSignature(id uuid.UUID) []byte {
-	p.signaturesMutex.RLock()
-	if p.signatures == nil {
-		p.signatures = make(map[uuid.UUID][]byte)
-	}
-	sign, found := p.signatures[id]
-	p.signaturesMutex.RUnlock()
-
-	if !found {
-		return make([]byte, nistp256SignatureLength)
-	}
-	return sign
-}
-
-func (p *Protocol) SetSignature(id uuid.UUID, signature []byte) {
-	p.signaturesMutex.Lock()
-	if p.signatures == nil {
-		p.signatures = make(map[uuid.UUID][]byte)
-	}
-	p.signatures[id] = signature
-	p.signaturesMutex.Unlock()
-}
-
-func (p *Protocol) ResetSignature(id uuid.UUID) {
-	p.SetSignature(id, make([]byte, nistp256SignatureLength))
 }
 
 // interface for Ubirch Protocol Packages
@@ -251,9 +220,15 @@ func appendSignature(data []byte, signature []byte) []byte {
 	return append(data, signature...)
 }
 
-// sign encodes, signs and appends the signature to a UPP
-// also saves the signature for chained UPPs
-func (p *Protocol) sign(upp UPP) ([]byte, error) {
+// Sign encodes, signs and appends the signature to a UPP
+func (p *Protocol) Sign(upp UPP) ([]byte, error) {
+	// todo sanity checks?
+	//   if len(hash) != HashLen {
+	//	 	return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", HashLen, len(hash))
+	//	 }
+	//  if len(prevSignature) != SignatureLen { // check that signature has valid length
+	//	 	return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
+	//	 }
 	encoded, err := Encode(upp)
 	if err != nil {
 		return nil, err
@@ -274,73 +249,7 @@ func (p *Protocol) sign(upp UPP) ([]byte, error) {
 		return nil, fmt.Errorf("appending signature to UPP data failed")
 	}
 
-	// save the signature for chained UPPs
-	if upp.GetVersion() == Chained {
-		p.SetSignature(upp.GetUuid(), signature)
-	}
-
 	return uppWithSig, nil
-}
-
-//Sign is a wrapper for backwards compatibility with Sign() calls, will be removed in the future
-func (p *Protocol) Sign(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
-	fmt.Println("Warning: Sign() is deprecated, please use SignHash() or SignData() as appropriate")
-	return p.SignHash(name, hash, protocol)
-}
-
-// SignHash creates and signs a ubirch-protocol message using the given hash and the protocol version.
-// The method expects a SHA256 hash as input data.
-// Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
-func (p *Protocol) SignHash(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
-	return p.SignHashExtended(name, hash, protocol, Binary)
-}
-
-// SignData creates and signs a ubirch-protocol message using the given user data and the protocol version.
-// The method expects the user data as input data. Data will be SHA256 hashed and a UPP using
-// the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
-// from the context using the given device name.
-// FIXME this method name might be confusing. If the user explicitly wants to sign original data,
-//  (e.g. for msgpack key registration messages) the method name sounds like it would do that.
-func (p *Protocol) SignData(name string, userData []byte, protocol ProtocolVersion) ([]byte, error) {
-	//Catch errors
-	if userData == nil || len(userData) < 1 {
-		return nil, fmt.Errorf("input data is nil or empty")
-	}
-	//Calculate hash
-	//TODO: Make this dependent on the used crypto if we implement more than one
-	hash := sha256.Sum256(userData)
-
-	return p.SignHash(name, hash[:], protocol)
-}
-
-// SignHashExtended creates and signs a ubirch-protocol message using the given hash, hint and protocol version.
-// The method expects a SHA256 hash as input data.
-// Returns a standard ubirch-protocol packet (UPP)
-func (p *Protocol) SignHashExtended(name string, hash []byte, protocol ProtocolVersion, hint Hint) ([]byte, error) {
-	if len(hash) != expectedHashSize {
-		return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", expectedHashSize, len(hash))
-	}
-
-	id, err := p.GetUUID(name)
-	if err != nil {
-		return nil, err
-	}
-
-	switch protocol {
-	case Signed:
-		return p.sign(&SignedUPP{Signed, id, hint, hash, nil})
-	case Chained:
-		p.chainMutex.Lock()
-		defer p.chainMutex.Unlock()
-
-		prevSignature := p.GetSignature(id)                // load signature of last UPP
-		if len(prevSignature) != nistp256SignatureLength { // check that loaded signature has valid length
-			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
-		}
-		return p.sign(&ChainedUPP{Chained, id, prevSignature, hint, hash, nil})
-	default:
-		return nil, fmt.Errorf("invalid protocol version: 0x%02x", protocol)
-	}
 }
 
 // Verify verifies the signature of a ubirch-protocol message.
