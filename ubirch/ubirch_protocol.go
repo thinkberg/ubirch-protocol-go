@@ -31,15 +31,12 @@ type ProtocolVersion uint8
 type Hint uint8
 
 const (
-	Signed                     ProtocolVersion = 0x22 // Signed protocol, the Ubirch Protocol Package is signed
-	Chained                    ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
-	Binary                     Hint            = 0x00
-	Disable                    Hint            = 0xFA
-	Enable                     Hint            = 0xFB
-	Delete                     Hint            = 0xFC
-	HashLen                                    = 32 // length of a SHA256 hash
-	SignatureLen                               = nistp256SignatureLength
-	lenMsgpackSignatureElement                 = 2 + SignatureLen // length of a signature plus msgpack header for byte array (0xc4XX)
+	Signed  ProtocolVersion = 0x22 // Signed protocol, the Ubirch Protocol Package is signed
+	Chained ProtocolVersion = 0x23 // Chained protocol, the Ubirch Protocol Package contains the previous signature and is signed
+	Binary  Hint            = 0x00
+	Disable Hint            = 0xFA
+	Enable  Hint            = 0xFB
+	Delete  Hint            = 0xFC
 )
 
 // Crypto Interface for exported functionality
@@ -51,6 +48,8 @@ type Crypto interface {
 	PrivateKeyExists(name string) bool
 	SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error
 	SetKey(name string, id uuid.UUID, privKeyBytes []byte) error
+	SignatureLength() int
+	HashLength() int
 
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
@@ -222,13 +221,13 @@ func appendSignature(data []byte, signature []byte) []byte {
 
 // Sign encodes, signs and appends the signature to a UPP
 func (p *Protocol) Sign(upp UPP) ([]byte, error) {
-	// todo sanity checks?
-	//   if len(hash) != HashLen {
-	//	 	return nil, fmt.Errorf("invalid hash size, expected %v, got %v bytes", HashLen, len(hash))
-	//	 }
-	//  if len(prevSignature) != SignatureLen { // check that signature has valid length
-	//	 	return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
-	//	 }
+	if len(upp.GetPayload()) != p.HashLength() {
+		return nil, fmt.Errorf("invalid hash size: expected %d, got %d bytes", p.HashLength(), len(upp.GetPayload()))
+	}
+	if upp.GetVersion() == Chained && len(upp.GetPrevSignature()) != p.SignatureLength() {
+		return nil, fmt.Errorf("invalid prev. signature size: expected %d, got %d bytes", p.SignatureLength(), len(upp.GetPrevSignature()))
+	}
+
 	encoded, err := Encode(upp)
 	if err != nil {
 		return nil, err
@@ -254,6 +253,8 @@ func (p *Protocol) Sign(upp UPP) ([]byte, error) {
 
 // Verify verifies the signature of a ubirch-protocol message.
 func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
+	lenMsgpackSignatureElement := 2 + p.SignatureLength() // length of a signature plus msgpack header for byte array (0xc4XX)
+
 	if len(upp) <= lenMsgpackSignatureElement {
 		return false, fmt.Errorf("input not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
 	}

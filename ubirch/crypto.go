@@ -43,6 +43,7 @@ const (
 	nistp256RLength         = 32                                //Bytes
 	nistp256SLength         = 32                                //Bytes
 	nistp256SignatureLength = nistp256RLength + nistp256SLength //Bytes, Signature = concatenate(R,S)
+	sha256Length            = 32                                // length of a SHA256 hash
 )
 
 // CryptoContext contains the key store, a mapping for names -> UUIDs
@@ -50,6 +51,14 @@ const (
 type CryptoContext struct {
 	Keystore Keystorer
 	Names    map[string]uuid.UUID
+}
+
+func (c *CryptoContext) SignatureLength() int {
+	return nistp256SignatureLength
+}
+
+func (c *CryptoContext) HashLength() int {
+	return sha256Length
 }
 
 // Ensure CryptoContext implements the Crypto interface
@@ -243,13 +252,13 @@ func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
 //SetPublicKey sets the public key (64 bytes)
 func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error {
 	if len(pubKeyBytes) != nistp256PubkeyLength {
-		return fmt.Errorf("unexpected length for ECDSA public key: expected: %d, got: %d", nistp256PubkeyLength, len(pubKeyBytes))
+		return fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
 	}
-	if name == "" {
-		return fmt.Errorf("setting key for empty name not possible")
+	if len(name) == 0 {
+		return fmt.Errorf("empty name")
 	}
 	if id == uuid.Nil {
-		return fmt.Errorf("setting key for uuid = \"Nil\" not possible")
+		return fmt.Errorf("UUID \"Nil\"-value")
 	}
 
 	pubKey := new(ecdsa.PublicKey)
@@ -269,13 +278,13 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 //SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
 func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) error {
 	if len(privKeyBytes) != nistp256PrivkeyLength {
-		return fmt.Errorf("unexpected length for ECDSA private key: expected: %d, got: %d", nistp256PrivkeyLength, len(privKeyBytes))
+		return fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
 	}
-	if name == "" {
-		return fmt.Errorf("setting key for empty name not possible")
+	if len(name) == 0 {
+		return fmt.Errorf("empty name")
 	}
 	if id == uuid.Nil {
-		return fmt.Errorf("setting key for uuid = \"Nil\" not possible")
+		return fmt.Errorf("UUID \"Nil\"-value")
 	}
 
 	privKey := new(ecdsa.PrivateKey)
