@@ -369,20 +369,22 @@ func (c *CryptoContext) PrivateKeyExists(name string) bool {
 	return true
 }
 
-// Sign returns the signature for 'data' using the private key of a specific UUID. Need to get the UUID via CryptoContext#GetUUID().
+// Sign returns the signature for the SHA256 of 'data' using the private key of a specific UUID.
 func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	if len(data) == 0 {
-		return nil, errors.New("empty data cannot be signed")
+		return nil, fmt.Errorf("empty data")
 	}
 
+	return c.SignHash(id, sha256.Sum256(data))
+}
+
+func (c *CryptoContext) SignHash(id uuid.UUID, sha256 [32]byte) ([]byte, error) {
 	priv, err := c.getDecodedPrivateKey(id)
 	if err != nil {
 		return nil, err
 	}
 
-	// ecdsa in go does not automatically apply the hashing
-	hash := sha256.Sum256(data)
-	r, s, err := ecdsa.Sign(rand.Reader, priv, hash[:])
+	r, s, err := ecdsa.Sign(rand.Reader, priv, sha256[:])
 	if err != nil {
 		return nil, err
 	}
