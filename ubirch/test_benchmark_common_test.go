@@ -67,6 +67,75 @@ const (
 	lenPrivkeyECDSA = 32
 )
 
+type ExtendedProtocol struct {
+	Protocol
+	signatures map[uuid.UUID][]byte
+}
+
+func NewExtendedProtocol(context *CryptoContext, signatures map[uuid.UUID][]byte) *ExtendedProtocol {
+	p := &ExtendedProtocol{}
+	p.signatures = signatures
+	p.Protocol.Crypto = context
+	return p
+}
+
+// SignHash creates and signs a ubirch-protocol message using the given hash and the protocol version.
+// The method expects a SHA256 hash as input data.
+// Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
+func (p *ExtendedProtocol) SignHash(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
+	if hash == nil || len(hash) != p.HashLength() {
+		return nil, fmt.Errorf("invalid hash size: expected %d, got %d bytes", p.HashLength(), len(hash))
+	}
+
+	id, err := p.GetUUID(name)
+	if err != nil {
+		return nil, err
+	}
+
+	switch protocol {
+	case Signed:
+		return p.Sign(&SignedUPP{Signed, id, Binary, hash, nil})
+	case Chained:
+		// get the signature of the last UPP
+		prevSignature, found := p.signatures[id]
+		if !found {
+			prevSignature = make([]byte, nistp256SignatureLength) // not found: make new chain start (all zeroes signature)
+		} else if len(prevSignature) != nistp256SignatureLength { // found: check that loaded signature has valid length
+			return nil, fmt.Errorf("invalid last signature, can't create chained UPP")
+		}
+
+		// sign
+		upp, err := p.Sign(&ChainedUPP{Chained, id, prevSignature, Binary, hash, nil})
+		if err != nil {
+			return nil, err
+		}
+
+		// set the new signature for the next chained UPP
+		newSignature := upp[len(upp)-nistp256SignatureLength:]
+		p.signatures[id] = newSignature
+
+		return upp, nil
+
+	default:
+		return nil, fmt.Errorf("invalid protocol version: 0x%02x", protocol)
+	}
+}
+
+// SignData creates and signs a ubirch-protocol message using the given user data and the protocol version.
+// The method expects the user data as input data. Data will be SHA256 hashed and a UPP using
+// the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
+// from the context using the given device name.
+func (p *ExtendedProtocol) SignData(name string, userData []byte, protocol ProtocolVersion) ([]byte, error) {
+	//Catch errors
+	if userData == nil || len(userData) < 1 {
+		return nil, fmt.Errorf("input data is nil or empty")
+	}
+	//Calculate hash
+	hash := sha256.Sum256(userData)
+
+	return p.SignHash(name, hash[:], protocol)
+}
+
 //////Helper Functions//////
 
 //parameterString prints a string showing the passed parameters as a block of text (for easier/ more helpful error messages)
@@ -108,7 +177,7 @@ func randomString(lenMin int, lenMax int) string {
 }
 
 //loads a protocol context from a json file
-func loadProtocolContext(p *Protocol, filename string) error {
+func loadProtocolContext(p *ExtendedProtocol, filename string) error {
 	contextBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
@@ -118,7 +187,7 @@ func loadProtocolContext(p *Protocol, filename string) error {
 }
 
 //saves a protocol context to a json file
-func saveProtocolContext(p *Protocol, filename string) error {
+func saveProtocolContext(p *ExtendedProtocol, filename string) error {
 	contextBytes, _ := json.Marshal(p)
 	err := ioutil.WriteFile(filename, contextBytes, 0666)
 	return err
@@ -146,24 +215,24 @@ func getPrivateKey(c *CryptoContext, name string) ([]byte, error) {
 }
 
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
-func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*Protocol, error) {
+func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*ExtendedProtocol, error) {
 	context := &CryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	protocol := &Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+	protocol := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	//Load reference data into context
 	err := setProtocolContext(protocol, Name, UUID, PrivKey, "", LastSignature)
 	return protocol, err
 }
 
 //Creates a new protocol context for a UPP verifier (only pubkey is needed)
-func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*Protocol, error) {
+func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*ExtendedProtocol, error) {
 	context := &CryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	protocol := &Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+	protocol := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	//Load reference data into context
 	err := setProtocolContext(protocol, Name, UUID, "", PubKey, "")
 	return protocol, err
@@ -172,7 +241,7 @@ func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*Proto
 //Sets the passed protocol context to the passed values (name, UUID, private Key, last signature), passed as hex strings
 //If a value is an empty string ("") it will not be set. If privkey is given, pubkey will be calculated, but
 //directly overwritten if an explicit pubkey is passed in
-func setProtocolContext(p *Protocol, Name string, UUID string, PrivKey string, PubKey string, LastSignature string) error {
+func setProtocolContext(p *ExtendedProtocol, Name string, UUID string, PrivKey string, PubKey string, LastSignature string) error {
 	if p == nil {
 		return fmt.Errorf("Protocol is nil")
 	}

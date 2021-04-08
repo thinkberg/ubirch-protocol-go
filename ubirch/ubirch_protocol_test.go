@@ -724,31 +724,25 @@ func TestSignData_CorruptContext(t *testing.T) {
 	//test cases
 	var tests = []struct {
 		testName           string
-		testProtocolStruct *Protocol
+		testProtocolStruct *ExtendedProtocol
 		nameForSign        string //device name to use in call to SignData(), should match context/protocol data (if desired)
 		protocolsToTest    []ProtocolVersion
 	}{
 		{
 			testName: "EmptyContext", //no keys, no devices in Names list
-			testProtocolStruct: &Protocol{
-				Crypto: &CryptoContext{
-					Keystore: emptyKeystore,
-					Names:    map[string]uuid.UUID{},
-				},
-				signatures: map[uuid.UUID][]byte{},
-			},
+			testProtocolStruct: NewExtendedProtocol(&CryptoContext{
+				Keystore: emptyKeystore,
+				Names:    map[string]uuid.UUID{},
+			}, map[uuid.UUID][]byte{}),
 			nameForSign:     "",
 			protocolsToTest: []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName: "NameOkKeystoreEmpty", //Device is in list of devices but no key is in the Keystore (written for bug UP-1693)
-			testProtocolStruct: &Protocol{
-				Crypto: &CryptoContext{
-					Keystore: emptyKeystore,
-					Names:    map[string]uuid.UUID{defaultName: uuid.MustParse(defaultUUID)},
-				},
-				signatures: map[uuid.UUID][]byte{},
-			},
+			testProtocolStruct: NewExtendedProtocol(&CryptoContext{
+				Keystore: emptyKeystore,
+				Names:    map[string]uuid.UUID{defaultName: uuid.MustParse(defaultUUID)},
+			}, map[uuid.UUID][]byte{}),
 			nameForSign:     defaultName,
 			protocolsToTest: []ProtocolVersion{Signed, Chained},
 		},

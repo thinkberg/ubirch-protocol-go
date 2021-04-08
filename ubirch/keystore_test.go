@@ -61,8 +61,8 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 		Keystore: testKeystore,
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
-	requirer.NoErrorf(loadProtocolContext(&p, "test3.json"), "Failed loading protocol context")
+	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
+	requirer.NoErrorf(loadProtocolContext(p, "test3.json"), "Failed loading protocol context")
 	id := uuid.MustParse(defaultUUID)
 	// Get the public key
 	pubKeyEncoded, err := testKeystore.GetKey(pubKeyEntryTitle(id))
@@ -231,8 +231,8 @@ func TestEncryptedKeystore_MarshalJSON(t *testing.T) {
 	asserter.Containsf(string(jsonKeystore), "{}", "This should be empty")
 
 	// test with keystore file "test3.json" and check if the relevant information is provided
-	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
-	requirer.NoErrorf(loadProtocolContext(&p, "test3.json"), "Failed loading protocol context")
+	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
+	requirer.NoErrorf(loadProtocolContext(p, "test3.json"), "Failed loading protocol context")
 
 	jsonKeystore, err = testKeystore.MarshalJSON()
 	asserter.NoErrorf(err, "there should be no error")

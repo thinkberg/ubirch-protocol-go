@@ -115,21 +115,21 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(p.GenerateKey(defaultName, id), "Generating key failed")
 	pubKeyBytesNew, err := p.GetPublicKey(defaultName)
 	asserter.Nilf(err, "Getting key failed")
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
-	asserter.NoErrorf(saveProtocolContext(&p, "temp.json"), "Failed Saving protocol context")
+	asserter.NoErrorf(saveProtocolContext(p, "temp.json"), "Failed Saving protocol context")
 
 	context2 := &CryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p2 := Protocol{Crypto: context2, signatures: map[uuid.UUID][]byte{}}
-	asserter.NoErrorf(loadProtocolContext(&p2, "temp.json"), "Failed loading protocol context")
+	p2 := NewExtendedProtocol(context2, map[uuid.UUID][]byte{})
+	asserter.NoErrorf(loadProtocolContext(p2, "temp.json"), "Failed loading protocol context")
 	pubKeyBytesLoad, err := p2.GetPublicKey(defaultName)
 	asserter.Nilf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytesLoad, "Public Key for existing Key empty")
@@ -150,7 +150,7 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	asserter := assert.New(t)
 	var kstore = NewEncryptedKeystore([]byte(defaultSecret))
 	var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
-	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 
 	// test the correct UUID but before loading the context
 	id, err := p.GetUUID(defaultName)
@@ -158,7 +158,7 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	asserter.Equalf(id, uuid.Nil, "the uuid is not nil")
 
 	// test the correct UUID, with loaded context
-	asserter.NoErrorf(loadProtocolContext(&p, "test.json"), "Failed loading protocol context")
+	asserter.NoErrorf(loadProtocolContext(p, "test.json"), "Failed loading protocol context")
 	id, err = p.GetUUID(defaultName)
 	asserter.NoErrorf(err, "Cannot get UUID")
 	asserter.Equalf(id, uuid.MustParse(defaultUUID), "the uuid is not correct")
@@ -251,7 +251,7 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 
 	//Generate Key with valid name and valid uuid
 	id := uuid.MustParse(defaultUUID)
@@ -298,7 +298,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	// check for non existing key
 	pubKeyBytes, err := p.GetPublicKey(unknownName)
 	asserter.Errorf(err, "Getting non existing Public key did not fail as expected")
@@ -313,7 +313,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	asserter.Equal(lenPubkeyECDSA, len(pubKeyBytesNew), "len(public key) not correct for a public key")
 
 	// load the protocol and check if the Public key remains the same, as the new generated
-	asserter.NoErrorf(loadProtocolContext(&p, "test2.json"), "Failed loading")
+	asserter.NoErrorf(loadProtocolContext(p, "test2.json"), "Failed loading")
 	pubKeyBytesLoad, err := p.GetPublicKey(defaultName)
 	asserter.NoError(err, "Getting Public key failed")
 	asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change when loading context")
@@ -333,7 +333,7 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	// check for non existing key
 	privKeyBytes, err := getPrivateKey(context, unknownName)
 	asserter.Errorf(err, "Getting non exisitng Public key failed")
@@ -348,7 +348,7 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	asserter.Containsf(string(privKeyBytesNew), "-----BEGIN PRIVATE KEY-----", "not a private key")
 
 	// load the protocol and check if the Private key remains the same, as the new generated
-	asserter.NoErrorf(loadProtocolContext(&p, "test2.json"), "Failed loading")
+	asserter.NoErrorf(loadProtocolContext(p, "test2.json"), "Failed loading")
 	privKeyBytesLoad, err := getPrivateKey(context, defaultName)
 	asserter.NoErrorf(err, "Getting Private key failed")
 	asserter.NotEqualf(privKeyBytesLoad, privKeyBytesNew, "the Private key did not change")
@@ -617,7 +617,7 @@ func TestCryptoContext_PrivateKeyExists_NOTRDY(t *testing.T) {
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
-	p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	// check for non existing key
 	asserter.Falsef(p.PrivateKeyExists(unknownName), "Key for unknown Name should not exist")
 

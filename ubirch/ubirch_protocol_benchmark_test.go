@@ -65,7 +65,7 @@ func BenchmarkSign(b *testing.B) {
 			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 			Names:    map[string]uuid.UUID{},
 		}
-		p := &Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+		p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 		//Load reference data into context
 		setProtocolContext(p, bm.deviceName, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
 		//Generate pseudrandom input data
@@ -73,7 +73,7 @@ func BenchmarkSign(b *testing.B) {
 		//Run the current benchmark
 		b.Run(bm.testDescription, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				encoded, err := p.Sign(bm.deviceName, inputData, bm.signProtocol)
+				encoded, err := p.SignData(bm.deviceName, inputData, bm.signProtocol)
 				if err != nil {
 					b.Fatalf("Protocol.Sign() failed with error %v", err)
 				}
@@ -114,7 +114,7 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 			Names:    map[string]uuid.UUID{},
 		}
-		p := &Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
+		p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 		//Load reference data into context
 		setProtocolContext(p, bm.deviceName, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
 		//Generate pseudrandom input data
@@ -123,7 +123,7 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 		b.Run(bm.testDescription, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				hash := sha256.Sum256(inputData)
-				encoded, err := p.Sign(bm.deviceName, hash[:], bm.signProtocol)
+				encoded, err := p.SignHash(bm.deviceName, hash[:], bm.signProtocol)
 				if err != nil {
 					b.Fatalf("Protocol.Sign() failed with error %v", err)
 				}
