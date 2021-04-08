@@ -375,16 +375,21 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("empty data")
 	}
 
-	return c.SignHash(id, sha256.Sum256(data))
+	hash := sha256.Sum256(data)
+	return c.SignHash(id, hash[:])
 }
 
-func (c *CryptoContext) SignHash(id uuid.UUID, sha256 [32]byte) ([]byte, error) {
+func (c *CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
+	if len(hash) != sha256Length {
+		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
+	}
+
 	priv, err := c.getDecodedPrivateKey(id)
 	if err != nil {
 		return nil, err
 	}
 
-	r, s, err := ecdsa.Sign(rand.Reader, priv, sha256[:])
+	r, s, err := ecdsa.Sign(rand.Reader, priv, hash)
 	if err != nil {
 		return nil, err
 	}
