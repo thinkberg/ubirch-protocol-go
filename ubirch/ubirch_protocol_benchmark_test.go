@@ -38,24 +38,23 @@ func BenchmarkSign(b *testing.B) {
 	//Define data for all benchmarks to run
 	benchmarks := []struct {
 		testDescription  string
-		deviceName       string
 		deviceUUID       string
 		devicePrivateKey string
 		deviceLastSig    string
 		inputSizeBytes   int
 		signProtocol     ProtocolVersion
 	}{
-		{"Signed-32Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 32, Signed},
-		{"Signed-64Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 64, Signed},
-		{"Signed-1kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024, Signed},
-		{"Signed-100kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Signed},
-		{"Signed-1MB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Signed},
+		{"Signed-32Bytes", defaultUUID, defaultPriv, defaultLastSig, 32, Signed},
+		{"Signed-64Bytes", defaultUUID, defaultPriv, defaultLastSig, 64, Signed},
+		{"Signed-1kB", defaultUUID, defaultPriv, defaultLastSig, 1024, Signed},
+		{"Signed-100kB", defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Signed},
+		{"Signed-1MB", defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Signed},
 
-		{"Chained-32Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 32, Chained},
-		{"Chained-64Bytes", defaultName, defaultUUID, defaultPriv, defaultLastSig, 64, Chained},
-		{"Chained-1kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024, Chained},
-		{"Chained-100kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Chained},
-		{"Chained-1MB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Chained},
+		{"Chained-32Bytes", defaultUUID, defaultPriv, defaultLastSig, 32, Chained},
+		{"Chained-64Bytes", defaultUUID, defaultPriv, defaultLastSig, 64, Chained},
+		{"Chained-1kB", defaultUUID, defaultPriv, defaultLastSig, 1024, Chained},
+		{"Chained-100kB", defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Chained},
+		{"Chained-1MB", defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Chained},
 	}
 
 	//Iterate over all benchmarks
@@ -63,17 +62,16 @@ func BenchmarkSign(b *testing.B) {
 		//Create new crypto context
 		context := &ECDSACryptoContext{
 			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-			Names:    map[string]uuid.UUID{},
 		}
 		p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 		//Load reference data into context
-		setProtocolContext(p, bm.deviceName, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
+		setProtocolContext(p, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
 		//Generate pseudrandom input data
 		inputData := deterministicPseudoRandomBytes(0, bm.inputSizeBytes)
 		//Run the current benchmark
 		b.Run(bm.testDescription, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				encoded, err := p.SignData(bm.deviceName, inputData, bm.signProtocol)
+				encoded, err := p.SignData(uuid.MustParse(bm.deviceUUID), inputData, bm.signProtocol)
 				if err != nil {
 					b.Fatalf("Protocol.Sign() failed with error %v", err)
 				}
@@ -89,22 +87,21 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 	//Define data for all benchmarks to run
 	benchmarks := []struct {
 		testDescription   string
-		deviceName        string
 		deviceUUID        string
 		devicePrivateKey  string
 		deviceLastSig     string
 		userDataSizeBytes int
 		signProtocol      ProtocolVersion
 	}{
-		{"Signed-defaultDataSize", defaultName, defaultUUID, defaultPriv, defaultLastSig, defaultDataSize, Signed},
-		{"Signed-1kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024, Signed},
-		{"Signed-100kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Signed},
-		{"Signed-1MB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Signed},
+		{"Signed-defaultDataSize", defaultUUID, defaultPriv, defaultLastSig, defaultDataSize, Signed},
+		{"Signed-1kB", defaultUUID, defaultPriv, defaultLastSig, 1024, Signed},
+		{"Signed-100kB", defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Signed},
+		{"Signed-1MB", defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Signed},
 
-		{"Chained-defaultDataSize", defaultName, defaultUUID, defaultPriv, defaultLastSig, defaultDataSize, Chained},
-		{"Chained-1kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024, Chained},
-		{"Chained-100kB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Chained},
-		{"Chained-1MB", defaultName, defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Chained},
+		{"Chained-defaultDataSize", defaultUUID, defaultPriv, defaultLastSig, defaultDataSize, Chained},
+		{"Chained-1kB", defaultUUID, defaultPriv, defaultLastSig, 1024, Chained},
+		{"Chained-100kB", defaultUUID, defaultPriv, defaultLastSig, 100 * 1024, Chained},
+		{"Chained-1MB", defaultUUID, defaultPriv, defaultLastSig, 1024 * 1024, Chained},
 	}
 
 	//Iterate over all benchmarks
@@ -112,18 +109,17 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 		//Create new crypto context
 		context := &ECDSACryptoContext{
 			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-			Names:    map[string]uuid.UUID{},
 		}
 		p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 		//Load reference data into context
-		setProtocolContext(p, bm.deviceName, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
+		setProtocolContext(p, bm.deviceUUID, bm.devicePrivateKey, "", bm.deviceLastSig)
 		//Generate pseudrandom input data
 		inputData := deterministicPseudoRandomBytes(0, bm.userDataSizeBytes)
 		//Run the current benchmark
 		b.Run(bm.testDescription, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				hash := sha256.Sum256(inputData)
-				encoded, err := p.SignHash(bm.deviceName, hash[:], bm.signProtocol)
+				encoded, err := p.SignHash(uuid.MustParse(bm.deviceUUID), hash[:], bm.signProtocol)
 				if err != nil {
 					b.Fatalf("Protocol.Sign() failed with error %v", err)
 				}

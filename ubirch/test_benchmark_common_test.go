@@ -49,7 +49,6 @@ import (
 ////Default Values////
 // (for consistent defaults in benchmark/test table entries )
 const (
-	defaultName      = "A"
 	defaultUUID      = "6eac4d0b-16e6-4508-8c46-22e7451ea5a1"                                                                                             //"f9038b4b-d3bc-47c9-9968-ea275f1b6de8"
 	defaultPriv      = "8f827f925f83b9e676aeb87d14842109bee64b02f1398c6dcdd970d5d6880937"                                                                 //"10a0bef246575ea219e15bffbb6704d2a58b0e4aa99f101f12f0b1ce7a143559"
 	defaultPub       = "55f0feac4f2bcf879330eff348422ab3abf5237a24acaf0aef3bb876045c4e532fbd6cd8e265f6cf28b46e7e4512cd06ba84bcd3300efdadf28750f43dafd771" //"92bbd65d59aecbdf7b497fb4dcbdffa22833613868ddf35b44f5bd672496664a2cc1d228550ae36a1d0210a3b42620b634dc5d22ecde9e12f37d66eeedee3e6a"
@@ -82,14 +81,9 @@ func NewExtendedProtocol(context *ECDSACryptoContext, signatures map[uuid.UUID][
 // SignHash creates and signs a ubirch-protocol message using the given hash and the protocol version.
 // The method expects a SHA256 hash as input data.
 // Returns a standard ubirch-protocol packet (UPP) with the hint 0x00 (binary hash).
-func (p *ExtendedProtocol) SignHash(name string, hash []byte, protocol ProtocolVersion) ([]byte, error) {
+func (p *ExtendedProtocol) SignHash(id uuid.UUID, hash []byte, protocol ProtocolVersion) ([]byte, error) {
 	if hash == nil || len(hash) != p.HashLength() {
 		return nil, fmt.Errorf("invalid hash size: expected %d, got %d bytes", p.HashLength(), len(hash))
-	}
-
-	id, err := p.GetUUID(name)
-	if err != nil {
-		return nil, err
 	}
 
 	switch protocol {
@@ -125,7 +119,7 @@ func (p *ExtendedProtocol) SignHash(name string, hash []byte, protocol ProtocolV
 // The method expects the user data as input data. Data will be SHA256 hashed and a UPP using
 // the hash as payload will be created by calling SignHash(). The UUID is automatically retrieved
 // from the context using the given device name.
-func (p *ExtendedProtocol) SignData(name string, userData []byte, protocol ProtocolVersion) ([]byte, error) {
+func (p *ExtendedProtocol) SignData(id uuid.UUID, userData []byte, protocol ProtocolVersion) ([]byte, error) {
 	//Catch errors
 	if userData == nil || len(userData) < 1 {
 		return nil, fmt.Errorf("input data is nil or empty")
@@ -133,19 +127,16 @@ func (p *ExtendedProtocol) SignData(name string, userData []byte, protocol Proto
 	//Calculate hash
 	hash := sha256.Sum256(userData)
 
-	return p.SignHash(name, hash[:], protocol)
+	return p.SignHash(id, hash[:], protocol)
 }
 
 //////Helper Functions//////
 
 //parameterString prints a string showing the passed parameters as a block of text (for easier/ more helpful error messages)
 //if the string is empty ("") the corresponding line is not added
-func parameterString(name string, uuidStr string, privkey string, pubkey string, lastSignature string) string {
+func parameterString(uuidStr string, privkey string, pubkey string, lastSignature string) string {
 	paramStr := ""
 
-	if name != "" {
-		paramStr += fmt.Sprintf("Name: %v\n", name)
-	}
 	if uuidStr != "" {
 		paramStr += fmt.Sprintf("UUID: %v\n", uuidStr)
 	}
@@ -201,12 +192,7 @@ func deleteProtocolContext(filename string) error {
 }
 
 // Get the private key bytes for the given name.
-func getPrivateKey(c *ECDSACryptoContext, name string) ([]byte, error) {
-	id, err := c.GetUUID(name)
-	if err != nil {
-		return nil, err
-	}
-
+func getPrivateKey(c *ECDSACryptoContext, id uuid.UUID) ([]byte, error) {
 	privKeyBytes, err := c.Keystore.GetKey(privKeyEntryTitle(id))
 	if err != nil {
 		return nil, err
@@ -215,33 +201,31 @@ func getPrivateKey(c *ECDSACryptoContext, name string) ([]byte, error) {
 }
 
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
-func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*ExtendedProtocol, error) {
+func newProtocolContextSigner(UUID string, PrivKey string, LastSignature string) (*ExtendedProtocol, error) {
 	context := &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-		Names:    map[string]uuid.UUID{},
 	}
 	protocol := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	//Load reference data into context
-	err := setProtocolContext(protocol, Name, UUID, PrivKey, "", LastSignature)
+	err := setProtocolContext(protocol, UUID, PrivKey, "", LastSignature)
 	return protocol, err
 }
 
 //Creates a new protocol context for a UPP verifier (only pubkey is needed)
-func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*ExtendedProtocol, error) {
+func newProtocolContextVerifier(UUID string, PubKey string) (*ExtendedProtocol, error) {
 	context := &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-		Names:    map[string]uuid.UUID{},
 	}
 	protocol := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	//Load reference data into context
-	err := setProtocolContext(protocol, Name, UUID, "", PubKey, "")
+	err := setProtocolContext(protocol, UUID, "", PubKey, "")
 	return protocol, err
 }
 
 //Sets the passed protocol context to the passed values (name, UUID, private Key, last signature), passed as hex strings
 //If a value is an empty string ("") it will not be set. If privkey is given, pubkey will be calculated, but
 //directly overwritten if an explicit pubkey is passed in
-func setProtocolContext(p *ExtendedProtocol, Name string, UUID string, PrivKey string, PubKey string, LastSignature string) error {
+func setProtocolContext(p *ExtendedProtocol, UUID string, PrivKey string, PubKey string, LastSignature string) error {
 	if p == nil {
 		return fmt.Errorf("Protocol is nil")
 	}
@@ -261,7 +245,7 @@ func setProtocolContext(p *ExtendedProtocol, Name string, UUID string, PrivKey s
 		if err != nil {
 			return fmt.Errorf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
 		}
-		err = p.Crypto.SetKey(Name, id, privBytes)
+		err = p.Crypto.SetKey(id, privBytes)
 		if err != nil {
 			return fmt.Errorf("setProtocolContext: Error setting private key bytes: %v,", err)
 		}
@@ -272,15 +256,12 @@ func setProtocolContext(p *ExtendedProtocol, Name string, UUID string, PrivKey s
 		if UUID == "" {
 			return fmt.Errorf("Need UUID to set public key")
 		}
-		if Name == "" {
-			return fmt.Errorf("Need name to set public key")
-		}
 		//Set public key (public key will automatically be calculated and set)
 		pubBytes, err := hex.DecodeString(PubKey)
 		if err != nil {
 			return fmt.Errorf("setProtocolContext: Error decoding public key string: : %v, string was: %v", err, PubKey)
 		}
-		err = p.Crypto.SetPublicKey(Name, id, pubBytes)
+		err = p.Crypto.SetPublicKey(id, pubBytes)
 		if err != nil {
 			return fmt.Errorf("setProtocolContext: Error setting public key bytes: : %v,", err)
 		}

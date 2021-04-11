@@ -49,7 +49,6 @@ const (
 // ECDSACryptoContext contains the key store, a mapping for names -> UUIDs
 type ECDSACryptoContext struct {
 	Keystore Keystorer
-	Names    map[string]uuid.UUID
 }
 
 func (c *ECDSACryptoContext) SignatureLength() int {
@@ -133,18 +132,13 @@ func pubKeyEntryTitle(id uuid.UUID) string {
 //}
 
 // storePrivateKey stores the private Key, returns 'nil', if successful
-func (c *ECDSACryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+func (c *ECDSACryptoContext) storePrivateKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
 		return fmt.Errorf("can't set private key: keystore is nil")
 	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
 		return fmt.Errorf("can't set private key: keystore pointer is nil, pointer type is %T", c.Keystore)
 	}
-
-	if c.Names == nil {
-		c.Names = make(map[string]uuid.UUID, 1)
-	}
-	c.Names[name] = id
 
 	privKeyBytes, err := encodePrivateKey(k)
 	if err != nil {
@@ -154,18 +148,13 @@ func (c *ECDSACryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa
 }
 
 // storePublicKey stores the public Key, returns 'nil', if successful
-func (c *ECDSACryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
+func (c *ECDSACryptoContext) storePublicKey(id uuid.UUID, k *ecdsa.PublicKey) error {
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
 		return fmt.Errorf("can't set public key: keystore is nil")
 	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
 		return fmt.Errorf("can't set public key: keystore pointer is nil, pointer type is %T", c.Keystore)
 	}
-
-	if c.Names == nil {
-		c.Names = make(map[string]uuid.UUID, 1)
-	}
-	c.Names[name] = id
 
 	pubKeyBytes, err := encodePublicKey(k)
 	if err != nil {
@@ -213,29 +202,16 @@ func (c *ECDSACryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey
 }
 
 // storeKey stores the Private Key, as well as the Public Key, returns 'nil', if successful
-func (c *ECDSACryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
-	err := c.storePublicKey(name, id, &k.PublicKey)
+func (c *ECDSACryptoContext) storeKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
+	err := c.storePublicKey(id, &k.PublicKey)
 	if err != nil {
 		return err
 	}
-	return c.storePrivateKey(name, id, k)
-}
-
-// GetUUID gets the uuid that is related the given name.
-func (c *ECDSACryptoContext) GetUUID(name string) (uuid.UUID, error) {
-	id, found := c.Names[name]
-	if !found {
-		return uuid.Nil, errors.New(fmt.Sprintf("no uuid/key entry for '%s'", name))
-	}
-	return id, nil
+	return c.storePrivateKey(id, k)
 }
 
 // GenerateKey generates a new key pair and stores it, using the given name and associated UUID.
-func (c *ECDSACryptoContext) GenerateKey(name string, id uuid.UUID) error {
-	// check for empty name
-	if name == "" {
-		return errors.New(fmt.Sprintf("generating key for empty name not possible"))
-	}
+func (c *ECDSACryptoContext) GenerateKey(id uuid.UUID) error {
 	if id == uuid.Nil {
 		return errors.New(fmt.Sprintf("generating key for uuid = \"Nil\" not possible"))
 	}
@@ -245,16 +221,13 @@ func (c *ECDSACryptoContext) GenerateKey(name string, id uuid.UUID) error {
 		return err
 	}
 
-	return c.storeKey(name, id, k)
+	return c.storeKey(id, k)
 }
 
 //SetPublicKey sets the public key (64 bytes)
-func (c *ECDSACryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error {
+func (c *ECDSACryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error {
 	if len(pubKeyBytes) != nistp256PubkeyLength {
 		return fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
-	}
-	if len(name) == 0 {
-		return fmt.Errorf("empty name")
 	}
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
@@ -271,16 +244,13 @@ func (c *ECDSACryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes
 		return fmt.Errorf("invalid public key value: point not on curve")
 	}
 
-	return c.storePublicKey(name, id, pubKey)
+	return c.storePublicKey(id, pubKey)
 }
 
 //SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
-func (c *ECDSACryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) error {
+func (c *ECDSACryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
 	if len(privKeyBytes) != nistp256PrivkeyLength {
 		return fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
-	}
-	if len(name) == 0 {
-		return fmt.Errorf("empty name")
 	}
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
@@ -297,26 +267,21 @@ func (c *ECDSACryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []by
 		return fmt.Errorf("invalid private key value: value is greater or equal curve order")
 	}
 
-	return c.storeKey(name, id, privKey)
+	return c.storeKey(id, privKey)
 }
 
 // GetCSR gets a certificate signing request.
-func (c *ECDSACryptoContext) GetCSR(name string, subjectCountry string, subjectOrganization string) ([]byte, error) {
-	uid, err := c.GetUUID(name)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *ECDSACryptoContext) GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error) {
 	template := &x509.CertificateRequest{
 		SignatureAlgorithm: x509.ECDSAWithSHA256,
 		Subject: pkix.Name{
 			Country:      []string{subjectCountry},
 			Organization: []string{subjectOrganization},
-			CommonName:   uid.String(),
+			CommonName:   id.String(),
 		},
 	}
 
-	priv, err := c.getDecodedPrivateKey(uid)
+	priv, err := c.getDecodedPrivateKey(id)
 	if err != nil {
 		return nil, err
 	}
@@ -325,12 +290,7 @@ func (c *ECDSACryptoContext) GetCSR(name string, subjectCountry string, subjectO
 }
 
 // GetPublicKey gets the public key bytes for the given name.
-func (c *ECDSACryptoContext) GetPublicKey(name string) ([]byte, error) {
-	id, err := c.GetUUID(name)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *ECDSACryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	decodedPubKey, err := c.getDecodedPublicKey(id)
 	if err != nil {
 		return nil, fmt.Errorf("decoding public key from keystore failed: %s", err)
@@ -355,13 +315,8 @@ func (c *ECDSACryptoContext) GetPublicKey(name string) ([]byte, error) {
 }
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
-func (c *ECDSACryptoContext) PrivateKeyExists(name string) bool {
-	id, err := c.GetUUID(name)
-	if err != nil {
-		return false
-	}
-
-	_, err = c.getDecodedPrivateKey(id)
+func (c *ECDSACryptoContext) PrivateKeyExists(id uuid.UUID) bool {
+	_, err := c.getDecodedPrivateKey(id)
 	if err != nil {
 		return false
 	}

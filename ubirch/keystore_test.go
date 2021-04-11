@@ -59,7 +59,6 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 	var testKeystore = NewEncryptedKeystore([]byte(defaultSecret))
 	var context = &ECDSACryptoContext{
 		Keystore: testKeystore,
-		Names:    map[string]uuid.UUID{},
 	}
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	requirer.NoErrorf(loadProtocolContext(p, "test3.json"), "Failed loading protocol context")
@@ -223,7 +222,6 @@ func TestEncryptedKeystore_MarshalJSON(t *testing.T) {
 	var testKeystore = NewEncryptedKeystore([]byte(defaultSecret))
 	var context = &ECDSACryptoContext{
 		Keystore: testKeystore,
-		Names:    map[string]uuid.UUID{},
 	}
 	// test empty Keystore
 	jsonKeystore, err := testKeystore.MarshalJSON()

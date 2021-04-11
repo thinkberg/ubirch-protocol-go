@@ -41,13 +41,12 @@ const (
 
 // Crypto Interface for exported functionality
 type Crypto interface {
-	GetUUID(name string) (uuid.UUID, error)
-	GenerateKey(name string, id uuid.UUID) error
-	GetCSR(name string, subjectCountry string, subjectOrganization string) ([]byte, error)
-	GetPublicKey(name string) ([]byte, error)
-	PrivateKeyExists(name string) bool
-	SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error
-	SetKey(name string, id uuid.UUID, privKeyBytes []byte) error
+	GenerateKey(id uuid.UUID) error
+	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
+	GetPublicKey(id uuid.UUID) ([]byte, error)
+	PrivateKeyExists(id uuid.UUID) bool
+	SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error
+	SetKey(id uuid.UUID, privKeyBytes []byte) error
 	SignatureLength() int
 	HashLength() int
 
@@ -252,16 +251,11 @@ func (p *Protocol) Sign(upp UPP) ([]byte, error) {
 }
 
 // Verify verifies the signature of a ubirch-protocol message.
-func (p *Protocol) Verify(name string, upp []byte) (bool, error) {
+func (p *Protocol) Verify(id uuid.UUID, upp []byte) (bool, error) {
 	lenMsgpackSignatureElement := 2 + p.SignatureLength() // length of a signature plus msgpack header for byte array (0xc4XX)
 
 	if len(upp) <= lenMsgpackSignatureElement {
 		return false, fmt.Errorf("input not verifiable, not enough data: len %d <= %d bytes", len(upp), lenMsgpackSignatureElement)
-	}
-
-	id, err := p.GetUUID(name)
-	if err != nil {
-		return false, err
 	}
 
 	data := upp[:len(upp)-lenMsgpackSignatureElement]

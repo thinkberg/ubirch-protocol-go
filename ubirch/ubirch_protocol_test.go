@@ -117,101 +117,82 @@ func TestResetLastSignatureNOTRDY(t *testing.T) {
 func TestSignHash_Fails(t *testing.T) {
 	var tests = []struct {
 		testName             string
-		nameForContext       string
 		UUIDForContext       string
 		privateKeyForContext string
 		lastSigForContext    string
-		nameForSign          string
+		UUIDForSign          string
 		hashForSign          string
 		protocolsToTest      []ProtocolVersion
 	}{
 		{
 			testName:             "NameNotPresent",
-			nameForContext:       "name",
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: defaultPriv,
 			lastSigForContext:    "",
-			nameForSign:          "naamee",
+			UUIDForSign:          "12345678-1234-1234-1234-123456789013",
 			hashForSign:          defaultHash,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
-			testName:             "ContextNotInitializedEmptyName",
-			nameForContext:       "",
-			UUIDForContext:       "",
+			testName:             "ContextNotInitializedNilUUID",
+			UUIDForContext:       "00000000-0000-0000-0000-000000000000",
 			privateKeyForContext: "",
 			lastSigForContext:    "",
-			nameForSign:          "",
+			UUIDForSign:          "00000000-0000-0000-0000-000000000000",
 			hashForSign:          defaultHash,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
-			testName:             "ContextNotInitializedNonEmptyName",
-			nameForContext:       "",
-			UUIDForContext:       "",
-			privateKeyForContext: "",
-			lastSigForContext:    "",
-			nameForSign:          "a",
-			hashForSign:          defaultHash,
-			protocolsToTest:      []ProtocolVersion{Signed, Chained},
-		},
-		{
-			testName:             "EmptyName",
-			nameForContext:       defaultName,
+			testName:             "NilUUID",
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: defaultPriv,
 			lastSigForContext:    defaultLastSig,
-			nameForSign:          "",
+			UUIDForSign:          "00000000-0000-0000-0000-000000000000",
 			hashForSign:          defaultHash,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "UUIDAndPrivKeyNotSet",
-			nameForContext:       defaultName,
-			UUIDForContext:       "",
+			UUIDForContext:       "00000000-0000-0000-0000-000000000000",
 			privateKeyForContext: "",
 			lastSigForContext:    "",
-			nameForSign:          defaultName,
+			UUIDForSign:          defaultUUID,
 			hashForSign:          defaultHash,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "PrivkeyNotSet",
-			nameForContext:       defaultName,
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: "",
 			lastSigForContext:    "",
-			nameForSign:          defaultName,
+			UUIDForSign:          defaultUUID,
 			hashForSign:          defaultHash,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "EmptyHash",
-			nameForContext:       defaultName,
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: defaultPriv,
 			lastSigForContext:    defaultLastSig,
-			nameForSign:          defaultName,
+			UUIDForSign:          defaultUUID,
 			hashForSign:          "",
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "33ByteHash",
-			nameForContext:       defaultName,
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: defaultPriv,
 			lastSigForContext:    defaultLastSig,
-			nameForSign:          defaultName,
+			UUIDForSign:          defaultUUID,
 			hashForSign:          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "31ByteHash",
-			nameForContext:       defaultName,
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: defaultPriv,
 			lastSigForContext:    defaultLastSig,
-			nameForSign:          defaultName,
+			UUIDForSign:          defaultUUID,
 			hashForSign:          "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
@@ -228,7 +209,7 @@ func TestSignHash_Fails(t *testing.T) {
 				requirer := require.New(t)
 
 				//Create new crypto context
-				protocol, err := newProtocolContextSigner(currTest.nameForContext, currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
+				protocol, err := newProtocolContextSigner(currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
 				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
 				//Check created UPP (data/structure only, signature is checked later)
@@ -236,7 +217,7 @@ func TestSignHash_Fails(t *testing.T) {
 				requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
 
 				//Call SignHash() and assert error
-				_, err = protocol.SignHash(currTest.nameForSign, hashBytes, currProtocolToTest)
+				_, err = protocol.SignHash(uuid.MustParse(currTest.UUIDForSign), hashBytes, currProtocolToTest)
 				asserter.Error(err, "SignHash() did not return an error for invalid input")
 			})
 		}
@@ -255,7 +236,7 @@ func TestSignHash_RandomInput(t *testing.T) {
 	requirer := require.New(t)
 
 	//Create new crypto context, we use this context for all created UPPs without resetting it
-	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
 	lastChainSig := defaultLastSig
@@ -266,7 +247,7 @@ func TestSignHash_RandomInput(t *testing.T) {
 		requirer.NoError(err, "Could not generate random hash")
 
 		//Create 'Signed' type UPP with hash
-		createdSignedUpp, err := protocol.SignHash(defaultName, inputHash[:], Signed)
+		createdSignedUpp, err := protocol.SignHash(uuid.MustParse(defaultUUID), inputHash[:], Signed)
 		requirer.NoErrorf(err, "Protocol.SignHash() failed for Signed type UPP with input hash %v", hex.EncodeToString(inputHash))
 
 		//Check created Signed UPP
@@ -278,7 +259,7 @@ func TestSignHash_RandomInput(t *testing.T) {
 		createdChainedUpps := make([][]byte, nrOfChainedUpps)
 		expectedPayloads := make([]string, nrOfChainedUpps)
 		for currUppIndex := range createdChainedUpps {
-			createdChainedUpps[currUppIndex], err = protocol.SignHash(defaultName, inputHash[:], Chained)
+			createdChainedUpps[currUppIndex], err = protocol.SignHash(uuid.MustParse(defaultUUID), inputHash[:], Chained)
 			asserter.NoErrorf(err, "SignHash() could not create Chained type UPP for index %v", currUppIndex)
 			expectedPayloads[currUppIndex] = hex.EncodeToString(inputHash[:]) //build expected payload array for checking later
 		}
@@ -297,81 +278,73 @@ func TestSignHash_RandomInput(t *testing.T) {
 func TestSignData_Fails(t *testing.T) {
 	var tests = []struct {
 		testName             string
-		nameForContext       string
 		UUIDForContext       string
 		privateKeyForContext string
 		lastSigForContext    string
-		nameForSign          string
+		UUIDForSign          string
 		dataForSign          string
 		protocolsToTest      []ProtocolVersion
 	}{
 		{
 			testName:             "emptyData",
-			nameForContext:       defaultName,
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: defaultPriv,
 			lastSigForContext:    defaultLastSig,
-			nameForSign:          defaultName,
+			UUIDForSign:          defaultUUID,
 			dataForSign:          "",
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "NameNotPresent",
-			nameForContext:       "name",
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: defaultPriv,
 			lastSigForContext:    "",
-			nameForSign:          "naamee",
+			UUIDForSign:          "12345678-1234-1234-1234-123456789013",
 			dataForSign:          defaultInputData,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "ContextNotInitializedEmptyName",
-			nameForContext:       "",
-			UUIDForContext:       "",
+			UUIDForContext:       "00000000-0000-0000-0000-000000000000",
 			privateKeyForContext: "",
 			lastSigForContext:    "",
-			nameForSign:          "",
+			UUIDForSign:          "00000000-0000-0000-0000-000000000000",
 			dataForSign:          defaultInputData,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "ContextNotInitializedNonEmptyName",
-			nameForContext:       "",
-			UUIDForContext:       "",
+			UUIDForContext:       "00000000-0000-0000-0000-000000000000",
 			privateKeyForContext: "",
 			lastSigForContext:    "",
-			nameForSign:          "a",
+			UUIDForSign:          "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
 			dataForSign:          defaultInputData,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "EmptyName",
-			nameForContext:       defaultName,
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: defaultPriv,
 			lastSigForContext:    defaultLastSig,
-			nameForSign:          "",
+			UUIDForSign:          "00000000-0000-0000-0000-000000000000",
 			dataForSign:          defaultInputData,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
-			testName:             "UUIDAndPrivKeyNotSet",
-			nameForContext:       defaultName,
-			UUIDForContext:       "",
+			testName:             "PrivKeyNotSet",
+			UUIDForContext:       defaultUUID,
 			privateKeyForContext: "",
 			lastSigForContext:    "",
-			nameForSign:          defaultName,
+			UUIDForSign:          defaultUUID,
 			dataForSign:          defaultInputData,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:             "PrivkeyNotSet",
-			nameForContext:       defaultName,
 			UUIDForContext:       defaultUUID,
 			privateKeyForContext: "",
 			lastSigForContext:    "",
-			nameForSign:          defaultName,
+			UUIDForSign:          defaultUUID,
 			dataForSign:          defaultInputData,
 			protocolsToTest:      []ProtocolVersion{Signed, Chained},
 		},
@@ -388,7 +361,7 @@ func TestSignData_Fails(t *testing.T) {
 				requirer := require.New(t)
 
 				//Create new crypto context
-				protocol, err := newProtocolContextSigner(currTest.nameForContext, currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
+				protocol, err := newProtocolContextSigner(currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
 				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
 				//Decode test data from hex string
@@ -396,7 +369,7 @@ func TestSignData_Fails(t *testing.T) {
 				requirer.NoErrorf(err, "Test configuration string (dataForSign) can't be decoded.\nString was: %v", currTest.dataForSign)
 
 				//Call SignData() and assert error
-				_, err = protocol.SignData(currTest.nameForSign, dataBytes, currProtocolToTest)
+				_, err = protocol.SignData(uuid.MustParse(currTest.UUIDForSign), dataBytes, currProtocolToTest)
 				asserter.Error(err, "SignData() did not return an error for invalid input")
 			})
 		}
@@ -429,11 +402,11 @@ func TestSignData_DataInputLength(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+			protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
 			//Call SignData() to create UPP
-			createdSignedUpp, err := protocol.SignData(defaultName, dataBytes, Signed)
+			createdSignedUpp, err := protocol.SignData(uuid.MustParse(defaultUUID), dataBytes, Signed)
 			asserter.NoError(err, "SignData() could not create Signed type UPP")
 
 			//Check created UPP
@@ -447,14 +420,14 @@ func TestSignData_DataInputLength(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+			protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
 			//Call SignData() to create multiple chained UPPs
 			createdChainedUpps := make([][]byte, nrOfChainedUpps)
 			expectedPayloads := make([]string, nrOfChainedUpps)
 			for currUppIndex := range createdChainedUpps {
-				createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, dataBytes, Chained)
+				createdChainedUpps[currUppIndex], err = protocol.SignData(uuid.MustParse(defaultUUID), dataBytes, Chained)
 				asserter.NoErrorf(err, "SignData() could not create Chained type UPP number %v", currUppIndex)
 				expectedPayloads[currUppIndex] = hex.EncodeToString(expectedDataHash[:]) //build expected payload array for checking later
 			}
@@ -480,7 +453,7 @@ func TestSignData_RandomInput(t *testing.T) {
 	requirer := require.New(t)
 
 	//Create new crypto context, we use this context for all created UPPs without resetting it
-	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
 	lastChainSig := defaultLastSig
@@ -493,7 +466,7 @@ func TestSignData_RandomInput(t *testing.T) {
 		inputDataHash := sha256.Sum256(inputData)
 
 		//Create 'Signed' type UPP with data
-		createdSignedUpp, err := protocol.SignData(defaultName, inputData[:], Signed)
+		createdSignedUpp, err := protocol.SignData(uuid.MustParse(defaultUUID), inputData[:], Signed)
 		requirer.NoErrorf(err, "Protocol.SignData() failed for Signed type UPP with input data %v", hex.EncodeToString(inputData))
 
 		//Check created Signed UPP
@@ -505,7 +478,7 @@ func TestSignData_RandomInput(t *testing.T) {
 		createdChainedUpps := make([][]byte, nrOfChainedUpps)
 		expectedPayloads := make([]string, nrOfChainedUpps)
 		for currUppIndex := range createdChainedUpps {
-			createdChainedUpps[currUppIndex], err = protocol.SignData(defaultName, inputData[:], Chained)
+			createdChainedUpps[currUppIndex], err = protocol.SignData(uuid.MustParse(defaultUUID), inputData[:], Chained)
 			asserter.NoErrorf(err, "SignData() could not create Chained type UPP for index %v", currUppIndex)
 			expectedPayloads[currUppIndex] = hex.EncodeToString(inputDataHash[:]) //build expected payload array for checking later
 		}
@@ -557,13 +530,13 @@ func TestSignData_SignedType(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			protocol, err := newProtocolContextSigner(defaultName, currTest.deviceUUID, currTest.privateKey, defaultLastSig)
+			protocol, err := newProtocolContextSigner(currTest.deviceUUID, currTest.privateKey, defaultLastSig)
 			requirer.NoError(err, "Creating protocol context failed")
 
 			//Create 'Signed' type UPP with user data
 			userDataBytes, err := hex.DecodeString(currTest.userData)
 			requirer.NoErrorf(err, "Test configuration string (input data) can't be decoded.\nString was: %v", currTest.userData)
-			createdUpp, err := protocol.SignData(defaultName, userDataBytes, Signed)
+			createdUpp, err := protocol.SignData(uuid.MustParse(defaultUUID), userDataBytes, Signed)
 			requirer.NoError(err, "Protocol.SignData() failed")
 
 			//Check created UPP (data/structure only, signature is checked later)
@@ -641,7 +614,7 @@ func TestSignData_ChainedType(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			protocol, err := newProtocolContextSigner(defaultName, currTest.deviceUUID, currTest.privateKey, currTest.lastSignature)
+			protocol, err := newProtocolContextSigner(currTest.deviceUUID, currTest.privateKey, currTest.lastSignature)
 			requirer.NoError(err, "Creating protocol context failed")
 
 			requirer.Equal(len(currTest.UserDataInputs), len(currTest.expectedChainedUpps), "Number of input data sets does not match number of expected UPPs")
@@ -652,7 +625,7 @@ func TestSignData_ChainedType(t *testing.T) {
 				//Create 'chained' type UPP with user data
 				userDataBytes, err := hex.DecodeString(currInputData)
 				requirer.NoErrorf(err, "Test configuration string (input data) can't be decoded for input %v. String was: %v", currInputIndex, currInputData)
-				createdUppData, err := protocol.SignData(defaultName, userDataBytes, Chained)
+				createdUppData, err := protocol.SignData(uuid.MustParse(defaultUUID), userDataBytes, Chained)
 				requirer.NoErrorf(err, "Protocol.SignData() failed for input data at index %v", currInputIndex)
 				//Save UPP into array of all created UPPs
 				createdUpps[currInputIndex] = createdUppData
@@ -714,10 +687,10 @@ func TestSignData_CorruptContext(t *testing.T) {
 	//empty
 	emptyKeystore := NewEncryptedKeystore([]byte(defaultSecret))
 	// for tests with nil/empty last signature (written for bug UP-1693)
-	protocolLastSigNil, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	protocolLastSigNil, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	require.NoError(t, err, "Could not create protocolLastSigNil")
 	protocolLastSigNil.signatures[uuid.MustParse(defaultUUID)] = nil
-	protocolLastSigEmpty, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	protocolLastSigEmpty, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	require.NoError(t, err, "Could not create protocolLastSigEmpty")
 	protocolLastSigEmpty.signatures[uuid.MustParse(defaultUUID)] = []byte{}
 
@@ -725,37 +698,35 @@ func TestSignData_CorruptContext(t *testing.T) {
 	var tests = []struct {
 		testName           string
 		testProtocolStruct *ExtendedProtocol
-		nameForSign        string //device name to use in call to SignData(), should match context/protocol data (if desired)
+		UUIDForSign        string //device name to use in call to SignData(), should match context/protocol data (if desired)
 		protocolsToTest    []ProtocolVersion
 	}{
 		{
 			testName: "EmptyContext", //no keys, no devices in Names list
 			testProtocolStruct: NewExtendedProtocol(&ECDSACryptoContext{
 				Keystore: emptyKeystore,
-				Names:    map[string]uuid.UUID{},
 			}, map[uuid.UUID][]byte{}),
-			nameForSign:     "",
+			UUIDForSign:     "00000000-0000-0000-0000-000000000000",
 			protocolsToTest: []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName: "NameOkKeystoreEmpty", //Device is in list of devices but no key is in the Keystore (written for bug UP-1693)
 			testProtocolStruct: NewExtendedProtocol(&ECDSACryptoContext{
 				Keystore: emptyKeystore,
-				Names:    map[string]uuid.UUID{defaultName: uuid.MustParse(defaultUUID)},
 			}, map[uuid.UUID][]byte{}),
-			nameForSign:     defaultName,
+			UUIDForSign:     defaultUUID,
 			protocolsToTest: []ProtocolVersion{Signed, Chained},
 		},
 		{
 			testName:           "LastSignatureNil", //evrything OK but last signature is present but nil (written for bug UP-1693)
 			testProtocolStruct: protocolLastSigNil,
-			nameForSign:        defaultName,
+			UUIDForSign:        defaultUUID,
 			protocolsToTest:    []ProtocolVersion{Chained}, //only relevant for chained
 		},
 		{
 			testName:           "LastSignatureEmpty", //evrything OK but last signature is present but empty (written for bug UP-1693)
 			testProtocolStruct: protocolLastSigEmpty,
-			nameForSign:        defaultName,
+			UUIDForSign:        defaultUUID,
 			protocolsToTest:    []ProtocolVersion{Chained}, //only relevant for chained
 		},
 	}
@@ -778,7 +749,7 @@ func TestSignData_CorruptContext(t *testing.T) {
 				requirer.NoErrorf(err, "Test configuration string (defaultInputData) can't be decoded.\nString was: %v", defaultInputData)
 
 				//Call SignData() and assert error
-				_, err = protocol.SignData(currTest.nameForSign, userDataBytes, currProtocolToTest)
+				_, err = protocol.SignData(uuid.MustParse(currTest.UUIDForSign), userDataBytes, currProtocolToTest)
 				asserter.Error(err, "SignData() did not return an error for a faulty protocol context")
 			})
 		}
@@ -813,9 +784,8 @@ func TestECDSALibrary(t *testing.T) {
 func TestProtocol_Verify(t *testing.T) {
 	var tests = []struct {
 		testName            string
-		nameForProtocol     string
-		nameForVerify       string
-		UUID                string
+		UUIDForProtocol     string
+		UUIDForVerify       string
 		pubKey              string
 		input               string
 		signatureVerifiable bool
@@ -823,9 +793,8 @@ func TestProtocol_Verify(t *testing.T) {
 	}{
 		{
 			testName:            "signed UPP correct '1'",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4bc440bc2a01322c679b9648a9391704e992c041053404aafcdab08fc4ce54a57eb16876d741918d01219abf2dc7913f2d9d49439d350f11d05cdb3f85972ac95c45fc",
 			signatureVerifiable: true,
@@ -833,9 +802,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "signed UPP correct 'Hello world'",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5f9c19d1f",
 			signatureVerifiable: true,
@@ -843,9 +811,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "chained UPP correct without last signature",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c4204bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459ac440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a",
 			signatureVerifiable: true,
@@ -853,9 +820,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "chained UPP correct with last signature",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
 			signatureVerifiable: true,
@@ -863,9 +829,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "chained wrong name for protocol",
-			nameForProtocol:     "B",
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     "12345678-1234-1234-1234-123456789012",
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
 			signatureVerifiable: false,
@@ -873,9 +838,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "chained wrong name for Verify",
-			nameForProtocol:     defaultName,
-			nameForVerify:       "B",
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       "12345678-1234-1234-1234-123456789012",
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
 			signatureVerifiable: false,
@@ -883,9 +847,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "chained empty name for Verify",
-			nameForProtocol:     defaultName,
-			nameForVerify:       "",
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       "00000000-0000-0000-0000-000000000000",
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdc",
 			signatureVerifiable: false,
@@ -893,9 +856,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "chained empty data",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "",
 			signatureVerifiable: false,
@@ -903,9 +865,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "chained wrong signature",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9623c4106eac4d0b16e645088c4622e7451ea5a1c440395aac8124d4253347779c883c93ad0c614681d794e789aa2b66b2bdfc2092fabd95c67ca04212741462e4263df3f4db12f9c4cf345fde342edcbb4e2483bb4a00c420dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986c440f781698b897aea6cd6b171542b060c53723c09dd671db0ddea4e6ff7d82055abaa08dcb731aed8ec12edc548f1fb59f4501846ed84c6fff0a64184db0ed31bdd",
 			signatureVerifiable: false,
@@ -913,9 +874,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "signed wrong signature",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359685bc4ac06103234fa9b94a1e2f94b338405aa520d5a4e03734d85e43abe5e88f57d2f74e2526b30356c47a6e239dc4cc694f5fab19d1f",
 			signatureVerifiable: false,
@@ -923,9 +883,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "no data",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "c4400b4b7ac56f571be787664d839b02e9dc4114145f69f0e7b644222db9e97b3d273e6a0a5219473b57d0afee5c4254c8d9ac31c2ccb080d2c2a9363df7459f0774",
 			signatureVerifiable: false,
@@ -933,9 +892,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "signed data too short (66 Byte)",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
 			signatureVerifiable: false,
@@ -943,9 +901,8 @@ func TestProtocol_Verify(t *testing.T) {
 		},
 		{
 			testName:            "signed data too short(65 Byte)",
-			nameForProtocol:     defaultName,
-			nameForVerify:       defaultName,
-			UUID:                defaultUUID,
+			UUIDForProtocol:     defaultUUID,
+			UUIDForVerify:       defaultUUID,
 			pubKey:              defaultPub,
 			input:               "9522c4106eac4d0b16e645088c4622e7451ea5a100c4207f83657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069c440e910e03fd852e6e359",
 			signatureVerifiable: false,
@@ -960,7 +917,7 @@ func TestProtocol_Verify(t *testing.T) {
 			asserter := assert.New(t)
 
 			// Create new context
-			protocol, err := newProtocolContextVerifier(currTest.nameForProtocol, currTest.UUID, currTest.pubKey)
+			protocol, err := newProtocolContextVerifier(currTest.UUIDForProtocol, currTest.pubKey)
 			requirer.NoError(err, "Creating protocol context failed: %v", err)
 
 			// convert test input string to bytes
@@ -968,7 +925,7 @@ func TestProtocol_Verify(t *testing.T) {
 			requirer.NoErrorf(err, "Decoding test input from string failed: %v, string was: %v", err, currTest.input)
 
 			// verify test input
-			verified, err := protocol.Verify(currTest.nameForVerify, inputBytes)
+			verified, err := protocol.Verify(uuid.MustParse(currTest.UUIDForVerify), inputBytes)
 			if currTest.signatureVerifiable {
 				asserter.Truef(verified, "test input was not verifiable. Input was %s", currTest.input)
 			} else {
@@ -996,7 +953,6 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 	const dataLength = defaultDataSize
 
 	currData := make([]byte, dataLength)
-	currName := ""
 	currUUIDTypeUUID := uuid.Nil
 	currUUID := ""
 	privBytes := make([]byte, 32)
@@ -1011,8 +967,6 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 	//test the random input
 	for i := 0; i < numberOfTests; i++ {
 		//generate new random parameters
-		//Name
-		currName = randomString(1, 5)
 		//UUID
 		currUUIDTypeUUID = uuid.New()
 		currUUID = currUUIDTypeUUID.String()
@@ -1027,13 +981,13 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 
 		//Create new crypto contexts, new one for each round for parameter randomization
 		//Signer
-		signer, err := newProtocolContextSigner(currName, currUUID, currPriv, currLastSig)
+		signer, err := newProtocolContextSigner(currUUID, currPriv, currLastSig)
 		requirer.NoError(err, "Creating signer protocol context failed")
 		//Verifier
-		currPubkeyBytes, err := signer.GetPublicKey(currName)
+		currPubkeyBytes, err := signer.GetPublicKey(uuid.MustParse(currUUID))
 		requirer.NoError(err, "Could not get pubkey from signer context")
 		currPub = hex.EncodeToString(currPubkeyBytes)
-		verifier, err := newProtocolContextVerifier(currName, currUUID, currPub)
+		verifier, err := newProtocolContextVerifier(currUUID, currPub)
 		requirer.NoError(err, "Creating verifier protocol context failed")
 
 		//create a number of signed and chained type UPPs and verify/decode them with the library
@@ -1048,15 +1002,15 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 			//Create string to use in error messages with all necessary info
 			debugInfoString := fmt.Sprintf("Input data: %v\nParameters:\n%v",
 				hex.EncodeToString(currData),
-				parameterString(currName, currUUID, currPriv, currPub, currLastSig))
+				parameterString(currUUID, currPriv, currPub, currLastSig))
 
 			////SIGNED section////
 			//Create 'Signed' type UPP with data
-			createdSignedUpp, err := signer.SignData(currName, currData[:], Signed)
+			createdSignedUpp, err := signer.SignData(uuid.MustParse(currUUID), currData[:], Signed)
 			requirer.NoErrorf(err, "Protocol.SignData() failed for Signed type UPP\n%v", debugInfoString)
 
 			//Check created Signed UPP using the library function: first verify, then decode and check hash/payload
-			result, err := verifier.Verify(currName, createdSignedUpp)
+			result, err := verifier.Verify(uuid.MustParse(currUUID), createdSignedUpp)
 			asserter.NoError(err, "UPP verify failed with an error for Signed type UPP\n%v", debugInfoString)
 			asserter.True(result, "UPP verification returned false for Signed type UPP\n%v", debugInfoString)
 			decodedUPP, err := Decode(createdSignedUpp)
@@ -1069,11 +1023,11 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 
 			////CHAINED section////
 			//Create 'Chained' type UPP with data
-			createdChainedUpp, err := signer.SignData(currName, currData[:], Chained)
+			createdChainedUpp, err := signer.SignData(uuid.MustParse(currUUID), currData[:], Chained)
 			requirer.NoErrorf(err, "Protocol.SignData() failed for Chained type UPP\n%v", debugInfoString)
 
 			//Check created Chained UPP using the library function: first verify, then decode and check hash/payload
-			result, err = verifier.Verify(currName, createdChainedUpp)
+			result, err = verifier.Verify(uuid.MustParse(currUUID), createdChainedUpp)
 			asserter.NoError(err, "UPP verify failed with an error for Chained type UPP\n%v", debugInfoString)
 			asserter.True(result, "UPP verification returned false for Chained type UPP\n%v", debugInfoString)
 			decodedUPP, err = Decode(createdChainedUpp)
@@ -1583,11 +1537,11 @@ func TestECDSASignatureChanges(t *testing.T) {
 	signatureMap := make(map[string]bool)
 	for currTestNr := 0; currTestNr < nrOfSigsToCheck; currTestNr++ {
 		//Create new crypto context (each time)
-		protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+		protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 		requirer.NoError(err, "Creating protocol context failed")
 
 		//Create 'Signed' type UPP
-		createdUpp, err := protocol.SignData(defaultName, []byte(defaultInputData), Signed)
+		createdUpp, err := protocol.SignData(uuid.MustParse(defaultUUID), []byte(defaultInputData), Signed)
 		requirer.NoError(err, "Protocol.SignData() failed")
 
 		//Check if signature was already seen, if not remember it
@@ -1602,11 +1556,11 @@ func TestECDSASignatureChanges(t *testing.T) {
 	//Run the test with a continuous context
 	signatureMap = make(map[string]bool) //reset signature map
 	//Create new crypto context (once)
-	protocol, err := newProtocolContextSigner(defaultName, defaultUUID, defaultPriv, defaultLastSig)
+	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 	for currTestNr := 0; currTestNr < nrOfSigsToCheck; currTestNr++ {
 		//Create 'Signed' type UPP
-		createdUpp, err := protocol.SignData(defaultName, []byte(defaultInputData), Signed)
+		createdUpp, err := protocol.SignData(uuid.MustParse(defaultUUID), []byte(defaultInputData), Signed)
 		requirer.NoError(err, "Protocol.SignData() failed")
 
 		//Check if signature was already seen, if not remember it
