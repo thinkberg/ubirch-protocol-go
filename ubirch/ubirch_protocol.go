@@ -52,7 +52,6 @@ type Crypto interface {
 	HashLength() int
 
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
-	SignHash(id uuid.UUID, hash []byte) ([]byte, error)
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
 }
 
