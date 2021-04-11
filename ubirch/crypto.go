@@ -46,23 +46,22 @@ const (
 	sha256Length            = 32                                // length of a SHA256 hash
 )
 
-// CryptoContext contains the key store, a mapping for names -> UUIDs
-// and the last generated signature per UUID.
-type CryptoContext struct {
+// ECDSACryptoContext contains the key store, a mapping for names -> UUIDs
+type ECDSACryptoContext struct {
 	Keystore Keystorer
 	Names    map[string]uuid.UUID
 }
 
-func (c *CryptoContext) SignatureLength() int {
+func (c *ECDSACryptoContext) SignatureLength() int {
 	return nistp256SignatureLength
 }
 
-func (c *CryptoContext) HashLength() int {
+func (c *ECDSACryptoContext) HashLength() int {
 	return sha256Length
 }
 
-// Ensure CryptoContext implements the Crypto interface
-var _ Crypto = (*CryptoContext)(nil)
+// Ensure ECDSACryptoContext implements the Crypto interface
+var _ Crypto = (*ECDSACryptoContext)(nil)
 
 // encodePrivateKey encodes the Private Key as x509 and returns the encoded PEM
 func encodePrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
@@ -134,7 +133,7 @@ func pubKeyEntryTitle(id uuid.UUID) string {
 //}
 
 // storePrivateKey stores the private Key, returns 'nil', if successful
-func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+func (c *ECDSACryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
 		return fmt.Errorf("can't set private key: keystore is nil")
@@ -155,7 +154,7 @@ func (c *CryptoContext) storePrivateKey(name string, id uuid.UUID, k *ecdsa.Priv
 }
 
 // storePublicKey stores the public Key, returns 'nil', if successful
-func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
+func (c *ECDSACryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.PublicKey) error {
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
 		return fmt.Errorf("can't set public key: keystore is nil")
@@ -176,7 +175,7 @@ func (c *CryptoContext) storePublicKey(name string, id uuid.UUID, k *ecdsa.Publi
 }
 
 // getDecodedPrivateKey gets the decoded private key for the given name.
-func (c *CryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, error) {
+func (c *ECDSACryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, error) {
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
 		return nil, fmt.Errorf("can't get private key: keystore is nil")
@@ -195,7 +194,7 @@ func (c *CryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, e
 }
 
 // getDecodedPublicKey gets the decoded public key for the given name.
-func (c *CryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error) {
+func (c *ECDSACryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error) {
 	//check for invalid keystore
 	if c.Keystore == nil { //check for 'direct' nil
 		return nil, fmt.Errorf("can't get public key: keystore is nil")
@@ -214,7 +213,7 @@ func (c *CryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, err
 }
 
 // storeKey stores the Private Key, as well as the Public Key, returns 'nil', if successful
-func (c *CryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
+func (c *ECDSACryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey) error {
 	err := c.storePublicKey(name, id, &k.PublicKey)
 	if err != nil {
 		return err
@@ -223,7 +222,7 @@ func (c *CryptoContext) storeKey(name string, id uuid.UUID, k *ecdsa.PrivateKey)
 }
 
 // GetUUID gets the uuid that is related the given name.
-func (c *CryptoContext) GetUUID(name string) (uuid.UUID, error) {
+func (c *ECDSACryptoContext) GetUUID(name string) (uuid.UUID, error) {
 	id, found := c.Names[name]
 	if !found {
 		return uuid.Nil, errors.New(fmt.Sprintf("no uuid/key entry for '%s'", name))
@@ -232,7 +231,7 @@ func (c *CryptoContext) GetUUID(name string) (uuid.UUID, error) {
 }
 
 // GenerateKey generates a new key pair and stores it, using the given name and associated UUID.
-func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
+func (c *ECDSACryptoContext) GenerateKey(name string, id uuid.UUID) error {
 	// check for empty name
 	if name == "" {
 		return errors.New(fmt.Sprintf("generating key for empty name not possible"))
@@ -250,7 +249,7 @@ func (c *CryptoContext) GenerateKey(name string, id uuid.UUID) error {
 }
 
 //SetPublicKey sets the public key (64 bytes)
-func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error {
+func (c *ECDSACryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []byte) error {
 	if len(pubKeyBytes) != nistp256PubkeyLength {
 		return fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
 	}
@@ -276,7 +275,7 @@ func (c *CryptoContext) SetPublicKey(name string, id uuid.UUID, pubKeyBytes []by
 }
 
 //SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
-func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) error {
+func (c *ECDSACryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) error {
 	if len(privKeyBytes) != nistp256PrivkeyLength {
 		return fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
 	}
@@ -302,7 +301,7 @@ func (c *CryptoContext) SetKey(name string, id uuid.UUID, privKeyBytes []byte) e
 }
 
 // GetCSR gets a certificate signing request.
-func (c *CryptoContext) GetCSR(name string, subjectCountry string, subjectOrganization string) ([]byte, error) {
+func (c *ECDSACryptoContext) GetCSR(name string, subjectCountry string, subjectOrganization string) ([]byte, error) {
 	uid, err := c.GetUUID(name)
 	if err != nil {
 		return nil, err
@@ -326,7 +325,7 @@ func (c *CryptoContext) GetCSR(name string, subjectCountry string, subjectOrgani
 }
 
 // GetPublicKey gets the public key bytes for the given name.
-func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
+func (c *ECDSACryptoContext) GetPublicKey(name string) ([]byte, error) {
 	id, err := c.GetUUID(name)
 	if err != nil {
 		return nil, err
@@ -356,7 +355,7 @@ func (c *CryptoContext) GetPublicKey(name string) ([]byte, error) {
 }
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
-func (c *CryptoContext) PrivateKeyExists(name string) bool {
+func (c *ECDSACryptoContext) PrivateKeyExists(name string) bool {
 	id, err := c.GetUUID(name)
 	if err != nil {
 		return false
@@ -370,7 +369,7 @@ func (c *CryptoContext) PrivateKeyExists(name string) bool {
 }
 
 // Sign returns the signature for the SHA256 of 'data' using the private key of a specific UUID.
-func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
+func (c *ECDSACryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("empty data")
 	}
@@ -379,7 +378,7 @@ func (c *CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	return c.SignHash(id, hash[:])
 }
 
-func (c *CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
+func (c *ECDSACryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
 	if len(hash) != sha256Length {
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
 	}
@@ -406,9 +405,9 @@ func (c *CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
 }
 
 // Verify verifies that 'signature' matches 'data' using the public key with a specific UUID.
-// Need to get the UUID via CryptoContext#GetUUID().
+// Need to get the UUID via ECDSACryptoContext#GetUUID().
 // Returns 'true' and 'nil' error if signature was verifiable.
-func (c *CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
+func (c *ECDSACryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
 	if len(data) == 0 {
 		return false, fmt.Errorf("empty data cannot be verified")
 	}

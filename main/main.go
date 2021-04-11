@@ -63,7 +63,7 @@ func main() {
 	name := "A"
 
 	p := ubirch.Protocol{
-		Crypto: &ubirch.CryptoContext{
+		Crypto: &ubirch.ECDSACryptoContext{
 			Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")), //this is only a demo code secret, use a real secret here in your code
 			Names:    map[string]uuid.UUID{},
 		},

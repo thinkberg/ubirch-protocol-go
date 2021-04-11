@@ -57,7 +57,7 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 	requirer := require.New(t)
 	//Set up test objects and parameters
 	var testKeystore = NewEncryptedKeystore([]byte(defaultSecret))
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: testKeystore,
 		Names:    map[string]uuid.UUID{},
 	}
@@ -221,7 +221,7 @@ func TestEncryptedKeystore_MarshalJSON(t *testing.T) {
 	requirer := require.New(t)
 	//Set up test objects and parameters
 	var testKeystore = NewEncryptedKeystore([]byte(defaultSecret))
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: testKeystore,
 		Names:    map[string]uuid.UUID{},
 	}

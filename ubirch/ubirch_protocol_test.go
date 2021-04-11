@@ -730,7 +730,7 @@ func TestSignData_CorruptContext(t *testing.T) {
 	}{
 		{
 			testName: "EmptyContext", //no keys, no devices in Names list
-			testProtocolStruct: NewExtendedProtocol(&CryptoContext{
+			testProtocolStruct: NewExtendedProtocol(&ECDSACryptoContext{
 				Keystore: emptyKeystore,
 				Names:    map[string]uuid.UUID{},
 			}, map[uuid.UUID][]byte{}),
@@ -739,7 +739,7 @@ func TestSignData_CorruptContext(t *testing.T) {
 		},
 		{
 			testName: "NameOkKeystoreEmpty", //Device is in list of devices but no key is in the Keystore (written for bug UP-1693)
-			testProtocolStruct: NewExtendedProtocol(&CryptoContext{
+			testProtocolStruct: NewExtendedProtocol(&ECDSACryptoContext{
 				Keystore: emptyKeystore,
 				Names:    map[string]uuid.UUID{defaultName: uuid.MustParse(defaultUUID)},
 			}, map[uuid.UUID][]byte{}),

@@ -61,7 +61,7 @@ func BenchmarkSign(b *testing.B) {
 	//Iterate over all benchmarks
 	for _, bm := range benchmarks {
 		//Create new crypto context
-		context := &CryptoContext{
+		context := &ECDSACryptoContext{
 			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 			Names:    map[string]uuid.UUID{},
 		}
@@ -110,7 +110,7 @@ func BenchmarkHashUserDataAndSign(b *testing.B) {
 	//Iterate over all benchmarks
 	for _, bm := range benchmarks {
 		//Create new crypto context
-		context := &CryptoContext{
+		context := &ECDSACryptoContext{
 			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 			Names:    map[string]uuid.UUID{},
 		}

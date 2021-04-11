@@ -40,7 +40,7 @@ func TestCreateKeystore(t *testing.T) {
 	asserter := assert.New(t)
 	//create new crypto context and check, if the kystore is correct TODO not sure if this test is valid
 	var kstore = NewEncryptedKeystore([]byte(defaultSecret))
-	var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
+	var context = &ECDSACryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
 
 	asserter.IsTypef(kstore, context.Keystore, "Keystore creation failed")
 }
@@ -71,9 +71,9 @@ func TestCryptoContext_FaultyKeystores(t *testing.T) {
 
 			//create the Context with the faulty keystore
 			var kstore = currTest.faultyKeystore
-			var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
+			var context = &ECDSACryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
 
-			//Test all the (keystore-using) functions of the CryptoContext interface for proper behavior
+			//Test all the (keystore-using) functions of the ECDSACryptoContext interface for proper behavior
 			//(no panics, error returned instead)
 			//context.GenerateKey
 			testUUID := uuid.MustParse(defaultUUID)
@@ -111,7 +111,7 @@ func TestCryptoContext_FaultyKeystores(t *testing.T) {
 func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
@@ -124,7 +124,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
 	asserter.NoErrorf(saveProtocolContext(p, "temp.json"), "Failed Saving protocol context")
 
-	context2 := &CryptoContext{
+	context2 := &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
@@ -149,7 +149,7 @@ func TestCryptoContext_GetUUID(t *testing.T) {
 	// prepare
 	asserter := assert.New(t)
 	var kstore = NewEncryptedKeystore([]byte(defaultSecret))
-	var context = &CryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
+	var context = &ECDSACryptoContext{Keystore: kstore, Names: map[string]uuid.UUID{}}
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 
 	// test the correct UUID but before loading the context
@@ -179,7 +179,7 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	//Set up test objects and parameters
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
@@ -215,7 +215,7 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	//Set up test objects and parameters
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
@@ -247,7 +247,7 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 //		Generate Key with no uuid
 func TestCryptoContext_GenerateKey(t *testing.T) {
 	asserter := assert.New(t)
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
@@ -294,7 +294,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 		unknownName = "NOBODY"
 	)
 	asserter := assert.New(t)
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
@@ -329,7 +329,7 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 		unknownName = "NOBODY"
 	)
 	asserter := assert.New(t)
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
@@ -358,7 +358,7 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 // TestCryptoContext_GetCSR_NOTRDY the required method is not implemented yet
 func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
 	// asserter := assert.New(t)
-	// var context = &CryptoContext{
+	// var context = &ECDSACryptoContext{
 	// 	Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 	// 	Names:    map[string]uuid.UUID{},
 	// }
@@ -369,7 +369,7 @@ func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
 	t.Errorf("not implemented")
 }
 
-// TestCryptoContext_Sign test the (CryptoContext) Sign function with defaultData, which should pass
+// TestCryptoContext_Sign test the (ECDSACryptoContext) Sign function with defaultData, which should pass
 func TestCryptoContext_Sign(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -395,7 +395,7 @@ func TestCryptoContext_Sign(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			var context = &CryptoContext{
+			var context = &ECDSACryptoContext{
 				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 				Names:    map[string]uuid.UUID{},
 			}
@@ -415,7 +415,7 @@ func TestCryptoContext_Sign(t *testing.T) {
 	}
 }
 
-// TestCryptoContext_SignFails performs the (CryptoContext) Sign tests, which fail, due to incorrect parameters
+// TestCryptoContext_SignFails performs the (ECDSACryptoContext) Sign tests, which fail, due to incorrect parameters
 func TestCryptoContext_SignFails(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -459,7 +459,7 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			var context = &CryptoContext{
+			var context = &ECDSACryptoContext{
 				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 				Names:    map[string]uuid.UUID{},
 			}
@@ -506,7 +506,7 @@ func TestCryptoContext_Verify(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			var context = &CryptoContext{
+			var context = &ECDSACryptoContext{
 				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 				Names:    map[string]uuid.UUID{},
 			}
@@ -529,7 +529,7 @@ func TestCryptoContext_Verify(t *testing.T) {
 	}
 }
 
-// TestCryptoContext_Verify performs fail tests for the (CryptoContext) Verify function
+// TestCryptoContext_Verify performs fail tests for the (ECDSACryptoContext) Verify function
 func TestCryptoContext_VerifyFails(t *testing.T) {
 	var tests = []struct {
 		testName          string
@@ -586,7 +586,7 @@ func TestCryptoContext_VerifyFails(t *testing.T) {
 			requirer := require.New(t)
 
 			//Create new crypto context
-			var context = &CryptoContext{
+			var context = &ECDSACryptoContext{
 				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 				Names:    map[string]uuid.UUID{},
 			}
@@ -613,7 +613,7 @@ func TestCryptoContext_PrivateKeyExists_NOTRDY(t *testing.T) {
 	)
 	asserter := assert.New(t)
 	requirer := require.New(t)
-	var context = &CryptoContext{
+	var context = &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}

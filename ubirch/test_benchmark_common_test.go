@@ -72,7 +72,7 @@ type ExtendedProtocol struct {
 	signatures map[uuid.UUID][]byte
 }
 
-func NewExtendedProtocol(context *CryptoContext, signatures map[uuid.UUID][]byte) *ExtendedProtocol {
+func NewExtendedProtocol(context *ECDSACryptoContext, signatures map[uuid.UUID][]byte) *ExtendedProtocol {
 	p := &ExtendedProtocol{}
 	p.signatures = signatures
 	p.Protocol.Crypto = context
@@ -201,7 +201,7 @@ func deleteProtocolContext(filename string) error {
 }
 
 // Get the private key bytes for the given name.
-func getPrivateKey(c *CryptoContext, name string) ([]byte, error) {
+func getPrivateKey(c *ECDSACryptoContext, name string) ([]byte, error) {
 	id, err := c.GetUUID(name)
 	if err != nil {
 		return nil, err
@@ -216,7 +216,7 @@ func getPrivateKey(c *CryptoContext, name string) ([]byte, error) {
 
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
 func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSignature string) (*ExtendedProtocol, error) {
-	context := &CryptoContext{
+	context := &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
@@ -228,7 +228,7 @@ func newProtocolContextSigner(Name string, UUID string, PrivKey string, LastSign
 
 //Creates a new protocol context for a UPP verifier (only pubkey is needed)
 func newProtocolContextVerifier(Name string, UUID string, PubKey string) (*ExtendedProtocol, error) {
-	context := &CryptoContext{
+	context := &ECDSACryptoContext{
 		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
 		Names:    map[string]uuid.UUID{},
 	}
