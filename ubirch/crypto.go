@@ -26,7 +26,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -133,11 +132,8 @@ func pubKeyEntryTitle(id uuid.UUID) string {
 
 // storePrivateKey stores the private Key, returns 'nil', if successful
 func (c *ECDSACryptoContext) storePrivateKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return fmt.Errorf("can't set private key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return fmt.Errorf("can't set private key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
+		return fmt.Errorf("uninitialized keystore")
 	}
 
 	privKeyBytes, err := encodePrivateKey(k)
@@ -149,11 +145,8 @@ func (c *ECDSACryptoContext) storePrivateKey(id uuid.UUID, k *ecdsa.PrivateKey) 
 
 // storePublicKey stores the public Key, returns 'nil', if successful
 func (c *ECDSACryptoContext) storePublicKey(id uuid.UUID, k *ecdsa.PublicKey) error {
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return fmt.Errorf("can't set public key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return fmt.Errorf("can't set public key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
+		return fmt.Errorf("uninitialized keystore")
 	}
 
 	pubKeyBytes, err := encodePublicKey(k)
@@ -165,11 +158,8 @@ func (c *ECDSACryptoContext) storePublicKey(id uuid.UUID, k *ecdsa.PublicKey) er
 
 // getDecodedPrivateKey gets the decoded private key for the given name.
 func (c *ECDSACryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, error) {
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return nil, fmt.Errorf("can't get private key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return nil, fmt.Errorf("can't get private key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
+		return nil, fmt.Errorf("uninitialized keystore")
 	}
 
 	// get encoded private key from keystore
@@ -184,11 +174,8 @@ func (c *ECDSACryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateK
 
 // getDecodedPublicKey gets the decoded public key for the given name.
 func (c *ECDSACryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error) {
-	//check for invalid keystore
-	if c.Keystore == nil { //check for 'direct' nil
-		return nil, fmt.Errorf("can't get public key: keystore is nil")
-	} else if reflect.ValueOf(c.Keystore).IsNil() { //check for pointer which is nil
-		return nil, fmt.Errorf("can't get public key: keystore pointer is nil, pointer type is %T", c.Keystore)
+	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
+		return nil, fmt.Errorf("uninitialized keystore")
 	}
 
 	// get encoded public key from keystore
@@ -213,7 +200,7 @@ func (c *ECDSACryptoContext) storeKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
 // GenerateKey generates a new key pair and stores it, using the given name and associated UUID.
 func (c *ECDSACryptoContext) GenerateKey(id uuid.UUID) error {
 	if id == uuid.Nil {
-		return errors.New(fmt.Sprintf("generating key for uuid = \"Nil\" not possible"))
+		return fmt.Errorf("UUID \"Nil\"-value")
 	}
 
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
