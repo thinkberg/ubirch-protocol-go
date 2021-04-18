@@ -41,12 +41,16 @@ const (
 
 // Crypto Interface for exported functionality
 type Crypto interface {
-	GenerateKey(id uuid.UUID) error
-	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
 	GetPublicKey(id uuid.UUID) ([]byte, error)
-	PrivateKeyExists(id uuid.UUID) bool
 	SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error
+
+	PrivateKeyExists(id uuid.UUID) bool
 	SetKey(id uuid.UUID, privKeyBytes []byte) error
+
+	GenerateKey(id uuid.UUID) error
+	GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte) ([]byte, error)
+	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
+
 	SignatureLength() int
 	HashLength() int
 
