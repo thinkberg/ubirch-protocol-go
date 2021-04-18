@@ -193,7 +193,7 @@ func deleteProtocolContext(filename string) error {
 
 // Get the private key bytes for the given name.
 func getPrivateKey(c *ECDSACryptoContext, id uuid.UUID) ([]byte, error) {
-	privKeyBytes, err := c.Keystore.GetKey(privKeyEntryTitle(id))
+	privKeyBytes, err := c.Keystore.GetPrivateKey(id)
 	if err != nil {
 		return nil, err
 	}

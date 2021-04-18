@@ -20,14 +20,18 @@ package ubirch
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/ubirch/go.crypto/keystore"
 )
 
 // Keystorer contains the methods that must be implemented by the keystore
 // implementation.
 type Keystorer interface {
-	GetKey(keyname string) ([]byte, error)
-	SetKey(keyname string, keyvalue []byte) error
+	GetPrivateKey(id uuid.UUID) ([]byte, error)
+	SetPrivateKey(id uuid.UUID, key []byte) error
+
+	GetPublicKey(id uuid.UUID) ([]byte, error)
+	SetPublicKey(id uuid.UUID, key []byte) error
 }
 
 // EncryptedKeystore is the reference implementation for a simple keystore.
@@ -52,13 +56,29 @@ func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
 }
 
 // GetKey returns a Key from the Keystore
-func (enc *EncryptedKeystore) GetKey(keyname string) ([]byte, error) {
+func (enc *EncryptedKeystore) getKey(keyname string) ([]byte, error) {
 	return enc.Keystore.Get(keyname, enc.Secret)
 }
 
 // SetKey sets a key in the Keystore
-func (enc *EncryptedKeystore) SetKey(keyname string, keyvalue []byte) error {
+func (enc *EncryptedKeystore) setKey(keyname string, keyvalue []byte) error {
 	return enc.Keystore.Set(keyname, keyvalue, enc.Secret)
+}
+
+func (enc *EncryptedKeystore) GetPrivateKey(id uuid.UUID) ([]byte, error) {
+	return enc.getKey(privKeyEntryTitle(id))
+}
+
+func (enc *EncryptedKeystore) SetPrivateKey(id uuid.UUID, key []byte) error {
+	return enc.setKey(privKeyEntryTitle(id), key)
+}
+
+func (enc *EncryptedKeystore) GetPublicKey(id uuid.UUID) ([]byte, error) {
+	return enc.getKey(pubKeyEntryTitle(id))
+}
+
+func (enc *EncryptedKeystore) SetPublicKey(id uuid.UUID, key []byte) error {
+	return enc.setKey(pubKeyEntryTitle(id), key)
 }
 
 // MarshalJSON implements the json.Marshaler interface. The Password will not be
@@ -72,4 +92,14 @@ func (enc *EncryptedKeystore) MarshalJSON() ([]byte, error) {
 // seperately.
 func (enc *EncryptedKeystore) UnmarshalJSON(b []byte) error {
 	return json.Unmarshal(b, enc.Keystore)
+}
+
+// privKeyEntryTitle returns a string of the Private Key Entry
+func privKeyEntryTitle(id uuid.UUID) string {
+	return "_" + id.String()
+}
+
+// pubKeyEntryTitle returns a string of the Public Key Entry
+func pubKeyEntryTitle(id uuid.UUID) string {
+	return id.String()
 }

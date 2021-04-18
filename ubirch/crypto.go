@@ -104,16 +104,6 @@ func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
-// privKeyEntryTitle returns a string of the Private Key Entry
-func privKeyEntryTitle(id uuid.UUID) string {
-	return "_" + id.String()
-}
-
-// pubKeyEntryTitle returns a string of the Public Key Entry
-func pubKeyEntryTitle(id uuid.UUID) string {
-	return id.String()
-}
-
 //func signatureToPoints(signature []byte) (r, s *big.Int, err error) {
 //	r, s = &big.Int{}, &big.Int{}
 //
@@ -140,7 +130,8 @@ func (c *ECDSACryptoContext) storePrivateKey(id uuid.UUID, k *ecdsa.PrivateKey) 
 	if err != nil {
 		return err
 	}
-	return c.Keystore.SetKey(privKeyEntryTitle(id), privKeyBytes)
+
+	return c.Keystore.SetPrivateKey(id, privKeyBytes)
 }
 
 // storePublicKey stores the public Key, returns 'nil', if successful
@@ -153,7 +144,8 @@ func (c *ECDSACryptoContext) storePublicKey(id uuid.UUID, k *ecdsa.PublicKey) er
 	if err != nil {
 		return err
 	}
-	return c.Keystore.SetKey(pubKeyEntryTitle(id), pubKeyBytes)
+
+	return c.Keystore.SetPublicKey(id, pubKeyBytes)
 }
 
 // getDecodedPrivateKey gets the decoded private key for the given name.
@@ -163,7 +155,7 @@ func (c *ECDSACryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateK
 	}
 
 	// get encoded private key from keystore
-	privKey, err := c.Keystore.GetKey(privKeyEntryTitle(id))
+	privKey, err := c.Keystore.GetPrivateKey(id)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +171,7 @@ func (c *ECDSACryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey
 	}
 
 	// get encoded public key from keystore
-	pubKey, err := c.Keystore.GetKey(pubKeyEntryTitle(id))
+	pubKey, err := c.Keystore.GetPublicKey(id)
 	if err != nil {
 		return nil, err
 	}

@@ -64,7 +64,7 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 	requirer.NoErrorf(loadProtocolContext(p, "test3.json"), "Failed loading protocol context")
 	id := uuid.MustParse(defaultUUID)
 	// Get the public key
-	pubKeyEncoded, err := testKeystore.GetKey(pubKeyEntryTitle(id))
+	pubKeyEncoded, err := testKeystore.GetPublicKey(id)
 	asserter.NoErrorf(err, "failed to get the public key")
 	asserter.NotNilf(pubKeyEncoded, "encoded pubkey is 'Nil'")
 	// decode the key and compare it
@@ -76,7 +76,7 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 	pubKeyString := hex.EncodeToString(pubKeyBytes)
 	asserter.Equalf(defaultPub, pubKeyString, "not equal")
 	// Get the private key
-	privKeyEncoded, err := testKeystore.GetKey(privKeyEntryTitle(id))
+	privKeyEncoded, err := testKeystore.GetPrivateKey(id)
 	asserter.NoErrorf(err, "failed to get the private key")
 	asserter.NotNilf(privKeyEncoded, "encoded privkey is 'Nil'")
 	// decode the private key and compare it
@@ -112,11 +112,11 @@ func TestEncryptedKeystore_SetKey(t *testing.T) {
 	requirer.NoErrorf(err, "Encoding PrivateKey failed")
 	id := uuid.MustParse(defaultUUID)
 	// Test valid key length
-	asserter.NoErrorf(testKeystore.SetKey(privKeyEntryTitle(id), privEncodedCorrect),
+	asserter.NoErrorf(testKeystore.SetPrivateKey(id, privEncodedCorrect),
 		"set private key with correct length failed")
 	// test different lengths for the key
 	for i := 1; i < len(privEncodedCorrect); i++ {
-		asserter.NoErrorf(testKeystore.SetKey(privKeyEntryTitle(id), privEncodedCorrect[:i]),
+		asserter.NoErrorf(testKeystore.SetPrivateKey(id, privEncodedCorrect[:i]),
 			"set private key with length (%v) failed", i)
 	}
 	// make Encoded public Key and test
@@ -125,11 +125,11 @@ func TestEncryptedKeystore_SetKey(t *testing.T) {
 	pubEncodedCorrect, err := encodePublicKeyTestHelper(pubBytesCorrect)
 	requirer.NoErrorf(err, "Encoding PrivateKey failed")
 	// Test valid key length
-	asserter.NoErrorf(testKeystore.SetKey(pubKeyEntryTitle(id), pubEncodedCorrect),
+	asserter.NoErrorf(testKeystore.SetPublicKey(id, pubEncodedCorrect),
 		"set public key with correct length failed")
 	// test different lengths for the key
 	for i := 1; i < len(pubEncodedCorrect); i++ {
-		asserter.NoErrorf(testKeystore.SetKey(pubKeyEntryTitle(id), pubEncodedCorrect[:i]),
+		asserter.NoErrorf(testKeystore.SetPublicKey(id, pubEncodedCorrect[:i]),
 			"set public key with length (%v) failed", i)
 	}
 }
@@ -150,7 +150,7 @@ func TestEncryptedKeystore_SetKey2(t *testing.T) {
 	// test all available legths n*8 Byte
 	for i := 8; i < len(privEncodedCorrect); {
 		i += 8
-		asserter.NoErrorf(testKeystore.SetKey(privKeyEntryTitle(id), privEncodedCorrect[:i]),
+		asserter.NoErrorf(testKeystore.SetPrivateKey(id, privEncodedCorrect[:i]),
 			"set private key with length (%v) failed", i)
 	}
 	// make Encoded public Key and test
@@ -161,7 +161,7 @@ func TestEncryptedKeystore_SetKey2(t *testing.T) {
 	// test all available legths n*8 Byte
 	for i := 8; i < len(pubEncodedCorrect); {
 		i += 8
-		asserter.NoErrorf(testKeystore.SetKey(pubKeyEntryTitle(id), pubEncodedCorrect[:i]),
+		asserter.NoErrorf(testKeystore.SetPublicKey(id, pubEncodedCorrect[:i]),
 			"set public key with length (%v) failed", i)
 	}
 }
@@ -180,7 +180,7 @@ func TestEncryptedKeystore_MarshalUnmarshalJSON(t *testing.T) {
 	requirer.NoErrorf(err, "Decoding private key bytes failed")
 	privEncoded, err := encodePrivateKeyTestHelper(privBytes)
 	requirer.NoError(err, "Encoding private key failed")
-	requirer.NoError(ks.SetKey(privKeyEntryTitle(id), privEncoded), "Setting private key failed")
+	requirer.NoError(ks.SetPrivateKey(id, privEncoded), "Setting private key failed")
 
 	// can marshal keystore into byte representation
 	byteRepr, err := ks.MarshalJSON()
@@ -190,7 +190,7 @@ func TestEncryptedKeystore_MarshalUnmarshalJSON(t *testing.T) {
 	loadedKs := NewEncryptedKeystore([]byte(defaultSecret))
 	requirer.NoError(loadedKs.UnmarshalJSON(byteRepr), "Error loading keystore from marshaled bytes")
 
-	retrievedKey, err := ks.GetKey(privKeyEntryTitle(id))
+	retrievedKey, err := ks.GetPrivateKey(id)
 	requirer.NoErrorf(err, "Error getting key %q", privKeyEntryTitle(id), err)
 	asserter.Equal(privEncoded, retrievedKey, "Retrieved key (%v) does not match saved key %q: retrieved: %x expected: %x", defaultUUID)
 }
@@ -207,13 +207,13 @@ func TestEncryptedKeystore_WrongSecret(t *testing.T) {
 	requirer.NoErrorf(err, "Decoding private key bytes failed")
 	privEncoded, err := encodePrivateKeyTestHelper(privBytes)
 	requirer.NoError(err, "Encoding private key failed")
-	requirer.NoError(ks.SetKey(defaultUUID, privEncoded), "Setting private key failed")
+	requirer.NoError(ks.SetPrivateKey(uuid.MustParse(defaultUUID), privEncoded), "Setting private key failed")
 
 	//change the secret so decryption fails
 	ks.Secret = []byte("0000000000000000")
 
 	//try to retrive key (should fail)
-	_, err = ks.GetKey(defaultUUID)
+	_, err = ks.GetPrivateKey(uuid.MustParse(defaultUUID))
 	requirer.Errorf(err, "Key could be retrived with wrong secret")
 }
 
