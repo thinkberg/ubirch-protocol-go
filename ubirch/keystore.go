@@ -28,10 +28,6 @@ import (
 type Keystorer interface {
 	GetKey(keyname string) ([]byte, error)
 	SetKey(keyname string, keyvalue []byte) error
-
-	// Required for saving and restoring
-	MarshalJSON() ([]byte, error)
-	UnmarshalJSON(b []byte) error
 }
 
 // EncryptedKeystore is the reference implementation for a simple keystore.
