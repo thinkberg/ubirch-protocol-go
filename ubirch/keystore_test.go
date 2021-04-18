@@ -66,19 +66,23 @@ func TestEncryptedKeystore_GetKey(t *testing.T) {
 	// Get the public key
 	pubKeyEncoded, err := testKeystore.GetKey(pubKeyEntryTitle(id))
 	asserter.NoErrorf(err, "failed to get the public key")
-	asserter.NotNilf(pubKeyEncoded, "pubkey is 'Nil'")
+	asserter.NotNilf(pubKeyEncoded, "encoded pubkey is 'Nil'")
 	// decode the key and compare it
 	pubKey, err := decodePublicKeyTestHelper(pubKeyEncoded)
+	asserter.NoErrorf(err, "failed to decode the public key")
+	asserter.NotNilf(pubKey, "decoded pubkey is 'Nil'")
 	pubKeyBytes := pubKey.X.Bytes()
 	pubKeyBytes = append(pubKeyBytes, pubKey.Y.Bytes()...)
 	pubKeyString := hex.EncodeToString(pubKeyBytes)
 	asserter.Equalf(defaultPub, pubKeyString, "not equal")
 	// Get the private key
 	privKeyEncoded, err := testKeystore.GetKey(privKeyEntryTitle(id))
-	asserter.NoErrorf(err, "failed to get the privlic key")
-	asserter.NotNilf(privKeyEncoded, "privkey is 'Nil'")
+	asserter.NoErrorf(err, "failed to get the private key")
+	asserter.NotNilf(privKeyEncoded, "encoded privkey is 'Nil'")
 	// decode the private key and compare it
 	privKey, err := decodePrivateKeyTestHelper(privKeyEncoded)
+	asserter.NoErrorf(err, "failed to decode the private key")
+	asserter.NotNilf(privKey, "decoded privkey is 'Nil'")
 	privKeyBytes := privKey.D.Bytes()
 	privKeyString := hex.EncodeToString(privKeyBytes)
 	asserter.Equalf(defaultPriv, privKeyString, "not equal")
