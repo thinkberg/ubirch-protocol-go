@@ -175,8 +175,8 @@ func (c *ECDSACryptoContext) GenerateKey() (privKeyPEM []byte, err error) {
 	return encodePrivateKey(k)
 }
 
-// GetPublicKey calculates the matching public key (PEM) for a given private key (PEM)
-func (c *ECDSACryptoContext) GetPublicKey(privKeyPEM []byte) ([]byte, error) {
+// GetPublicKeyFromPrivateKey calculates the matching public key (PEM) for a given private key (PEM)
+func (c *ECDSACryptoContext) GetPublicKeyFromPrivateKey(privKeyPEM []byte) ([]byte, error) {
 	decodedPrivKey, err := decodePrivateKey(privKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("decoding private key failed: %v", err)

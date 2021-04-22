@@ -27,12 +27,12 @@ type SignedKeyRegistration struct {
 func (c *ECDSACryptoContext) GetSignedKeyRegistration(privKeyPEM []byte, uid uuid.UUID) ([]byte, error) {
 	const timeFormat = "2006-01-02T15:04:05.000Z"
 
-	pubKeyPEM, err := c.GetPublicKey(privKeyPEM)
+	pubKeyPEM, err := c.GetPublicKeyFromPrivateKey(privKeyPEM)
 	if err != nil {
 		return nil, err
 	}
 
-	pubKey, err := PublicKeyToBytes(pubKeyPEM)
+	pubKey, err := c.PublicKeyToBytes(pubKeyPEM)
 	if err != nil {
 		return nil, err
 	}
