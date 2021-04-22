@@ -28,7 +28,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
-	"reflect"
 
 	"github.com/google/uuid"
 )
@@ -104,112 +103,10 @@ func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
-//func signatureToPoints(signature []byte) (r, s *big.Int, err error) {
-//	r, s = &big.Int{}, &big.Int{}
-//
-//	data := asn1.RawValue{}
-//	_, err = asn1.Unmarshal(signature, &data)
-//	if err != nil {
-//		return nil, nil, err
-//	}
-//
-//	rLen := data.Bytes[1]
-//	r.SetBytes(data.Bytes[2 : rLen+2])
-//	s.SetBytes(data.Bytes[rLen+4:])
-//
-//	return r, s, nil
-//}
-
-// storePrivateKey stores the private Key, returns 'nil', if successful
-func (c *ECDSACryptoContext) storePrivateKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
-	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
-		return fmt.Errorf("uninitialized keystore")
-	}
-
-	privKeyBytes, err := encodePrivateKey(k)
-	if err != nil {
-		return err
-	}
-
-	return c.Keystore.SetPrivateKey(id, privKeyBytes)
-}
-
-// storePublicKey stores the public Key, returns 'nil', if successful
-func (c *ECDSACryptoContext) storePublicKey(id uuid.UUID, k *ecdsa.PublicKey) error {
-	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
-		return fmt.Errorf("uninitialized keystore")
-	}
-
-	pubKeyBytes, err := encodePublicKey(k)
-	if err != nil {
-		return err
-	}
-
-	return c.Keystore.SetPublicKey(id, pubKeyBytes)
-}
-
-// getDecodedPrivateKey gets the decoded private key for the given name.
-func (c *ECDSACryptoContext) getDecodedPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, error) {
-	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
-		return nil, fmt.Errorf("uninitialized keystore")
-	}
-
-	// get encoded private key from keystore
-	privKey, err := c.Keystore.GetPrivateKey(id)
-	if err != nil {
-		return nil, err
-	}
-
-	// decode the key
-	return decodePrivateKey(privKey)
-}
-
-// getDecodedPublicKey gets the decoded public key for the given name.
-func (c *ECDSACryptoContext) getDecodedPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error) {
-	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
-		return nil, fmt.Errorf("uninitialized keystore")
-	}
-
-	// get encoded public key from keystore
-	pubKey, err := c.Keystore.GetPublicKey(id)
-	if err != nil {
-		return nil, err
-	}
-
-	// decode the key
-	return decodePublicKey(pubKey)
-}
-
-// storeKey stores the Private Key, as well as the Public Key, returns 'nil', if successful
-func (c *ECDSACryptoContext) storeKey(id uuid.UUID, k *ecdsa.PrivateKey) error {
-	err := c.storePublicKey(id, &k.PublicKey)
-	if err != nil {
-		return err
-	}
-	return c.storePrivateKey(id, k)
-}
-
-// GenerateKey generates a new key pair and stores it, using the given name and associated UUID.
-func (c *ECDSACryptoContext) GenerateKey(id uuid.UUID) error {
-	if id == uuid.Nil {
-		return fmt.Errorf("UUID \"Nil\"-value")
-	}
-
-	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return err
-	}
-
-	return c.storeKey(id, k)
-}
-
-//SetPublicKey sets the public key (64 bytes)
-func (c *ECDSACryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error {
+// PublicKeyToPEM converts a ECDSA P-256 public key (64 bytes) to PEM format
+func (c *ECDSACryptoContext) PublicKeyToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
 	if len(pubKeyBytes) != nistp256PubkeyLength {
-		return fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
-	}
-	if id == uuid.Nil {
-		return fmt.Errorf("UUID \"Nil\"-value")
+		return nil, fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
 	}
 
 	pubKey := new(ecdsa.PublicKey)
@@ -220,62 +117,37 @@ func (c *ECDSACryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) erro
 	pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
 
 	if !pubKey.IsOnCurve(pubKey.X, pubKey.Y) {
-		return fmt.Errorf("invalid public key value: point not on curve")
+		return nil, fmt.Errorf("invalid public key value: point not on curve")
 	}
 
-	return c.storePublicKey(id, pubKey)
+	return encodePublicKey(pubKey)
 }
 
-//SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
-func (c *ECDSACryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
+//PrivateKeyToPEM converts a ECDSA P-256 private key (32 bytes) to PEM format
+func (c *ECDSACryptoContext) PrivateKeyToPEM(privKeyBytes []byte) (privKeyPEM []byte, err error) {
 	if len(privKeyBytes) != nistp256PrivkeyLength {
-		return fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
-	}
-	if id == uuid.Nil {
-		return fmt.Errorf("UUID \"Nil\"-value")
+		return nil, fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
 	}
 
 	privKey := new(ecdsa.PrivateKey)
+	privKey.PublicKey.Curve = elliptic.P256()
 	privKey.D = new(big.Int)
 	privKey.D.SetBytes(privKeyBytes)
-	privKey.PublicKey.Curve = elliptic.P256()
 	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
 
 	curveOrder := privKey.PublicKey.Curve.Params().N
 	if privKey.D.Cmp(curveOrder) >= 0 {
-		return fmt.Errorf("invalid private key value: value is greater or equal curve order")
+		return nil, fmt.Errorf("invalid private key value: value is greater or equal curve order")
 	}
 
-	return c.storeKey(id, privKey)
+	return encodePrivateKey(privKey)
 }
 
-// GetCSR gets a certificate signing request.
-func (c *ECDSACryptoContext) GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error) {
-	template := &x509.CertificateRequest{
-		SignatureAlgorithm: x509.ECDSAWithSHA256,
-		Subject: pkix.Name{
-			Country:      []string{subjectCountry},
-			Organization: []string{subjectOrganization},
-			CommonName:   id.String(),
-		},
-	}
-
-	priv, err := c.getDecodedPrivateKey(id)
+// PublicKeyToBytes converts a given public key from PEM format to raw bytes
+func (c *ECDSACryptoContext) PublicKeyToBytes(pubKeyPEM []byte) ([]byte, error) {
+	decodedPubKey, err := decodePublicKey(pubKeyPEM)
 	if err != nil {
-		return nil, err
-	}
-
-	return x509.CreateCertificateRequest(rand.Reader, template, priv)
-}
-
-// GetPublicKey gets the public key bytes for the given name.
-func (c *ECDSACryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
-	decodedPubKey, err := c.getDecodedPublicKey(id)
-	if err != nil {
-		return nil, fmt.Errorf("decoding public key from keystore failed: %s", err)
-	}
-	if decodedPubKey.Curve.Params().Name != "P-256" {
-		return nil, fmt.Errorf("public key from keystore has unexpected type: %s", decodedPubKey.Curve.Params().Name)
+		return nil, fmt.Errorf("decoding public key failed: %v", err)
 	}
 
 	pubKeyBytes := make([]byte, 0, 0)
@@ -293,31 +165,64 @@ func (c *ECDSACryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
-// PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
-func (c *ECDSACryptoContext) PrivateKeyExists(id uuid.UUID) bool {
-	_, err := c.getDecodedPrivateKey(id)
+// GenerateKey generates a new private key and returns it in PEM format
+func (c *ECDSACryptoContext) GenerateKey() (privKeyPEM []byte, err error) {
+	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return false
+		return nil, err
 	}
-	return true
+
+	return encodePrivateKey(k)
+}
+
+// GetPublicKey calculates the matching public key (PEM) for a given private key (PEM)
+func (c *ECDSACryptoContext) GetPublicKey(privKeyPEM []byte) ([]byte, error) {
+	decodedPrivKey, err := decodePrivateKey(privKeyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("decoding private key failed: %v", err)
+	}
+	if decodedPrivKey.Curve.Params().Name != "P-256" {
+		return nil, fmt.Errorf("private key has unexpected type: %s, expected: P-256", decodedPrivKey.Curve.Params().Name)
+	}
+
+	return encodePublicKey(&decodedPrivKey.PublicKey)
+}
+
+// GetCSR gets a certificate signing request.
+func (c *ECDSACryptoContext) GetCSR(privKeyPEM []byte, id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error) {
+	template := &x509.CertificateRequest{
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+		Subject: pkix.Name{
+			Country:      []string{subjectCountry},
+			Organization: []string{subjectOrganization},
+			CommonName:   id.String(),
+		},
+	}
+
+	priv, err := decodePrivateKey(privKeyPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	return x509.CreateCertificateRequest(rand.Reader, template, priv)
 }
 
 // Sign returns the signature for the SHA256 of 'data' using the private key of a specific UUID.
-func (c *ECDSACryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
+func (c *ECDSACryptoContext) Sign(privKeyPEM []byte, data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("empty data")
 	}
 
 	hash := sha256.Sum256(data)
-	return c.SignHash(id, hash[:])
+	return c.SignHash(privKeyPEM, hash[:])
 }
 
-func (c *ECDSACryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
+func (c *ECDSACryptoContext) SignHash(privKeyPEM []byte, hash []byte) ([]byte, error) {
 	if len(hash) != sha256Length {
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
 	}
 
-	priv, err := c.getDecodedPrivateKey(id)
+	priv, err := decodePrivateKey(privKeyPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +246,7 @@ func (c *ECDSACryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error)
 // Verify verifies that 'signature' matches 'data' using the public key with a specific UUID.
 // Need to get the UUID via ECDSACryptoContext#GetUUID().
 // Returns 'true' and 'nil' error if signature was verifiable.
-func (c *ECDSACryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
+func (c *ECDSACryptoContext) Verify(pubKeyPEM []byte, data []byte, signature []byte) (bool, error) {
 	if len(data) == 0 {
 		return false, fmt.Errorf("empty data cannot be verified")
 	}
@@ -349,7 +254,7 @@ func (c *ECDSACryptoContext) Verify(id uuid.UUID, data []byte, signature []byte)
 		return false, fmt.Errorf("wrong signature length: expected: %d, got: %d", nistp256SignatureLength, len(signature))
 	}
 
-	pub, err := c.getDecodedPublicKey(id)
+	pub, err := decodePublicKey(pubKeyPEM)
 	if err != nil {
 		return false, err
 	}

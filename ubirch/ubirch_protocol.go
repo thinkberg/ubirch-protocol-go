@@ -41,21 +41,17 @@ const (
 
 // Crypto Interface for exported functionality
 type Crypto interface {
-	GetPublicKey(id uuid.UUID) ([]byte, error)
-	SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error
+	GenerateKey() (privKeyPEM []byte, err error)
+	GetPublicKey(privKeyPEM []byte) (pubKeyPEM []byte, err error)
 
-	PrivateKeyExists(id uuid.UUID) bool
-	SetKey(id uuid.UUID, privKeyBytes []byte) error
-
-	GenerateKey(id uuid.UUID) error
-	GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte) ([]byte, error)
-	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
+	GetSignedKeyRegistration(privKeyPEM []byte, uid uuid.UUID) ([]byte, error)
+	GetCSR(privKeyPEM []byte, id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
 
 	SignatureLength() int
 	HashLength() int
 
-	Sign(id uuid.UUID, value []byte) ([]byte, error)
-	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
+	Sign(privKeyPEM []byte, value []byte) ([]byte, error)
+	Verify(pubKeyPEM []byte, value []byte, signature []byte) (bool, error)
 }
 
 // Protocol structure
@@ -223,7 +219,7 @@ func appendSignature(data []byte, signature []byte) []byte {
 }
 
 // Sign encodes, signs and appends the signature to a UPP
-func (p *Protocol) Sign(upp UPP) ([]byte, error) {
+func (p *Protocol) Sign(privKeyPEM []byte, upp UPP) ([]byte, error) {
 	if len(upp.GetPayload()) != p.HashLength() {
 		return nil, fmt.Errorf("invalid hash size: expected %d, got %d bytes", p.HashLength(), len(upp.GetPayload()))
 	}
@@ -238,7 +234,7 @@ func (p *Protocol) Sign(upp UPP) ([]byte, error) {
 
 	uppWithoutSig := encoded[:len(encoded)-1]
 
-	signature, err := p.Crypto.Sign(upp.GetUuid(), uppWithoutSig)
+	signature, err := p.Crypto.Sign(privKeyPEM, uppWithoutSig)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +251,7 @@ func (p *Protocol) Sign(upp UPP) ([]byte, error) {
 }
 
 // Verify verifies the signature of a ubirch-protocol message.
-func (p *Protocol) Verify(id uuid.UUID, upp []byte) (bool, error) {
+func (p *Protocol) Verify(pubKeyPEM []byte, upp []byte) (bool, error) {
 	lenMsgpackSignatureElement := 2 + p.SignatureLength() // length of a signature plus msgpack header for byte array (0xc4XX)
 
 	if len(upp) <= lenMsgpackSignatureElement {
@@ -264,7 +260,7 @@ func (p *Protocol) Verify(id uuid.UUID, upp []byte) (bool, error) {
 
 	data := upp[:len(upp)-lenMsgpackSignatureElement]
 	signature := upp[len(upp)-nistp256SignatureLength:]
-	return p.Crypto.Verify(id, data, signature)
+	return p.Crypto.Verify(pubKeyPEM, data, signature)
 }
 
 // CheckChainLink compares the signature bytes of a previous ubirch protocol package with the previous signature bytes of

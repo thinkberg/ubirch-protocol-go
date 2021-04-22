@@ -24,8 +24,18 @@ type SignedKeyRegistration struct {
 
 // GetSignedKeyRegistration creates a self-signed JSON key certificate
 // to be sent to the UBIRCH identity service for public key registration
-func (c *ECDSACryptoContext) GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte) ([]byte, error) {
+func (c *ECDSACryptoContext) GetSignedKeyRegistration(privKeyPEM []byte, uid uuid.UUID) ([]byte, error) {
 	const timeFormat = "2006-01-02T15:04:05.000Z"
+
+	pubKeyPEM, err := c.GetPublicKey(privKeyPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey, err := PublicKeyToBytes(pubKeyPEM)
+	if err != nil {
+		return nil, err
+	}
 
 	// put it all together
 	now := time.Now().UTC()
@@ -45,7 +55,7 @@ func (c *ECDSACryptoContext) GetSignedKeyRegistration(uid uuid.UUID, pubKey []by
 		return nil, err
 	}
 
-	signature, err := c.Sign(uid, jsonKeyReg)
+	signature, err := c.Sign(privKeyPEM, jsonKeyReg)
 	if err != nil {
 		return nil, err
 	}
