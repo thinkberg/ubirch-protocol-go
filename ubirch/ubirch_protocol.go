@@ -43,6 +43,7 @@ const (
 type Crypto interface {
 	GenerateKey() (privKeyPEM []byte, err error)
 	GetPublicKeyFromPrivateKey(privKeyPEM []byte) (pubKeyPEM []byte, err error)
+	PublicKeyToBytes(pubKeyPEM []byte) (pubKeyBytes []byte, err error)
 
 	GetSignedKeyRegistration(privKeyPEM []byte, uid uuid.UUID) ([]byte, error)
 	GetCSR(privKeyPEM []byte, id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
