@@ -44,10 +44,7 @@ const (
 	sha256Length            = 32                                // length of a SHA256 hash
 )
 
-// ECDSACryptoContext contains the key store, a mapping for names -> UUIDs
-type ECDSACryptoContext struct {
-	Keystore Keystorer
-}
+type ECDSACryptoContext struct{}
 
 func (c *ECDSACryptoContext) SignatureLength() int {
 	return nistp256SignatureLength
