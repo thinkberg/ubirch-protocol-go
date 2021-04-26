@@ -22,11 +22,14 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/ubirch/go.crypto/keystore"
+	"strings"
 )
 
 // Keystorer contains the methods that must be implemented by the keystore
 // implementation.
 type Keystorer interface {
+	GetIDs() ([]uuid.UUID, error)
+
 	GetPrivateKey(id uuid.UUID) ([]byte, error)
 	SetPrivateKey(id uuid.UUID, key []byte) error
 
@@ -53,6 +56,20 @@ func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
 		Keystore: &keystore.Keystore{},
 		Secret:   secret,
 	}
+}
+
+func (enc *EncryptedKeystore) GetIDs() ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	for name := range *enc.Keystore {
+		if strings.HasPrefix(name, "_") {
+			id, err := uuid.Parse(strings.TrimPrefix(name, "_"))
+			if err != nil {
+				return nil, err
+			}
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 // GetKey returns a Key from the Keystore
