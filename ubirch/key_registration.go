@@ -32,7 +32,7 @@ func (c *ECDSACryptoContext) GetSignedKeyRegistration(privKeyPEM []byte, uid uui
 		return nil, err
 	}
 
-	pubKey, err := c.PublicKeyToBytes(pubKeyPEM)
+	pubKey, err := c.PublicKeyPEMToBytes(pubKeyPEM)
 	if err != nil {
 		return nil, err
 	}

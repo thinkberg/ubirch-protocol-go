@@ -100,8 +100,8 @@ func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
-// PublicKeyToPEM converts a ECDSA P-256 public key (64 bytes) to PEM format
-func (c *ECDSACryptoContext) PublicKeyToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
+// PublicKeyBytesToPEM PublicKeyToPEM converts a ECDSA P-256 public key (64 bytes) to PEM format
+func (c *ECDSACryptoContext) PublicKeyBytesToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
 	if len(pubKeyBytes) != nistp256PubkeyLength {
 		return nil, fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
 	}
@@ -120,8 +120,8 @@ func (c *ECDSACryptoContext) PublicKeyToPEM(pubKeyBytes []byte) (pubkeyPEM []byt
 	return encodePublicKey(pubKey)
 }
 
-//PrivateKeyToPEM converts a ECDSA P-256 private key (32 bytes) to PEM format
-func (c *ECDSACryptoContext) PrivateKeyToPEM(privKeyBytes []byte) (privKeyPEM []byte, err error) {
+// PrivateKeyBytesToPEM PrivateKeyToPEM converts a ECDSA P-256 private key (32 bytes) to PEM format
+func (c *ECDSACryptoContext) PrivateKeyBytesToPEM(privKeyBytes []byte) (privKeyPEM []byte, err error) {
 	if len(privKeyBytes) != nistp256PrivkeyLength {
 		return nil, fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
 	}
@@ -140,8 +140,8 @@ func (c *ECDSACryptoContext) PrivateKeyToPEM(privKeyBytes []byte) (privKeyPEM []
 	return encodePrivateKey(privKey)
 }
 
-// PublicKeyToBytes converts a given public key from PEM format to raw bytes
-func (c *ECDSACryptoContext) PublicKeyToBytes(pubKeyPEM []byte) ([]byte, error) {
+// PublicKeyPEMToBytes PublicKeyToBytes converts a given public key from PEM format to raw bytes
+func (c *ECDSACryptoContext) PublicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
 	decodedPubKey, err := decodePublicKey(pubKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("decoding public key failed: %v", err)

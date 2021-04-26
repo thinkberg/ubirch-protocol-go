@@ -43,7 +43,10 @@ const (
 type Crypto interface {
 	GenerateKey() (privKeyPEM []byte, err error)
 	GetPublicKeyFromPrivateKey(privKeyPEM []byte) (pubKeyPEM []byte, err error)
-	PublicKeyToBytes(pubKeyPEM []byte) (pubKeyBytes []byte, err error)
+
+	PublicKeyPEMToBytes(pubKeyPEM []byte) (pubKeyBytes []byte, err error)
+	PublicKeyBytesToPEM(pubKeyBytes []byte) (pubKeyPEM []byte, err error)
+	PrivateKeyBytesToPEM(privKeyBytes []byte) (privKeyPEM []byte, err error)
 
 	GetSignedKeyRegistration(privKeyPEM []byte, uid uuid.UUID) ([]byte, error)
 	GetCSR(privKeyPEM []byte, id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
@@ -52,6 +55,7 @@ type Crypto interface {
 	HashLength() int
 
 	Sign(privKeyPEM []byte, value []byte) ([]byte, error)
+	SignHash(privKeyPEM []byte, hash []byte) ([]byte, error)
 	Verify(pubKeyPEM []byte, value []byte, signature []byte) (bool, error)
 }
 
