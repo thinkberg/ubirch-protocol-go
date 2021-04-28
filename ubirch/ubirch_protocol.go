@@ -48,6 +48,11 @@ type Crypto interface {
 	PublicKeyBytesToPEM(pubKeyBytes []byte) (pubKeyPEM []byte, err error)
 	PrivateKeyBytesToPEM(privKeyBytes []byte) (privKeyPEM []byte, err error)
 
+	EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error)
+	DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error)
+	EncodePublicKey(pub interface{}) (pemEncoded []byte, err error)
+	DecodePublicKey(pemEncoded []byte) (pub interface{}, err error)
+
 	GetSignedKeyRegistration(privKeyPEM []byte, uid uuid.UUID) ([]byte, error)
 	GetCSR(privKeyPEM []byte, id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
 

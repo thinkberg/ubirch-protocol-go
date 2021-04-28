@@ -100,6 +100,30 @@ func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
+func (c *ECDSACryptoContext) EncodePrivateKey(priv interface{}) ([]byte, error) {
+	typedKey, ok := priv.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("key is not of type ECDSA private key")
+	}
+	return encodePrivateKey(typedKey)
+}
+
+func (c *ECDSACryptoContext) EncodePublicKey(pub interface{}) ([]byte, error) {
+	typedKey, ok := pub.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("key is not of type ECDSA public key")
+	}
+	return encodePublicKey(typedKey)
+}
+
+func (c *ECDSACryptoContext) DecodePrivateKey(pemEncoded []byte) (interface{}, error) {
+	return decodePrivateKey(pemEncoded)
+}
+
+func (c *ECDSACryptoContext) DecodePublicKey(pemEncoded []byte) (interface{}, error) {
+	return decodePublicKey(pemEncoded)
+}
+
 // PublicKeyBytesToPEM PublicKeyToPEM converts a ECDSA P-256 public key (64 bytes) to PEM format
 func (c *ECDSACryptoContext) PublicKeyBytesToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
 	if len(pubKeyBytes) != nistp256PubkeyLength {
