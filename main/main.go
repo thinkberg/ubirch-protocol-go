@@ -19,9 +19,8 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -31,68 +30,72 @@ import (
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 )
 
-func saveProtocolContext(p *ubirch.Protocol) error {
-	contextBytes, _ := json.Marshal(p)
-	err := ioutil.WriteFile("protocol.json", contextBytes, 444)
-	if err != nil {
-		log.Printf("unable to store protocol context: %v", err)
-		return err
-	} else {
-		log.Printf("saved protocol context")
-		return nil
-	}
-}
+//func saveProtocolContext(p *ubirch.Protocol) error {
+//	contextBytes, _ := json.Marshal(p)
+//	err := ioutil.WriteFile("protocol.json", contextBytes, 444)
+//	if err != nil {
+//		log.Printf("unable to store protocol context: %v", err)
+//		return err
+//	} else {
+//		log.Printf("saved protocol context")
+//		return nil
+//	}
+//}
 
-func loadProtocolContext(p *ubirch.Protocol) error {
-	contextBytes, err := ioutil.ReadFile("protocol.json")
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(contextBytes, p)
-	if err != nil {
-		log.Fatalf("unable to deserialize context: %v", err)
-		return err
-	} else {
-		log.Printf("loaded protocol context")
-		return nil
-	}
-}
+//func loadProtocolContext(p *ubirch.Protocol) error {
+//	contextBytes, err := ioutil.ReadFile("protocol.json")
+//	if err != nil {
+//		return err
+//	}
+//
+//	err = json.Unmarshal(contextBytes, p)
+//	if err != nil {
+//		log.Fatalf("unable to deserialize context: %v", err)
+//		return err
+//	} else {
+//		log.Printf("loaded protocol context")
+//		return nil
+//	}
+//}
 
 func main() {
-	name := "A"
 
 	p := ubirch.Protocol{
 		Crypto: &ubirch.ECDSACryptoContext{
 			Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")), //this is only a demo code secret, use a real secret here in your code
-			Names:    map[string]uuid.UUID{},
 		},
 	}
 
-	err := loadProtocolContext(&p)
+	//err := loadProtocolContext(&p)
+	//if err != nil {
+	//	log.Printf("keystore not found, or unable to load: %v", err)
+	//	uid, _ := uuid.NewRandom()
+	//	err = p.GenerateKey(uid)
+	//	if err != nil {
+	//		log.Fatalf("can't add key to key store: %v", err)
+	//	}
+	//}
+
+	uid := uuid.New()
+	err := p.GenerateKey(uid)
 	if err != nil {
-		log.Printf("keystore not found, or unable to load: %v", err)
-		uid, _ := uuid.NewRandom()
-		err = p.GenerateKey(name, uid)
-		if err != nil {
-			log.Fatalf("can't add key to key store: %v", err)
-		}
+		log.Fatal(err)
 	}
 
-	uid, _ := p.GetUUID(name)
 	data, _ := hex.DecodeString("010203040506070809FF")
+	hash := sha256.Sum256(data)
 	encoded, err := p.Sign(
 		&ubirch.SignedUPP{
 			Version:   ubirch.Signed,
 			Uuid:      uid,
 			Hint:      0,
-			Payload:   data,
+			Payload:   hash[:],
 			Signature: nil,
 		})
 	if err != nil {
 		log.Fatalf("creating signed upp failed: %v", err)
 	}
-	log.Print(hex.EncodeToString(encoded))
+	log.Printf("upp: %s", hex.EncodeToString(encoded))
 
 	go func() {
 		log.Println("Listening signals...")
@@ -100,5 +103,5 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	}()
 
-	_ = saveProtocolContext(&p)
+	//_ = saveProtocolContext(&p)
 }
