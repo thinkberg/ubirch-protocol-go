@@ -19,13 +19,11 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
@@ -60,45 +58,35 @@ func loadProtocolContext(p *ubirch.Protocol) error {
 }
 
 func main() {
-	name := "A"
 
 	p := ubirch.Protocol{
-		Crypto: &ubirch.ECDSACryptoContext{
-			Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")), //this is only a demo code secret, use a real secret here in your code
-			Names:    map[string]uuid.UUID{},
-		},
+		Crypto: &ubirch.ECDSACryptoContext{},
 	}
 
-	err := loadProtocolContext(&p)
+	uid := uuid.New()
+	priv, err := p.GenerateKey()
 	if err != nil {
-		log.Printf("keystore not found, or unable to load: %v", err)
-		uid, _ := uuid.NewRandom()
-		err = p.GenerateKey(name, uid)
-		if err != nil {
-			log.Fatalf("can't add key to key store: %v", err)
-		}
+		log.Fatal(err)
 	}
+	pub, _ := p.GetPublicKeyFromPrivateKey(priv)
+	pubBytes, _ := p.PublicKeyPEMToBytes(pub)
 
-	uid, _ := p.GetUUID(name)
+	log.Printf("uuid: %s", uid)
+	log.Printf("public key: %s", hex.EncodeToString(pubBytes))
+
 	data, _ := hex.DecodeString("010203040506070809FF")
+	hash := sha256.Sum256(data)
 	encoded, err := p.Sign(
+		priv,
 		&ubirch.SignedUPP{
 			Version:   ubirch.Signed,
 			Uuid:      uid,
 			Hint:      0,
-			Payload:   data,
+			Payload:   hash[:],
 			Signature: nil,
 		})
 	if err != nil {
 		log.Fatalf("creating signed upp failed: %v", err)
 	}
-	log.Print(hex.EncodeToString(encoded))
-
-	go func() {
-		log.Println("Listening signals...")
-		c := make(chan os.Signal, 1) // we need to reserve to buffer size 1, so the notifier are not blocked
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	}()
-
-	_ = saveProtocolContext(&p)
+	log.Printf("upp: %s", hex.EncodeToString(encoded))
 }
