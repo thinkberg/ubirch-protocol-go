@@ -119,25 +119,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	defer p.CloseSession(session)
+
 	err = p.Login(session, pkcs11.CKU_USER, "TestSlotPin")
 	if err != nil {
 		panic(err)
 	}
 	defer p.Logout(session)
-	p.DigestInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_SHA_1, nil)})
-	hash, err := p.Digest(session, []byte("Hello World"))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("SHA1 Hash of \"Hello World\":")
-	for _, d := range hash {
-		fmt.Printf("%02x", d)
-	}
-	fmt.Println()
-	fmt.Println("Verify with: echo -n \"Hello World\" | sha1sum -")
-	fmt.Println()
+
 	src := rand.New(rand.NewSource(time.Now().UnixNano()))
 	keyId := src.Int()
 	tokenLabel := strconv.FormatInt(int64(keyId), 16) + "_Key"
@@ -147,26 +136,61 @@ func main() {
 
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
 		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
-		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, 2048),
-		pkcs11.NewAttribute(pkcs11.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_RSA),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"),
 	}
 	privateKeyTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_ID, keyId),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
+
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, true),
+		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 	}
-	_, pvk, e := p.GenerateKeyPair(session,
-		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)},
+	pubkeyh, privkeyh, e := p.GenerateKeyPair(session,
+		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
 		publicKeyTemplate, privateKeyTemplate)
 	if e != nil {
 		fmt.Println("Failed to generate keypair!")
+		fmt.Println(e)
 	} else {
 		fmt.Println("Created key with label: " + tokenLabel)
-		fmt.Printf("Got private key handle %v\n", pvk)
+		fmt.Printf("Got private key handle %v\n", privkeyh)
+	}
+
+	//print pubkey info
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, nil),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, nil),
+	}
+	attr, err := p.GetAttributeValue(session, pubkeyh, template)
+	if err != nil {
+		fmt.Printf("err %s\n", err)
+	}
+	for i, a := range attr {
+		fmt.Printf("attr %d, type %d, valuelen %d:\n", i, a.Type, len(a.Value))
+		fmt.Println(string(a.Value))
+		for _, d := range a.Value {
+			fmt.Printf("%02x", d)
+		}
+		fmt.Println("")
+
+	}
+
+	//sign something
+	p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, privkeyh)
+	sig, err := p.Sign(session, []byte("Hello World"))
+	if err != nil {
+		fmt.Println("Signing failed:")
+		panic(err)
+	}
+
+	fmt.Println("ECDSA signature of \"Hello World\":")
+	for _, d := range sig {
+		fmt.Printf("%02x", d)
 	}
 }
