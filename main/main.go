@@ -19,15 +19,11 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-
-	"github.com/google/uuid"
-	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
+	"fmt"
+	"github.com/miekg/pkcs11"
+	"math/rand"
+	"strconv"
+	"time"
 )
 
 //func saveProtocolContext(p *ubirch.Protocol) error {
@@ -58,50 +54,119 @@ import (
 //	}
 //}
 
+//func main() {
+//
+//	p := ubirch.Protocol{
+//		Crypto: &ubirch.ECDSACryptoContext{
+//			Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")), //this is only a demo code secret, use a real secret here in your code
+//		},
+//	}
+//
+//	//err := loadProtocolContext(&p)
+//	//if err != nil {
+//	//	log.Printf("keystore not found, or unable to load: %v", err)
+//	//	uid, _ := uuid.NewRandom()
+//	//	err = p.GenerateKey(uid)
+//	//	if err != nil {
+//	//		log.Fatalf("can't add key to key store: %v", err)
+//	//	}
+//	//}
+//
+//	uid := uuid.New()
+//	err := p.GenerateKey(uid)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	data, _ := hex.DecodeString("010203040506070809FF")
+//	hash := sha256.Sum256(data)
+//	encoded, err := p.Sign(
+//		&ubirch.SignedUPP{
+//			Version:   ubirch.Signed,
+//			Uuid:      uid,
+//			Hint:      0,
+//			Payload:   hash[:],
+//			Signature: nil,
+//		})
+//	if err != nil {
+//		log.Fatalf("creating signed upp failed: %v", err)
+//	}
+//	log.Printf("upp: %s", hex.EncodeToString(encoded))
+//
+//	go func() {
+//		log.Println("Listening signals...")
+//		c := make(chan os.Signal, 1) // we need to reserve to buffer size 1, so the notifier are not blocked
+//		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+//	}()
+
+//_ = saveProtocolContext(&p)
+//}
+
 func main() {
-
-	p := ubirch.Protocol{
-		Crypto: &ubirch.ECDSACryptoContext{
-			Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")), //this is only a demo code secret, use a real secret here in your code
-		},
-	}
-
-	//err := loadProtocolContext(&p)
-	//if err != nil {
-	//	log.Printf("keystore not found, or unable to load: %v", err)
-	//	uid, _ := uuid.NewRandom()
-	//	err = p.GenerateKey(uid)
-	//	if err != nil {
-	//		log.Fatalf("can't add key to key store: %v", err)
-	//	}
-	//}
-
-	uid := uuid.New()
-	err := p.GenerateKey(uid)
+	p := pkcs11.New("libcs_pkcs11_R3.so") //make sure to have 'export LD_LIBRARY_PATH=~/.utimaco/' or use absolute path to .so
+	err := p.Initialize()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	data, _ := hex.DecodeString("010203040506070809FF")
-	hash := sha256.Sum256(data)
-	encoded, err := p.Sign(
-		&ubirch.SignedUPP{
-			Version:   ubirch.Signed,
-			Uuid:      uid,
-			Hint:      0,
-			Payload:   hash[:],
-			Signature: nil,
-		})
+	defer p.Destroy()
+	defer p.Finalize()
+	slots, err := p.GetSlotList(true)
 	if err != nil {
-		log.Fatalf("creating signed upp failed: %v", err)
+		panic(err)
 	}
-	log.Printf("upp: %s", hex.EncodeToString(encoded))
+	session, err := p.OpenSession(slots[0], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+	if err != nil {
+		panic(err)
+	}
 
-	go func() {
-		log.Println("Listening signals...")
-		c := make(chan os.Signal, 1) // we need to reserve to buffer size 1, so the notifier are not blocked
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	}()
+	defer p.CloseSession(session)
+	err = p.Login(session, pkcs11.CKU_USER, "TestSlotPin")
+	if err != nil {
+		panic(err)
+	}
+	defer p.Logout(session)
+	p.DigestInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_SHA_1, nil)})
+	hash, err := p.Digest(session, []byte("Hello World"))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SHA1 Hash of \"Hello World\":")
+	for _, d := range hash {
+		fmt.Printf("%02x", d)
+	}
+	fmt.Println()
+	fmt.Println("Verify with: echo -n \"Hello World\" | sha1sum -")
+	fmt.Println()
+	src := rand.New(rand.NewSource(time.Now().UnixNano()))
+	keyId := src.Int()
+	tokenLabel := strconv.FormatInt(int64(keyId), 16) + "_Key"
+	publicKeyTemplate := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_ID, keyId),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
 
-	//_ = saveProtocolContext(&p)
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
+		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, 2048),
+		pkcs11.NewAttribute(pkcs11.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_RSA),
+	}
+	privateKeyTemplate := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_ID, keyId),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, true),
+		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, true),
+	}
+	_, pvk, e := p.GenerateKeyPair(session,
+		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)},
+		publicKeyTemplate, privateKeyTemplate)
+	if e != nil {
+		fmt.Println("Failed to generate keypair!")
+	} else {
+		fmt.Println("Created key with label: " + tokenLabel)
+		fmt.Printf("Got private key handle %v\n", pvk)
+	}
 }
