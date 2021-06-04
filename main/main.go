@@ -19,8 +19,11 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"fmt"
 	"github.com/miekg/pkcs11"
+	"math/big"
 	"math/rand"
 	"strconv"
 	"time"
@@ -180,17 +183,39 @@ func main() {
 		fmt.Println("")
 
 	}
+	pubKeyBytes := attr[1].Value[3:] //save pubkey, remove DER encoding header
 
 	//sign something
+	mydata := []byte("Hello World")
 	p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, privkeyh)
-	sig, err := p.Sign(session, []byte("Hello World"))
+	signature, err := p.Sign(session, mydata)
 	if err != nil {
 		fmt.Println("Signing failed:")
 		panic(err)
 	}
 
-	fmt.Println("ECDSA signature of \"Hello World\":")
-	for _, d := range sig {
+	fmt.Println("ECDSA signature of " + string(mydata) + " :")
+	for _, d := range signature {
 		fmt.Printf("%02x", d)
+	}
+	fmt.Println("")
+
+	//check the signature locally
+	pubKey := new(ecdsa.PublicKey)
+	pubKey.Curve = elliptic.P256()
+	pubKey.X = &big.Int{}
+	pubKey.X.SetBytes(pubKeyBytes[0:32])
+	pubKey.Y = &big.Int{}
+	pubKey.Y.SetBytes(pubKeyBytes[32:(32 + 32)])
+
+	r, s := &big.Int{}, &big.Int{}
+	r.SetBytes(signature[:32])
+	s.SetBytes(signature[32:])
+
+	fmt.Println("Verifying locally")
+	if ecdsa.Verify(pubKey, mydata, r, s) {
+		fmt.Println("Signature OK")
+	} else {
+		fmt.Println("Signature not OK")
 	}
 }
