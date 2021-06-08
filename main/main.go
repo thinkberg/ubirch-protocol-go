@@ -21,8 +21,12 @@ package main
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"github.com/miekg/pkcs11"
+	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"strconv"
@@ -217,5 +221,45 @@ func main() {
 		fmt.Println("Signature OK")
 	} else {
 		fmt.Println("Signature not OK")
+	}
+
+	//Create a CSR using the HSM key
+	subjectCountry := "DE"
+	subjectOrganization := "Test GmbH"
+
+	CertTemplate := &x509.CertificateRequest{
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+		Subject: pkix.Name{
+			Country:      []string{subjectCountry},
+			Organization: []string{subjectOrganization},
+			CommonName:   "SomeSortOfID",
+		},
+	}
+
+	//create a pkcs11 private key struct for signing
+	privKey := &ubirch.PKCS11ECDSAPrivKey{
+		PubKey:        pubKey,
+		PKCS11Ctx:     p,
+		PrivKeyHandle: privkeyh,
+		SessionHandle: session,
+	}
+
+	myCSR, err := x509.CreateCertificateRequest(nil, CertTemplate, privKey)
+
+	if err != nil {
+		fmt.Println("Creating CSR failed:")
+		panic(err)
+	}
+	fmt.Println("Generated CSR:")
+	fmt.Println(string(myCSR))
+	for _, d := range myCSR {
+		fmt.Printf("%02x", d)
+	}
+
+	//dump csr in file for checking
+	err = ioutil.WriteFile("./mycsr.der", myCSR, 0644)
+	if err != nil {
+		fmt.Println("Saving CSR failed:")
+		panic(err)
 	}
 }
