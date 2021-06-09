@@ -29,7 +29,7 @@ func (P *PKCS11ECDSAPrivKey) Sign(rand io.Reader, digest []byte, opts crypto.Sig
 	if err != nil {
 		return nil, err
 	}
-
+	//TODO: How to make sure that the pubkey is in sync with the privkey?
 	//TODO: add error check of len(signature) must be two times order of curve basepoint (get it from pubkey),
 	// according to pkcs#11 specs '2.3.1 EC Signatures' first half is r, second half s, in total always two times the order
 	orderBits := P.PubKey.Curve.Params().N.BitLen()

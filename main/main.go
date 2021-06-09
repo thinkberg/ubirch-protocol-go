@@ -21,15 +21,12 @@ package main
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/miekg/pkcs11"
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
-	"strconv"
 	"time"
 )
 
@@ -116,8 +113,6 @@ func main() {
 		panic(err)
 	}
 
-	defer p.Destroy()
-	defer p.Finalize()
 	slots, err := p.GetSlotList(true)
 	if err != nil {
 		panic(err)
@@ -126,17 +121,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer p.CloseSession(session)
 
 	err = p.Login(session, pkcs11.CKU_USER, "TestSlotPin")
 	if err != nil {
 		panic(err)
 	}
-	defer p.Logout(session)
 
+	//generate Key
 	src := rand.New(rand.NewSource(time.Now().UnixNano()))
 	keyId := src.Int()
-	tokenLabel := strconv.FormatInt(int64(keyId), 16) + "_Key"
+	tokenLabel := "myKeyLabel" //strconv.FormatInt(int64(keyId), 16) + "_Key"
 	publicKeyTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_ID, keyId),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
@@ -189,20 +183,46 @@ func main() {
 	}
 	pubKeyBytes := attr[1].Value[3:] //save pubkey, remove DER encoding header
 
-	//sign something
-	mydata := []byte("Hello World")
-	p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, privkeyh)
-	signature, err := p.Sign(session, mydata)
+	//close testing pkcs#11 interface
+	p.Logout(session)
+	p.CloseSession(session)
+	p.Finalize()
+	p.Destroy()
+
+	////sign something
+	//mydata := []byte("Hello World")
+	//p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, privkeyh)
+	//signature, err := p.Sign(session, mydata)
+	//if err != nil {
+	//	fmt.Println("Signing failed:")
+	//	panic(err)
+	//}
+	//
+	//fmt.Println("ECDSA signature of " + string(mydata) + " :")
+	//for _, d := range signature {
+	//	fmt.Printf("%02x", d)
+	//}
+	//fmt.Println("")
+
+	//test pkcs crypto interface
+	mydata := []byte("12345678901234567890123456789012")
+
+	myCrypto, err := ubirch.NewECDSAPKCS11CryptoContext(pkcs11.New("libcs_pkcs11_R3.so"), "TestSlotPin", 0)
 	if err != nil {
-		fmt.Println("Signing failed:")
 		panic(err)
 	}
 
-	fmt.Println("ECDSA signature of " + string(mydata) + " :")
-	for _, d := range signature {
-		fmt.Printf("%02x", d)
+	signature, err := myCrypto.SignHash(uuid.New(), mydata)
+	if err != nil {
+		fmt.Println(err)
 	}
-	fmt.Println("")
+	fmt.Println(signature)
+	fmt.Println(len(signature))
+
+	err = myCrypto.Close()
+	if err != nil {
+		panic(err)
+	}
 
 	//check the signature locally
 	pubKey := new(ecdsa.PublicKey)
@@ -223,43 +243,43 @@ func main() {
 		fmt.Println("Signature not OK")
 	}
 
-	//Create a CSR using the HSM key
-	subjectCountry := "DE"
-	subjectOrganization := "Test GmbH"
+	////Create a CSR using the HSM key
+	//subjectCountry := "DE"
+	//subjectOrganization := "Test GmbH"
+	//
+	//CertTemplate := &x509.CertificateRequest{
+	//	SignatureAlgorithm: x509.ECDSAWithSHA256,
+	//	Subject: pkix.Name{
+	//		Country:      []string{subjectCountry},
+	//		Organization: []string{subjectOrganization},
+	//		CommonName:   "SomeSortOfID",
+	//	},
+	//}
 
-	CertTemplate := &x509.CertificateRequest{
-		SignatureAlgorithm: x509.ECDSAWithSHA256,
-		Subject: pkix.Name{
-			Country:      []string{subjectCountry},
-			Organization: []string{subjectOrganization},
-			CommonName:   "SomeSortOfID",
-		},
-	}
-
-	//create a pkcs11 private key struct for signing
-	privKey := &ubirch.PKCS11ECDSAPrivKey{
-		PubKey:        pubKey,
-		PKCS11Ctx:     p,
-		PrivKeyHandle: privkeyh,
-		SessionHandle: session,
-	}
-
-	myCSR, err := x509.CreateCertificateRequest(nil, CertTemplate, privKey)
-
-	if err != nil {
-		fmt.Println("Creating CSR failed:")
-		panic(err)
-	}
-	fmt.Println("Generated CSR:")
-	fmt.Println(string(myCSR))
-	for _, d := range myCSR {
-		fmt.Printf("%02x", d)
-	}
-
-	//dump csr in file for checking
-	err = ioutil.WriteFile("./mycsr.der", myCSR, 0644)
-	if err != nil {
-		fmt.Println("Saving CSR failed:")
-		panic(err)
-	}
+	////create a pkcs11 private key struct for signing
+	//privKey := &ubirch.PKCS11ECDSAPrivKey{
+	//	PubKey:        pubKey,
+	//	PKCS11Ctx:     p,
+	//	PrivKeyHandle: privkeyh,
+	//	SessionHandle: session,
+	//}
+	//
+	//myCSR, err := x509.CreateCertificateRequest(nil, CertTemplate, privKey)
+	//
+	//if err != nil {
+	//	fmt.Println("Creating CSR failed:")
+	//	panic(err)
+	//}
+	//fmt.Println("Generated CSR:")
+	//fmt.Println(string(myCSR))
+	//for _, d := range myCSR {
+	//	fmt.Printf("%02x", d)
+	//}
+	//
+	////dump csr in file for checking
+	//err = ioutil.WriteFile("./mycsr.der", myCSR, 0644)
+	//if err != nil {
+	//	fmt.Println("Saving CSR failed:")
+	//	panic(err)
+	//}
 }
