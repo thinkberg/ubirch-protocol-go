@@ -26,8 +26,6 @@ import (
 	"github.com/miekg/pkcs11"
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 	"math/big"
-	"math/rand"
-	"time"
 )
 
 //func saveProtocolContext(p *ubirch.Protocol) error {
@@ -127,68 +125,6 @@ func main() {
 		panic(err)
 	}
 
-	//generate Key
-	src := rand.New(rand.NewSource(time.Now().UnixNano()))
-	keyId := src.Int()
-	tokenLabel := "myKeyLabel" //strconv.FormatInt(int64(keyId), 16) + "_Key"
-	publicKeyTemplate := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_ID, keyId),
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
-
-		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
-		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
-		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"),
-	}
-	privateKeyTemplate := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_ID, keyId),
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
-
-		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
-	}
-	pubkeyh, privkeyh, e := p.GenerateKeyPair(session,
-		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
-		publicKeyTemplate, privateKeyTemplate)
-	if e != nil {
-		fmt.Println("Failed to generate keypair!")
-		fmt.Println(e)
-	} else {
-		fmt.Println("Created key with label: " + tokenLabel)
-		fmt.Printf("Got private key handle %v\n", privkeyh)
-	}
-
-	//print pubkey info
-	template := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, nil),
-		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, nil),
-	}
-	attr, err := p.GetAttributeValue(session, pubkeyh, template)
-	if err != nil {
-		fmt.Printf("err %s\n", err)
-	}
-	for i, a := range attr {
-		fmt.Printf("attr %d, type %d, valuelen %d:\n", i, a.Type, len(a.Value))
-		fmt.Println(string(a.Value))
-		for _, d := range a.Value {
-			fmt.Printf("%02x", d)
-		}
-		fmt.Println("")
-
-	}
-	pubKeyBytes := attr[1].Value[3:] //save pubkey, remove DER encoding header
-
-	//close testing pkcs#11 interface
-	p.Logout(session)
-	p.CloseSession(session)
-	p.Finalize()
-	p.Destroy()
-
 	////sign something
 	//mydata := []byte("Hello World")
 	//p.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, privkeyh)
@@ -203,45 +139,6 @@ func main() {
 	//	fmt.Printf("%02x", d)
 	//}
 	//fmt.Println("")
-
-	//test pkcs crypto interface
-	mydata := []byte("12345678901234567890123456789012")
-
-	myCrypto, err := ubirch.NewECDSAPKCS11CryptoContext(pkcs11.New("libcs_pkcs11_R3.so"), "TestSlotPin", 0)
-	if err != nil {
-		panic(err)
-	}
-
-	signature, err := myCrypto.SignHash(uuid.New(), mydata)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(signature)
-	fmt.Println(len(signature))
-
-	err = myCrypto.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	//check the signature locally
-	pubKey := new(ecdsa.PublicKey)
-	pubKey.Curve = elliptic.P256()
-	pubKey.X = &big.Int{}
-	pubKey.X.SetBytes(pubKeyBytes[0:32])
-	pubKey.Y = &big.Int{}
-	pubKey.Y.SetBytes(pubKeyBytes[32:(32 + 32)])
-
-	r, s := &big.Int{}, &big.Int{}
-	r.SetBytes(signature[:32])
-	s.SetBytes(signature[32:])
-
-	fmt.Println("Verifying locally")
-	if ecdsa.Verify(pubKey, mydata, r, s) {
-		fmt.Println("Signature OK")
-	} else {
-		fmt.Println("Signature not OK")
-	}
 
 	////Create a CSR using the HSM key
 	//subjectCountry := "DE"
@@ -282,4 +179,64 @@ func main() {
 	//	fmt.Println("Saving CSR failed:")
 	//	panic(err)
 	//}
+
+	//close testing pkcs#11 interface
+	p.Logout(session)
+	p.CloseSession(session)
+	p.Finalize()
+	p.Destroy()
+
+	//test pkcs crypto interface
+	mydata := []byte("12345678901234564890123456789012")
+	myuuid := uuid.MustParse("e94069b0-36ad-4bb5-8397-803e30461d4c")
+	myCrypto, err := ubirch.NewECDSAPKCS11CryptoContext(pkcs11.New("libcs_pkcs11_R3.so"), "TestSlotPin", 0)
+	if err != nil {
+		panic(err)
+	}
+
+	if !myCrypto.PrivateKeyExists(myuuid) {
+		myCrypto.GenerateKey(myuuid)
+		fmt.Println("Generated a new keypair")
+	} else {
+		fmt.Println("Found existing key")
+	}
+	pubKeyBytes, err := myCrypto.GetPublicKey(myuuid)
+	if err != nil {
+		fmt.Printf("Pubkey error: %s\n", err)
+	} else {
+		fmt.Printf("Pubkey bytes: %x\n", pubKeyBytes)
+	}
+
+	fmt.Printf("Data to sign: 0x%x\n", mydata)
+	signature, err := myCrypto.SignHash(myuuid, mydata)
+	if err != nil {
+		fmt.Printf("Error signing hash: %s\n", err)
+	} else {
+		fmt.Printf("Signature: %x\n", signature)
+	}
+
+	err = myCrypto.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	//check the signature locally
+	pubKey := new(ecdsa.PublicKey)
+	pubKey.Curve = elliptic.P256()
+	pubKey.X = &big.Int{}
+	pubKey.X.SetBytes(pubKeyBytes[0:32])
+	pubKey.Y = &big.Int{}
+	pubKey.Y.SetBytes(pubKeyBytes[32:(32 + 32)])
+
+	r, s := &big.Int{}, &big.Int{}
+	r.SetBytes(signature[:32])
+	s.SetBytes(signature[32:])
+
+	fmt.Println("Verifying locally")
+	if ecdsa.Verify(pubKey, mydata, r, s) {
+		fmt.Println("Signature OK")
+	} else {
+		fmt.Println("Signature not OK")
+	}
+
 }
