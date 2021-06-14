@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/miekg/pkcs11"
+	"time"
 )
 
 type ECDSAPKCS11CryptoContext struct {
-	pkcs11Ctx     *pkcs11.Ctx          // pkcs11 context for accessing HSM interface
-	sessionHandle pkcs11.SessionHandle // Handle of pkcs11 session
-	loginPIN      string               // PIN for logging into the pkcs#11 session
-	slotNr        int                  // pkcs#11 slot number to use (zero-based)
+	pkcs11Ctx        *pkcs11.Ctx          // pkcs11 context for accessing HSM interface
+	sessionHandle    pkcs11.SessionHandle // Handle of pkcs11 session
+	loginPIN         string               // PIN for logging into the pkcs#11 session
+	slotNr           int                  // pkcs#11 slot number to use (zero-based)
+	pkcs11Retries    int                  // how often to retry in case of pkcs#11 errors
+	pkcs11RetryDelay time.Duration        // how long to pause before retrying after pkcs#11 errors
 }
 
 var _ Crypto = (*ECDSAPKCS11CryptoContext)(nil)
@@ -22,26 +25,44 @@ func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr 
 	E.pkcs11Ctx = pkcs11ctx
 	E.loginPIN = loginPIN
 	E.slotNr = slotNr
+	E.pkcs11Retries = 2                        //TODO: check what a sensible standard value might be, or add to parameters
+	E.pkcs11RetryDelay = 50 * time.Millisecond //TODO: check what a sensible standard value might be, or add to parameters
 
 	//TODO: maybe better to check status of session then do steps if needed, also move to 'ensureSession()' function or similar
-	err := E.pkcs11Ctx.Initialize()
-	if err != nil {
-		return nil, err
+
+	//initialize
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, E.pkcs11Ctx.Initialize)
+	if retriedErr != nil {
+		return nil, retriedErr
 	}
 
-	slots, err := E.pkcs11Ctx.GetSlotList(true)
-	if err != nil {
-		return nil, err
+	// get the slots
+	var slots []uint
+	var err error
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		slots, err = E.pkcs11Ctx.GetSlotList(true)
+		return err
+	})
+	if retriedErr != nil {
+		return nil, retriedErr
 	}
 
-	E.sessionHandle, err = E.pkcs11Ctx.OpenSession(slots[E.slotNr], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
-	if err != nil {
-		return nil, err
+	//open a session
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		E.sessionHandle, err = E.pkcs11Ctx.OpenSession(slots[E.slotNr], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+		return err
+	})
+	if retriedErr != nil {
+		return nil, retriedErr
 	}
 
-	err = E.pkcs11Ctx.Login(E.sessionHandle, pkcs11.CKU_USER, loginPIN)
-	if err != nil {
-		return nil, err
+	//login
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		err = E.pkcs11Ctx.Login(E.sessionHandle, pkcs11.CKU_USER, loginPIN)
+		return err
+	})
+	if retriedErr != nil {
+		return nil, retriedErr
 	}
 
 	return E, nil
@@ -49,19 +70,34 @@ func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr 
 
 // Close closes/logs out of the pkcs#11 session and destroys the pkcs#11 context
 func (E ECDSAPKCS11CryptoContext) Close() error {
-	err := E.pkcs11Ctx.Logout(E.sessionHandle)
-	if err != nil {
+	var err error
+
+	//logout
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		err = E.pkcs11Ctx.Logout(E.sessionHandle)
 		return err
+	})
+	if retriedErr != nil {
+		return retriedErr
 	}
-	err = E.pkcs11Ctx.CloseSession(E.sessionHandle)
-	if err != nil {
+
+	//close session
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		err = E.pkcs11Ctx.CloseSession(E.sessionHandle)
 		return err
+	})
+	if retriedErr != nil {
+		return retriedErr
 	}
-	err = E.pkcs11Ctx.Finalize()
-	if err != nil {
-		return err
+
+	//finalize
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, E.pkcs11Ctx.Finalize)
+	if retriedErr != nil {
+		return retriedErr
 	}
+
 	E.pkcs11Ctx.Destroy()
+
 	return nil
 }
 func (E ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
@@ -73,9 +109,15 @@ func (E ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	infoTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, nil), //we want to get the public key curve point (x,y)
 	}
-	info, err := E.pkcs11Ctx.GetAttributeValue(E.sessionHandle, pubKeyHandle, infoTemplate)
-	if err != nil {
-		return nil, err
+
+	// get the attribute with retries and error handling
+	var info []*pkcs11.Attribute
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		info, err = E.pkcs11Ctx.GetAttributeValue(E.sessionHandle, pubKeyHandle, infoTemplate)
+		return err
+	})
+	if retriedErr != nil {
+		return nil, retriedErr
 	}
 
 	if len(info) != 1 {
@@ -131,14 +173,21 @@ func (E ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) erro
 
 // GenerateKey generates a new keypair using standard templates
 func (E ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
-	_, _, err := E.pkcs11Ctx.GenerateKeyPair(E.sessionHandle,
-		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
-		E.pkcs11PubKeyTemplate(id),
-		E.pkcs11PrivKeyTemplate(id),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to generate keypair: %s", err)
+
+	// generate key with retries
+	//TODO: add check if there already is a key for this uuid, especially for retries, maybe handle in pkcs11HandleGenericErrors
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		_, _, err := E.pkcs11Ctx.GenerateKeyPair(E.sessionHandle,
+			[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
+			E.pkcs11PubKeyTemplate(id),
+			E.pkcs11PrivKeyTemplate(id),
+		)
+		return err
+	})
+	if retriedErr != nil {
+		return fmt.Errorf("failed to generate keypair: %s", retriedErr)
 	}
+
 	return nil
 }
 
@@ -151,11 +200,11 @@ func (E ECDSAPKCS11CryptoContext) GetCSR(id uuid.UUID, subjectCountry string, su
 }
 
 func (E ECDSAPKCS11CryptoContext) SignatureLength() int {
-	panic("implement me")
+	return nistp256SignatureLength
 }
 
 func (E ECDSAPKCS11CryptoContext) HashLength() int {
-	panic("implement me")
+	return sha256Length
 }
 
 func (E ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, value []byte) ([]byte, error) {
@@ -163,7 +212,7 @@ func (E ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, value []byte) ([]byte, erro
 }
 
 func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
-	//TODO: this is unfinished and WIP atm: clean up
+	//TODO: this is unfinished and WIP atm: clean up, add retry/error handling
 	if len(hash) != sha256Length {
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
 	}
@@ -183,7 +232,7 @@ func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, e
 	}
 
 	if len(signature) != nistp256SignatureLength {
-		return nil, fmt.Errorf("recived invalid signature size: expected %d, got %d", nistp256SignatureLength, len(signature))
+		return nil, fmt.Errorf("received invalid signature size: expected %d, got %d", nistp256SignatureLength, len(signature))
 	}
 
 	return signature, nil
@@ -258,6 +307,7 @@ func (E ECDSAPKCS11CryptoContext) pkcs11GetObjects(pkcs11id string, class uint, 
 		pkcs11.NewAttribute(pkcs11.CKA_ID, pkcs11id),
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, class)}
 
+	//TODO: add retry/error handling
 	if err := E.pkcs11Ctx.FindObjectsInit(E.sessionHandle, template); err != nil {
 		return nil, err
 	}
@@ -286,4 +336,46 @@ func (E ECDSAPKCS11CryptoContext) pkcs11GetHandle(id uuid.UUID, class uint) (pkc
 		return 0, fmt.Errorf("could not find object")
 	}
 	return objects[0], nil
+}
+
+// pkcs11HandleError tries to handle (and possibly fix) generic pkcs#11 errors like restoring a lost session
+// The original error from pkc#11 must be passed in as the argument.
+// Returns nil if the error was fixed, or the original error if it is unfixable.
+func (E ECDSAPKCS11CryptoContext) pkcs11HandleGenericErrors(pkcs11Error pkcs11.Error) error {
+	if pkcs11Error == pkcs11.CKR_OK {
+		return nil //exit immediately if there was no error
+	}
+	//TODO: this is a placeholder, add actual error handling depending on error code
+	returnCode := uint(pkcs11Error)
+	fmt.Printf("Error handler dummy: pkcs#11 return code %d, error message:\n    %s\n", returnCode, pkcs11Error)
+	//return pkcs11Error
+	fmt.Println("acting as if it was fixed ...")
+	return nil
+}
+
+//pkcs11Retry is a helper function that retries a pkcs#11 function a defined number of times with an optional sleep delay.
+// The passed-in function must return a pkcs11.Error, as its error is passed to pkcs11HandleGenericErrors.
+// If the function to retry returns more than just an error use an anonymous function inline declaration in the calling
+// context to set the variables you need within the scope of the calling function.
+func (E ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Duration, f func() error) error {
+	for retries := 0; ; retries++ {
+		err := f()
+		if err == nil { // everything went fine, return
+			return nil
+		}
+
+		if retries >= maxRetries { // we have tried too often, return
+			return fmt.Errorf("pkcs11Retry: gave up after %d retries, last error was: %s", retries, err)
+		}
+
+		time.Sleep(sleep) // wait a bit before trying again
+
+		// call the pkcs11 error handler to try to fix the error before trying again
+		err = E.pkcs11HandleGenericErrors(err.(pkcs11.Error))
+		if err != nil { // the generic error handler thinks this is an unfixable error, return
+			return err
+		}
+
+		//try again in next loop...
+	}
 }

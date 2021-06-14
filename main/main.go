@@ -105,25 +105,25 @@ import (
 //}
 
 func main() {
-	p := pkcs11.New("libcs_pkcs11_R3.so") //make sure to have 'export LD_LIBRARY_PATH=~/.utimaco/' or use absolute path to .so
-	err := p.Initialize()
-	if err != nil {
-		panic(err)
-	}
-
-	slots, err := p.GetSlotList(true)
-	if err != nil {
-		panic(err)
-	}
-	session, err := p.OpenSession(slots[0], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
-	if err != nil {
-		panic(err)
-	}
-
-	err = p.Login(session, pkcs11.CKU_USER, "TestSlotPin")
-	if err != nil {
-		panic(err)
-	}
+	//p := pkcs11.New("libcs_pkcs11_R3.so") //make sure to have 'export LD_LIBRARY_PATH=~/.utimaco/' or use absolute path to .so
+	//err := p.Initialize()
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//slots, err := p.GetSlotList(true)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//session, err := p.OpenSession(slots[0], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//err = p.Login(session, pkcs11.CKU_USER, "TestSlotPin")
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	////sign something
 	//mydata := []byte("Hello World")
@@ -180,11 +180,11 @@ func main() {
 	//	panic(err)
 	//}
 
-	//close testing pkcs#11 interface
-	p.Logout(session)
-	p.CloseSession(session)
-	p.Finalize()
-	p.Destroy()
+	////close testing pkcs#11 interface
+	//p.Logout(session)
+	//p.CloseSession(session)
+	//p.Finalize()
+	//p.Destroy()
 
 	//test pkcs crypto interface
 	mydata := []byte("12345678901234564890123456789012")
