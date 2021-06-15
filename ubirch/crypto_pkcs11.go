@@ -129,6 +129,23 @@ func (E ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) bool {
 	}
 }
 
+func (E ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
+	objects, err := E.pkcs11GetObjects(id.String(), pkcs11.CKO_PUBLIC_KEY, 5)
+
+	if err != nil {
+		return true, err
+	}
+	nrOfKeys := len(objects)
+	if nrOfKeys == 1 {
+		return true, nil
+	} else if nrOfKeys == 0 {
+		return false, nil
+	} else {
+		//something is wrong with the HSM setup
+		panic(fmt.Sprintf("found two or more public keys for the UUID '%s', this should never happen", id.String()))
+	}
+}
+
 func (E ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
 	return fmt.Errorf("implement me")
 }
@@ -364,7 +381,7 @@ func (E ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Duratio
 			return fmt.Errorf("pkcs11Retry: gave up after %d retries, last error was: %s", retries, err)
 		}
 
-		time.Sleep(sleep) // wait a bit before trying again //TODO: add jitter to avoid 'thundering herd' problems?, pass sleep duration to error handler?
+		time.Sleep(sleep) // wait a bit before trying again //TODO: add jitter to avoid 'thundering herd' problems?, pass sleep duration to error handler? (error might not benefit from waiting)
 
 		// call the pkcs11 error handler to try to fix the error before trying again
 		err = E.pkcs11HandleGenericErrors(err.(pkcs11.Error))
