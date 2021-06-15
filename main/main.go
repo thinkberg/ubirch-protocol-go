@@ -197,7 +197,10 @@ func main() {
 	}
 
 	if !myCrypto.PrivateKeyExists(myuuid) {
-		myCrypto.GenerateKey(myuuid)
+		err = myCrypto.GenerateKey(myuuid)
+		if err != nil {
+			panic(err)
+		}
 		fmt.Println("Generated a new keypair")
 	} else {
 		fmt.Println("Found existing key")
@@ -212,7 +215,7 @@ func main() {
 	fmt.Printf("Data to sign: 0x%x\n", mydata)
 	signature, err := myCrypto.SignHash(myuuid, mydata)
 	if err != nil {
-		fmt.Printf("Error signing hash: %s\n", err)
+		panic(fmt.Sprintf("error signing hash: %s\n", err))
 	} else {
 		fmt.Printf("Signature: %x\n", signature)
 	}
