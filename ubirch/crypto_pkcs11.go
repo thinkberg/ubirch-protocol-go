@@ -112,7 +112,7 @@ func (E ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte)
 }
 
 func (E ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) bool {
-	objects, err := E.pkcs11GetObjects(id.String(), pkcs11.CKO_PRIVATE_KEY, 5)
+	objects, err := E.pkcs11GetObjects(id[:], pkcs11.CKO_PRIVATE_KEY, 5)
 	//TODO: how to handle errors if PrivateKeyExists can't return errors?
 	// panicking is not a good solution as the problem might be a temporary loss of HSM connection
 	if err != nil {
@@ -130,7 +130,7 @@ func (E ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) bool {
 }
 
 func (E ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
-	objects, err := E.pkcs11GetObjects(id.String(), pkcs11.CKO_PUBLIC_KEY, 5)
+	objects, err := E.pkcs11GetObjects(id[:], pkcs11.CKO_PUBLIC_KEY, 5)
 
 	if err != nil {
 		return true, err
@@ -242,8 +242,8 @@ func (E ECDSAPKCS11CryptoContext) pkcs11PubKeyTemplate(id uuid.UUID) []*pkcs11.A
 		panic("invalid UUID used for creating public key template")
 	}
 	publicKeyTemplate := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_ID, id.String()), // ID should use a consistent identifier across private/public/certs etc.
-		// this allows for lookup of all object for a certain device
+		pkcs11.NewAttribute(pkcs11.CKA_ID, id[:]), // ID should use a consistent identifier across private/public/certs etc.
+		// this allows for lookup of all object for a certain device. Here, we use the bytes of the UUID.
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, E.pkcs11PubKeyLabel(id)), // 'description' label of the object
 
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
@@ -271,7 +271,8 @@ func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) []*pkcs11.
 		panic("invalid UUID used for creating private key template")
 	}
 	privateKeyTemplate := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_ID, id.String()),
+		pkcs11.NewAttribute(pkcs11.CKA_ID, id[:]), // ID should use a consistent identifier across private/public/certs etc.
+		// this allows for lookup of all object for a certain device. Here, we use the bytes of the UUID.
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, E.pkcs11PrivKeyLabel(id)),
 
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
@@ -293,8 +294,8 @@ func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyLabel(id uuid.UUID) string {
 	return "priv_" + stringUuid
 }
 
-// gets objects of a certain class with a certain ID (CKA_ID), which usually is the device UUID, returns up to 'max' objects
-func (E ECDSAPKCS11CryptoContext) pkcs11GetObjects(pkcs11id string, class uint, max int) ([]pkcs11.ObjectHandle, error) {
+// gets objects of a certain class with a certain ID (CKA_ID = byte array), which usually is the device UUID bytes, returns up to 'max' objects
+func (E ECDSAPKCS11CryptoContext) pkcs11GetObjects(pkcs11id []byte, class uint, max int) ([]pkcs11.ObjectHandle, error) {
 	template := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_ID, pkcs11id),
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, class)}
@@ -325,7 +326,7 @@ func (E ECDSAPKCS11CryptoContext) pkcs11GetObjects(pkcs11id string, class uint, 
 //pkcs11GetHandle gets the handle to a single object belonging to a certain UUID and of a certain pkcs#11 class,
 //errors if zero or more than one object is found
 func (E ECDSAPKCS11CryptoContext) pkcs11GetHandle(id uuid.UUID, class uint) (pkcs11.ObjectHandle, error) {
-	objects, err := E.pkcs11GetObjects(id.String(), class, 2)
+	objects, err := E.pkcs11GetObjects(id[:], class, 2)
 	if err != nil {
 		return 0, err
 	}
