@@ -31,78 +31,26 @@ func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr 
 	E.pkcs11Retries = pkcs11Retries
 	E.pkcs11RetryDelay = pkcs11RetryDelay
 
-	//TODO: maybe better to check status of session then do steps if needed, also move to 'ensureSession()' function or similar
-
-	//initialize
-	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, E.pkcs11Ctx.Initialize)
-	if retriedErr != nil {
-		return nil, retriedErr
+	err := E.pkcs11SetupSession()
+	if err != nil {
+		return nil, err
 	}
-
-	// get the slots
-	var slots []uint
-	var err error
-	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
-		slots, err = E.pkcs11Ctx.GetSlotList(true)
-		return err
-	})
-	if retriedErr != nil {
-		return nil, retriedErr
-	}
-
-	//open a session
-	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
-		E.sessionHandle, err = E.pkcs11Ctx.OpenSession(slots[E.slotNr], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
-		return err
-	})
-	if retriedErr != nil {
-		return nil, retriedErr
-	}
-
-	//login
-	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
-		err = E.pkcs11Ctx.Login(E.sessionHandle, pkcs11.CKU_USER, loginPIN)
-		return err
-	})
-	if retriedErr != nil {
-		return nil, retriedErr
-	}
-
 	return E, nil
 }
 
 // Close closes/logs out of the pkcs#11 session and destroys the pkcs#11 context
 func (E ECDSAPKCS11CryptoContext) Close() error {
-	var err error
 
-	//logout
-	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
-		err = E.pkcs11Ctx.Logout(E.sessionHandle)
+	err := E.pkcs11TeardownSession()
+	if err != nil {
 		return err
-	})
-	if retriedErr != nil {
-		return retriedErr
-	}
-
-	//close session
-	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
-		err = E.pkcs11Ctx.CloseSession(E.sessionHandle)
-		return err
-	})
-	if retriedErr != nil {
-		return retriedErr
-	}
-
-	//finalize
-	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, E.pkcs11Ctx.Finalize)
-	if retriedErr != nil {
-		return retriedErr
 	}
 
 	E.pkcs11Ctx.Destroy()
 
 	return nil
 }
+
 func (E ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	pubKeyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PUBLIC_KEY)
 	if err != nil {
@@ -230,22 +178,32 @@ func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, e
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
 	}
 
-	keyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
-	if err != nil {
-		return nil, err
-	}
+	var signature []byte
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
 
-	err = E.pkcs11Ctx.SignInit(E.sessionHandle, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, keyHandle)
-	if err != nil {
-		return nil, err
-	}
-	signature, err := E.pkcs11Ctx.Sign(E.sessionHandle, hash)
-	if err != nil {
-		return nil, err
+		keyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
+		if err != nil {
+			return err
+		}
+
+		err = E.pkcs11Ctx.SignInit(E.sessionHandle, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, keyHandle)
+		if err != nil {
+			return err
+		}
+
+		signature, err = E.pkcs11Ctx.Sign(E.sessionHandle, hash)
+		if err != nil {
+			return err
+		}
+
+		return err
+	})
+	if retriedErr != nil {
+		return nil, retriedErr
 	}
 
 	if len(signature) != nistp256SignatureLength {
-		return nil, fmt.Errorf("received invalid signature size: expected %d, got %d", nistp256SignatureLength, len(signature))
+		return nil, fmt.Errorf("SignHash: received invalid signature size: expected %d, got %d", nistp256SignatureLength, len(signature))
 	}
 
 	return signature, nil
@@ -360,6 +318,19 @@ func (E ECDSAPKCS11CryptoContext) pkcs11HandleGenericErrors(pkcs11Error pkcs11.E
 	}
 	//TODO: this is a placeholder, add actual error handling depending on error code
 	returnCode := uint(pkcs11Error)
+	switch returnCode {
+	case pkcs11.CKR_OPERATION_ACTIVE: // some operation was interrupted mid-way: reset session through teardown/setup
+		fmt.Println("CKR_OPERATION_ACTIVE: Trying teardown/setup of new session...")
+		err := E.pkcs11TeardownSession()
+		if err != nil {
+			return fmt.Errorf("pkcs11HandleGenericErrors: Error when tearing down session: %s", err)
+		}
+		err = E.pkcs11SetupSession()
+		if err != nil {
+			return fmt.Errorf("pkcs11HandleGenericErrors: Error when setting up session: %s", err)
+		}
+		return nil
+	}
 	fmt.Printf("Error handler dummy: pkcs#11 return code %d, error message:\n    %s\n", returnCode, pkcs11Error)
 	//return pkcs11Error
 	fmt.Println("acting as if it was fixed ...")
@@ -391,4 +362,77 @@ func (E ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Duratio
 
 		//try again in next loop...
 	}
+}
+
+//pkcs11SetupSession sets up a session including initialization and login, uses pkcs11Retry for pkcs11 function calls
+func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
+	//TODO: maybe better to check status of session then do steps as needed
+
+	//initialize
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, E.pkcs11Ctx.Initialize)
+	if retriedErr != nil {
+		return retriedErr
+	}
+
+	// get the slots
+	var slots []uint
+	var err error
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		slots, err = E.pkcs11Ctx.GetSlotList(true)
+		return err
+	})
+	if retriedErr != nil {
+		return retriedErr
+	}
+
+	//open a session
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		E.sessionHandle, err = E.pkcs11Ctx.OpenSession(slots[E.slotNr], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+		return err
+	})
+	if retriedErr != nil {
+		return retriedErr
+	}
+
+	//login
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		err = E.pkcs11Ctx.Login(E.sessionHandle, pkcs11.CKU_USER, E.loginPIN)
+		return err
+	})
+	if retriedErr != nil {
+		return retriedErr
+	}
+	return nil
+}
+
+//pkcs11TeardownSession closes and finalizes a session including logout, uses pkcs11Retry for pkcs11 function calls
+func (E ECDSAPKCS11CryptoContext) pkcs11TeardownSession() error {
+	//TODO: maybe better to check status of session then do steps as needed
+	var err error
+
+	//logout
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		err = E.pkcs11Ctx.Logout(E.sessionHandle)
+		return err
+	})
+	if retriedErr != nil {
+		return retriedErr
+	}
+
+	//close session
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		err = E.pkcs11Ctx.CloseSession(E.sessionHandle)
+		return err
+	})
+	if retriedErr != nil {
+		return retriedErr
+	}
+
+	//finalize
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, E.pkcs11Ctx.Finalize)
+	if retriedErr != nil {
+		return retriedErr
+	}
+
+	return nil
 }
