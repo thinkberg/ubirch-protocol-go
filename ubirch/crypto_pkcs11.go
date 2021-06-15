@@ -2,9 +2,12 @@ package ubirch
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/miekg/pkcs11"
+	"math/big"
 	"time"
 )
 
@@ -20,13 +23,13 @@ type ECDSAPKCS11CryptoContext struct {
 var _ Crypto = (*ECDSAPKCS11CryptoContext)(nil)
 
 // NewECDSAPKCS11CryptoContext initializes the pkcs#11 crypto context including login and session
-func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr int) (*ECDSAPKCS11CryptoContext, error) {
+func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr int, pkcs11Retries int, pkcs11RetryDelay time.Duration) (*ECDSAPKCS11CryptoContext, error) {
 	E := new(ECDSAPKCS11CryptoContext)
 	E.pkcs11Ctx = pkcs11ctx
 	E.loginPIN = loginPIN
 	E.slotNr = slotNr
-	E.pkcs11Retries = 2                        //TODO: check what a sensible standard value might be, or add to parameters
-	E.pkcs11RetryDelay = 50 * time.Millisecond //TODO: check what a sensible standard value might be, or add to parameters
+	E.pkcs11Retries = pkcs11Retries
+	E.pkcs11RetryDelay = pkcs11RetryDelay
 
 	//TODO: maybe better to check status of session then do steps if needed, also move to 'ensureSession()' function or similar
 
@@ -138,9 +141,19 @@ func (E ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected public key data header. expected 0x%x, got 0x%x", expectedHeader, info[0].Value[0:len(expectedHeader)])
 	}
 
-	//TODO: maybe add check that point is on curve?
-
 	pubKeyBytes := info[0].Value[len(expectedHeader):] //save public key, remove DER encoding header
+
+	//check that key point is actually on curve
+	pubKey := new(ecdsa.PublicKey)
+	pubKey.Curve = elliptic.P256()
+	pubKey.X = &big.Int{}
+	pubKey.X.SetBytes(pubKeyBytes[0:nistp256XLength])
+	pubKey.Y = &big.Int{}
+	pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
+
+	if !pubKey.IsOnCurve(pubKey.X, pubKey.Y) {
+		return nil, fmt.Errorf("invalid public key value: point not on curve")
+	}
 
 	return pubKeyBytes, nil
 }
@@ -368,7 +381,7 @@ func (E ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Duratio
 			return fmt.Errorf("pkcs11Retry: gave up after %d retries, last error was: %s", retries, err)
 		}
 
-		time.Sleep(sleep) // wait a bit before trying again
+		time.Sleep(sleep) // wait a bit before trying again //TODO: add jitter to avoid 'thundering herd' problems?
 
 		// call the pkcs11 error handler to try to fix the error before trying again
 		err = E.pkcs11HandleGenericErrors(err.(pkcs11.Error))

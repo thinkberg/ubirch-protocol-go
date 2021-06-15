@@ -26,6 +26,7 @@ import (
 	"github.com/miekg/pkcs11"
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 	"math/big"
+	"time"
 )
 
 //func saveProtocolContext(p *ubirch.Protocol) error {
@@ -189,7 +190,8 @@ func main() {
 	//test pkcs crypto interface
 	mydata := []byte("12345678901234564890123456789012")
 	myuuid := uuid.MustParse("e94069b0-36ad-4bb5-8397-803e30461d4c")
-	myCrypto, err := ubirch.NewECDSAPKCS11CryptoContext(pkcs11.New("libcs_pkcs11_R3.so"), "TestSlotPin", 0)
+	myPkcs11Context := pkcs11.New("libcs_pkcs11_R3.so")
+	myCrypto, err := ubirch.NewECDSAPKCS11CryptoContext(myPkcs11Context, "TestSlotPin", 0, 2, 50*time.Millisecond)
 	if err != nil {
 		panic(err)
 	}
