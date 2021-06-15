@@ -61,6 +61,10 @@ func newPKCS11ECDSAPrivKey(id uuid.UUID, ctx *ECDSAPKCS11CryptoContext) (*ECDSAP
 	P.pubKey.Y = &big.Int{}
 	P.pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
 
+	if !P.pubKey.IsOnCurve(P.pubKey.X, P.pubKey.Y) {
+		return nil, fmt.Errorf("invalid public key value: point not on curve")
+	}
+
 	return P, nil
 }
 
@@ -76,7 +80,6 @@ func (P *ECDSAPKCS11PrivKey) Sign(rand io.Reader, digest []byte, opts crypto.Sig
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("%x", signatureBytes)
 
 	//TODO: How to make sure that the pubkey is in sync with the privkey?
 
@@ -85,13 +88,13 @@ func (P *ECDSAPKCS11PrivKey) Sign(rand io.Reader, digest []byte, opts crypto.Sig
 	orderBits := P.pubKey.Curve.Params().N.BitLen()
 	orderBytes := (orderBits + 7) / 8
 	if len(signatureBytes) != 2*orderBytes {
-		return nil, fmt.Errorf("received signature size is not 2*curve order, expected %d bytes, got %d", 2*orderBytes, len(signatureBytes))
+		return nil, fmt.Errorf("received signature size is not 2*curve order size, expected %d bytes, got %d", 2*orderBytes, len(signatureBytes))
 	}
-
+	rsSize := orderBytes // size of r and s is the same as order size
 	r := new(big.Int)
 	s := new(big.Int)
-	r.SetBytes(signatureBytes[:orderBytes/2])
-	s.SetBytes(signatureBytes[orderBytes/2:])
+	r.SetBytes(signatureBytes[:rsSize])
+	s.SetBytes(signatureBytes[rsSize:])
 
 	var b cryptobyte.Builder
 	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
