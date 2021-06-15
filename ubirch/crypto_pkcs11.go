@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/miekg/pkcs11"
@@ -168,12 +169,16 @@ func (E ECDSAPKCS11CryptoContext) HashLength() int {
 	return sha256Length
 }
 
-func (E ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, value []byte) ([]byte, error) {
-	panic("implement me")
+func (E ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty data")
+	}
+
+	hash := sha256.Sum256(data)
+	return E.SignHash(id, hash[:])
 }
 
 func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
-	//TODO: this is unfinished and WIP atm: clean up, add retry/error handling
 	if len(hash) != sha256Length {
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
 	}

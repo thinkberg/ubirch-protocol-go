@@ -21,6 +21,7 @@ package main
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/miekg/pkcs11"
@@ -188,7 +189,7 @@ func main() {
 	//p.Destroy()
 
 	//test pkcs crypto interface
-	mydata := []byte("12345678901234564890123456789012")
+	mydata := []byte("12345678901234564890123456789012HelloWorld!")
 	myuuid := uuid.MustParse("e94069b0-36ad-4bb5-8397-803e30461d4c")
 	myPkcs11Context := pkcs11.New("libcs_pkcs11_R3.so")
 	myCrypto, err := ubirch.NewECDSAPKCS11CryptoContext(myPkcs11Context, "TestSlotPin", 0, 2, 50*time.Millisecond)
@@ -212,8 +213,8 @@ func main() {
 		fmt.Printf("Pubkey bytes: %x\n", pubKeyBytes)
 	}
 
-	fmt.Printf("Data to sign: 0x%x\n", mydata)
-	signature, err := myCrypto.SignHash(myuuid, mydata)
+	fmt.Printf("Data to sign: %s\n", mydata)
+	signature, err := myCrypto.Sign(myuuid, mydata)
 	if err != nil {
 		panic(fmt.Sprintf("error signing hash: %s\n", err))
 	} else {
@@ -238,7 +239,8 @@ func main() {
 	s.SetBytes(signature[32:])
 
 	fmt.Println("Verifying locally")
-	if ecdsa.Verify(pubKey, mydata, r, s) {
+	hash := sha256.Sum256(mydata)
+	if ecdsa.Verify(pubKey, hash[:], r, s) {
 		fmt.Println("Signature OK")
 	} else {
 		fmt.Println("Signature not OK")
