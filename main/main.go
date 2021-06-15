@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/miekg/pkcs11"
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
+	"io/ioutil"
 	"math/big"
 	"time"
 )
@@ -156,8 +157,8 @@ func main() {
 	//}
 
 	////create a pkcs11 private key struct for signing
-	//privKey := &ubirch.PKCS11ECDSAPrivKey{
-	//	PubKey:        pubKey,
+	//privKey := &ubirch.ECDSAPKCS11PrivKey{
+	//	pubKey:        pubKey,
 	//	PKCS11Ctx:     p,
 	//	PrivKeyHandle: privkeyh,
 	//	SessionHandle: session,
@@ -196,6 +197,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer func(myCrypto *ubirch.ECDSAPKCS11CryptoContext) {
+		err := myCrypto.Close()
+		if err != nil {
+			fmt.Printf("Error when closing crypto context: %s", err)
+		}
+	}(myCrypto)
 
 	if !myCrypto.PrivateKeyExists(myuuid) {
 		err = myCrypto.GenerateKey(myuuid)
@@ -221,11 +228,6 @@ func main() {
 		fmt.Printf("Signature: %x\n", signature)
 	}
 
-	err = myCrypto.Close()
-	if err != nil {
-		panic(err)
-	}
-
 	//check the signature locally
 	pubKey := new(ecdsa.PublicKey)
 	pubKey.Curve = elliptic.P256()
@@ -244,6 +246,20 @@ func main() {
 		fmt.Println("Signature OK")
 	} else {
 		fmt.Println("Signature not OK")
+	}
+
+	//create a CSR
+	myCSR, err := myCrypto.GetCSR(myuuid, "DE", "Test GmbH")
+	if err != nil {
+		panic(fmt.Sprintf("creating CSR failed: %s", err))
+	}
+	//dump csr in file for checking
+	err = ioutil.WriteFile("./mycsr.der", myCSR, 0644)
+	if err != nil {
+		fmt.Println("Saving CSR failed:")
+		panic(err)
+	} else {
+		fmt.Println("Created and saved CSR")
 	}
 
 }

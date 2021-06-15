@@ -5,6 +5,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/miekg/pkcs11"
@@ -186,8 +188,29 @@ func (E ECDSAPKCS11CryptoContext) GetSignedKeyRegistration(uid uuid.UUID, pubKey
 	panic("implement me")
 }
 
+// GetCSR gets a certificate signing request.
 func (E ECDSAPKCS11CryptoContext) GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error) {
-	panic("implement me")
+	hsmPrivateKey, err := newPKCS11ECDSAPrivKey(id, &E)
+	if err != nil {
+		return nil, err
+	}
+
+	//create CSR template
+	csrTemplate := &x509.CertificateRequest{
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+		Subject: pkix.Name{
+			Country:      []string{subjectCountry},
+			Organization: []string{subjectOrganization},
+			CommonName:   id.String(),
+		},
+	}
+
+	//sign it using SignHash() of the pkcs11 crypto context (via the hsmPrivateKey/PKCS11ECDSAPrivKey)
+	csr, err := x509.CreateCertificateRequest(nil, csrTemplate, hsmPrivateKey) //we don't need a rand reader as this is provided by the HSM internally
+	if err != nil {
+		return nil, err
+	}
+	return csr, nil
 }
 
 func (E ECDSAPKCS11CryptoContext) SignatureLength() int {
@@ -198,6 +221,7 @@ func (E ECDSAPKCS11CryptoContext) HashLength() int {
 	return sha256Length
 }
 
+// Sign creates the signature for arbitrary data using the private key of the given UUID
 func (E ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("empty data")
@@ -207,6 +231,7 @@ func (E ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error
 	return E.SignHash(id, hash[:])
 }
 
+// SignHash creates the signature for an already computed SHA-256 hash using the private key of the given UUID
 func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
 	if len(hash) != sha256Length {
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
