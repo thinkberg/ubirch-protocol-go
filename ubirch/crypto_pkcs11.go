@@ -153,8 +153,20 @@ func (E ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) erro
 // GenerateKey generates a new keypair using standard templates
 func (E ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
 
+	// check for existing keys
+	privExists := E.PrivateKeyExists(id)
+	if privExists {
+		return fmt.Errorf("GenerateKey: private key already exists")
+	}
+	pubExists, err := E.PublicKeyExists(id)
+	if err != nil {
+		return fmt.Errorf("GenerateKey: checking public key existence failed: %s", err)
+	}
+	if pubExists {
+		return fmt.Errorf("GenerateKey: public key already exists")
+	}
+
 	// generate key with retries
-	//TODO: add check if there already is a key for this uuid, especially for retries, maybe handle in pkcs11HandleGenericErrors
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
 		_, _, err := E.pkcs11Ctx.GenerateKeyPair(E.sessionHandle,
 			[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
