@@ -262,7 +262,7 @@ func (E ECDSAPKCS11CryptoContext) pkcs11PubKeyLabel(id uuid.UUID) string {
 	if stringUuid == "" {
 		panic("invalid UUID used for creating public key label")
 	}
-	return "pub_" + stringUuid
+	return stringUuid + "_pub"
 }
 
 // pkcs11PrivKeyTemplate returns the standard private key template, panics if UUID is invalid
@@ -291,7 +291,7 @@ func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyLabel(id uuid.UUID) string {
 	if stringUuid == "" {
 		panic("invalid UUID used for creating private key label")
 	}
-	return "priv_" + stringUuid
+	return stringUuid + "_priv"
 }
 
 // gets objects of a certain class with a certain ID (CKA_ID = byte array), which usually is the device UUID bytes, returns up to 'max' objects
