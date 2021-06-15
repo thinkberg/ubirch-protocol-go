@@ -183,15 +183,14 @@ func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, e
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
 	}
 
+	keyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
+	if err != nil {
+		return nil, err
+	}
+
 	var signature []byte
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
-
-		keyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
-		if err != nil {
-			return err
-		}
-
-		err = E.pkcs11Ctx.SignInit(E.sessionHandle, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, keyHandle)
+		err := E.pkcs11Ctx.SignInit(E.sessionHandle, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, keyHandle)
 		if err != nil {
 			return err
 		}
@@ -283,17 +282,24 @@ func (E ECDSAPKCS11CryptoContext) pkcs11GetObjects(pkcs11id string, class uint, 
 		pkcs11.NewAttribute(pkcs11.CKA_ID, pkcs11id),
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, class)}
 
-	//TODO: add retry/error handling
-	if err := E.pkcs11Ctx.FindObjectsInit(E.sessionHandle, template); err != nil {
-		return nil, err
-	}
-	objects, _, err := E.pkcs11Ctx.FindObjects(E.sessionHandle, max)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find object(s): id %s of class %x, error was %s", pkcs11id, class, err)
-	}
+	var objects []pkcs11.ObjectHandle
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		err := E.pkcs11Ctx.FindObjectsInit(E.sessionHandle, template)
+		if err != nil {
+			return err
+		}
+		objects, _, err = E.pkcs11Ctx.FindObjects(E.sessionHandle, max)
+		if err != nil {
+			return err
+		}
 
-	if err := E.pkcs11Ctx.FindObjectsFinal(E.sessionHandle); err != nil {
-		return nil, err
+		if err = E.pkcs11Ctx.FindObjectsFinal(E.sessionHandle); err != nil {
+			return err
+		}
+		return err
+	})
+	if retriedErr != nil {
+		return nil, retriedErr
 	}
 
 	return objects, nil
@@ -343,7 +349,8 @@ func (E ECDSAPKCS11CryptoContext) pkcs11HandleGenericErrors(pkcs11Error pkcs11.E
 }
 
 //pkcs11Retry is a helper function that retries a pkcs#11 function a defined number of times with an optional sleep delay.
-// The passed-in function must return a pkcs11.Error, as its error is passed to pkcs11HandleGenericErrors.
+// The passed-in function must return a pkcs11.Error, as its error is passed to pkcs11HandleGenericErrors. Thus this should
+// only be used with E.pkcs11Ctx.(...) functions.
 // If the function to retry returns more than just an error use an anonymous function inline declaration in the calling
 // context to set the variables you need within the scope of the calling function.
 func (E ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Duration, f func() error) error {
@@ -357,7 +364,7 @@ func (E ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Duratio
 			return fmt.Errorf("pkcs11Retry: gave up after %d retries, last error was: %s", retries, err)
 		}
 
-		time.Sleep(sleep) // wait a bit before trying again //TODO: add jitter to avoid 'thundering herd' problems?
+		time.Sleep(sleep) // wait a bit before trying again //TODO: add jitter to avoid 'thundering herd' problems?, pass sleep duration to error handler?
 
 		// call the pkcs11 error handler to try to fix the error before trying again
 		err = E.pkcs11HandleGenericErrors(err.(pkcs11.Error))
