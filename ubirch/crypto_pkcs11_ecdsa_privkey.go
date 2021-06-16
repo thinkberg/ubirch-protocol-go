@@ -3,7 +3,6 @@ package ubirch
 import (
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -49,21 +48,13 @@ func newPKCS11ECDSAPrivKey(id uuid.UUID, ctx *ECDSAPKCS11CryptoContext) (*ECDSAP
 	if err != nil {
 		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: getting pubkey failed: %s", err)
 	}
-	if len(pubKeyBytes) != nistp256PubkeyLength {
-		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: received invalid public key length: expected %d, got %d bytes", nistp256PubkeyLength, len(pubKeyBytes))
-	}
 
-	//create the key object
-	P.pubKey = new(ecdsa.PublicKey)
-	P.pubKey.Curve = elliptic.P256()
-	P.pubKey.X = &big.Int{}
-	P.pubKey.X.SetBytes(pubKeyBytes[0:nistp256XLength])
-	P.pubKey.Y = &big.Int{}
-	P.pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
-
-	if !P.pubKey.IsOnCurve(P.pubKey.X, P.pubKey.Y) {
-		return nil, fmt.Errorf("invalid public key value: point not on curve")
+	// convert bytes to struct
+	pubkey, err := P.pkcs11Crypto.pkcs11BytesToPublicKeyStruct(pubKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: converting bytes to public key struct failed: %s", err)
 	}
+	P.pubKey = pubkey
 
 	return P, nil
 }

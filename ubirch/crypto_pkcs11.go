@@ -185,7 +185,7 @@ func (E ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
 }
 
 func (E ECDSAPKCS11CryptoContext) GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte) ([]byte, error) {
-	panic("implement me")
+	return nil, fmt.Errorf("GetSignedKeyRegistration not implemented") //TODO: check why this function is in the interface, it's not in crypto.go
 }
 
 // GetCSR gets a certificate signing request.
@@ -502,4 +502,26 @@ func (E ECDSAPKCS11CryptoContext) pkcs11TeardownSession() error {
 	}
 
 	return nil
+}
+
+// pkcs11BytesToPublicKeyStruct converts the public key bytes as returned by the HSM (x,y) to an ecdsa.PublicKey struct.
+func (E ECDSAPKCS11CryptoContext) pkcs11BytesToPublicKeyStruct(pubKeyBytes []byte) (*ecdsa.PublicKey, error) {
+	if len(pubKeyBytes) != nistp256PubkeyLength {
+		return nil, fmt.Errorf("pkcs11BytesToPublicKeyStruct: received invalid public key length: expected %d, got %d bytes", nistp256PubkeyLength, len(pubKeyBytes))
+	}
+
+	//create the key object
+	pubkeyStruct := new(ecdsa.PublicKey)
+	pubkeyStruct.Curve = elliptic.P256()
+	pubkeyStruct.X = &big.Int{}
+	pubkeyStruct.X.SetBytes(pubKeyBytes[0:nistp256XLength])
+	pubkeyStruct.Y = &big.Int{}
+	pubkeyStruct.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
+
+	if !pubkeyStruct.IsOnCurve(pubkeyStruct.X, pubkeyStruct.Y) {
+		return nil, fmt.Errorf("pkcs11BytesToPublicKeyStruct:invalid public key value: point not on curve")
+	}
+
+	return pubkeyStruct, nil
+
 }
