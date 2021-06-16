@@ -54,6 +54,7 @@ func (E ECDSAPKCS11CryptoContext) Close() error {
 	return nil
 }
 
+// GetPublicKey gets the binary public key data as returned by the HSM
 func (E ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	pubKeyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PUBLIC_KEY)
 	if err != nil {
@@ -267,8 +268,32 @@ func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, e
 	return signature, nil
 }
 
-func (E ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, value []byte, signature []byte) (bool, error) {
-	panic("implement me")
+func (E ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
+	if len(data) == 0 {
+		return false, fmt.Errorf("empty data cannot be verified")
+	}
+	if len(signature) != nistp256SignatureLength {
+		return false, fmt.Errorf("wrong signature length: expected: %d, got: %d", nistp256SignatureLength, len(signature))
+	}
+
+	//get public key bytes from HSM
+	pubkeyBytes, err := E.GetPublicKey(id)
+	if err != nil {
+		return false, fmt.Errorf("Verify: could not get public key bytes from HSM: %s", err)
+	}
+
+	// convert bytes to pubkey struct
+	pub, err := E.pkcs11BytesToPublicKeyStruct(pubkeyBytes)
+	if err != nil {
+		return false, err
+	}
+
+	r, s := &big.Int{}, &big.Int{}
+	r.SetBytes(signature[:nistp256RLength])
+	s.SetBytes(signature[nistp256SLength:])
+
+	hash := sha256.Sum256(data)
+	return ecdsa.Verify(pub, hash[:], r, s), nil
 }
 
 //// PKCS#11 related functions ////

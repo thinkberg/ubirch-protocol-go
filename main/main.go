@@ -248,6 +248,17 @@ func main() {
 		fmt.Println("Signature not OK")
 	}
 
+	fmt.Println("Verifying with lib")
+	sigOK, err := myCrypto.Verify(myuuid, mydata, signature)
+	if err != nil {
+		panic(fmt.Sprintf("Verify (lib) failed: %s", err))
+	}
+	if sigOK {
+		fmt.Println("Signature OK")
+	} else {
+		fmt.Println("Signature not OK")
+	}
+
 	//create a CSR
 	myCSR, err := myCrypto.GetCSR(myuuid, "DE", "Test GmbH")
 	if err != nil {
