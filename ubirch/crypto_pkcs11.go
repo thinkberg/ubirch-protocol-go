@@ -110,8 +110,8 @@ func (E ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
-func (E ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error {
-	panic("implement me")
+func (E ECDSAPKCS11CryptoContext) SetPublicKey(uuid.UUID, []byte) error {
+	return fmt.Errorf("SetPublicKey() not sensible on HSMs, please use SetKey() with a private key to set a keypair")
 }
 
 func (E ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) bool {
@@ -149,8 +149,75 @@ func (E ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 	}
 }
 
+// SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key in the HSM
+// SetKey will fail if a private or public key for this UUID already exists, as else it would overwrite HSM keys.
 func (E ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
-	return fmt.Errorf("implement me")
+	if len(privKeyBytes) != nistp256PrivkeyLength {
+		return fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
+	}
+	if id == uuid.Nil {
+		return fmt.Errorf("UUID \"Nil\"-value")
+	}
+	// check for existing keys
+	privExists := E.PrivateKeyExists(id)
+	if privExists {
+		return fmt.Errorf("SetKey: private key already exists")
+	}
+	pubExists, err := E.PublicKeyExists(id)
+	if err != nil {
+		return fmt.Errorf("SetKey: checking public key existence failed: %s", err)
+	}
+	if pubExists {
+		return fmt.Errorf("SetKey: public key already exists")
+	}
+
+	// create private key object for calculation of public key and do calculation
+	privKey := new(ecdsa.PrivateKey)
+	privKey.D = new(big.Int)
+	privKey.D.SetBytes(privKeyBytes)
+	privKey.PublicKey.Curve = elliptic.P256()
+	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
+
+	curveOrder := privKey.PublicKey.Curve.Params().N
+	if privKey.D.Cmp(curveOrder) >= 0 {
+		return fmt.Errorf("SetKey: invalid private key value: value is greater or equal curve order")
+	}
+
+	//create keypair templates and add key data and DER header  //TODO: check for more efficient way of concatenating
+	var bytesX [nistp256XLength]byte
+	var bytesY [nistp256XLength]byte
+	privKey.PublicKey.X.FillBytes(bytesX[:])
+	privKey.PublicKey.Y.FillBytes(bytesY[:])
+	pubKeyBytesHSM := []byte{0x04, nistp256PubkeyLength + 1, 0x04} // header = 0x04 'octet string' + length + 0x04 'uncompressed public key'
+	pubKeyBytesHSM = append(pubKeyBytesHSM, bytesX[:]...)          // append X
+	pubKeyBytesHSM = append(pubKeyBytesHSM, bytesY[:]...)          // append Y
+
+	pubKeyTemplate := E.pkcs11PubKeyTemplate(id)
+	pubKeyTemplate = append(pubKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, pubKeyBytesHSM)) // add the DER-encoding of ANSI X9.62 ECPoint value Q
+
+	var privKeyBytesHSM [nistp256PrivkeyLength]byte
+	privKey.D.FillBytes(privKeyBytesHSM[:])
+	privKeyTemplate := E.pkcs11PrivKeyTemplate(id)
+	privKeyTemplate = append(privKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_VALUE, privKeyBytesHSM[:])) // add the X9.62 private value d
+	privKeyTemplate = append(privKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"))    // normally derived from public key, but must be explicit here
+
+	//write keys to HSM
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		_, err := E.pkcs11Ctx.CreateObject(E.sessionHandle, pubKeyTemplate)
+		return err
+	})
+	if retriedErr != nil {
+		return fmt.Errorf("SetKey: failed to set public key: %s", retriedErr)
+	}
+	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		_, err := E.pkcs11Ctx.CreateObject(E.sessionHandle, privKeyTemplate)
+		return err
+	})
+	if retriedErr != nil {
+		return fmt.Errorf("SetKey: failed to set private key: %s", retriedErr)
+	}
+
+	return nil
 }
 
 // GenerateKey generates a new keypair using standard templates
@@ -185,7 +252,8 @@ func (E ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
 	return nil
 }
 
-func (E ECDSAPKCS11CryptoContext) GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte) ([]byte, error) {
+//GetSignedKeyRegistration is not implemented.
+func (E ECDSAPKCS11CryptoContext) GetSignedKeyRegistration(uuid.UUID, []byte) ([]byte, error) {
 	return nil, fmt.Errorf("GetSignedKeyRegistration not implemented") //TODO: check why this function is in the interface, it's not in crypto.go
 }
 
@@ -232,7 +300,7 @@ func (E ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error
 	return E.SignHash(id, hash[:])
 }
 
-// SignHash creates the signature for an already computed SHA-256 hash using the private key of the given UUID
+// SignHash retrieves the signature for an already computed SHA-256 hash using the private key of the given UUID from the HSM.
 func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
 	if len(hash) != sha256Length {
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
@@ -268,6 +336,9 @@ func (E ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, e
 	return signature, nil
 }
 
+// Verify verifies that 'signature' matches 'data' using the public key with a specific UUID.
+// It retrieves the public key for the UUID  from the HSM and then verifies the signature locally (using ecdsa.Verify())
+// Returns 'true' and 'nil' error if signature was verifiable.
 func (E ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature []byte) (bool, error) {
 	if len(data) == 0 {
 		return false, fmt.Errorf("empty data cannot be verified")
@@ -341,7 +412,10 @@ func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) []*pkcs11.
 		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true), //TODO: add class, maybe also params(?)
+		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		//pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"), //not needed as params are derived from public key
 		//TODO: check if these attributes make the key not displayable/queryable to user, but exportable in HSM backup
 	}
 	return privateKeyTemplate

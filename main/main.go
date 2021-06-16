@@ -273,4 +273,23 @@ func main() {
 		fmt.Println("Created and saved CSR")
 	}
 
+	my2ndUuid := uuid.New()
+	err = myCrypto.SetKey(my2ndUuid, []byte("12345678901234567890123456789012"))
+	if err != nil {
+		panic(err)
+	}
+	csr2, err := myCrypto.GetCSR(my2ndUuid, "DE", "Test5000")
+	if err != nil {
+		panic(err)
+	}
+
+	//dump csr in file for checking
+	err = ioutil.WriteFile("./mycsr2.der", csr2, 0644)
+	if err != nil {
+		fmt.Println("Saving CSR2 failed:")
+		panic(err)
+	} else {
+		fmt.Println("Created and saved CSR2")
+	}
+
 }
