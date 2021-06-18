@@ -87,7 +87,8 @@ func TestCryptoContext_FaultyKeystores(t *testing.T) {
 			err = context.SetKey(testUUID, make([]byte, nistp256PrivkeyLength))
 			asserter.Error(err, "SetKey() did not return an error for a faulty keystore")
 			//context.PrivateKeyExists (make sure setkey is tried firstm so we don't get an error just because of "no key")
-			result := context.PrivateKeyExists(testUUID)
+			result, err := context.PrivateKeyExists(testUUID)
+			asserter.Error(err, "PrivateKeyExists(): no error for faulty keystore")
 			asserter.False(result, "Private key found in faulty keystore")
 			//context.SetPublicKey
 			err = context.SetPublicKey(testUUID, make([]byte, nistp256PubkeyLength))
@@ -551,12 +552,16 @@ func TestCryptoContext_PrivateKeyExists_NOTRDY(t *testing.T) {
 	}
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	// check for non existing key
-	asserter.Falsef(p.PrivateKeyExists(uuid.MustParse(unknownID)), "Key for unknown Name should not exist")
+	keyExists, err := p.PrivateKeyExists(uuid.MustParse(unknownID))
+	asserter.NoErrorf(err, "Error when checking for key with unknown ID")
+	asserter.Falsef(keyExists, "Key for unknown Name should not exist")
 
 	// check for new generated key
 	id := uuid.MustParse(defaultUUID)
 	requirer.Nilf(p.GenerateKey(id), "Generating key failed")
-	asserter.Truef(p.PrivateKeyExists(id), "Key should exist")
+	keyExists, err = p.PrivateKeyExists(id)
+	asserter.NoErrorf(err, "Error when checking for key with default ID")
+	asserter.Truef(keyExists, "Key should exist")
 }
 
 func TestCryptoContext_getDecodedPrivateKey_NOTRDY(t *testing.T) {
