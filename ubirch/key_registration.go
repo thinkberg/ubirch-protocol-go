@@ -22,9 +22,11 @@ type SignedKeyRegistration struct {
 	Signature  string          `json:"signature"`
 }
 
+type Sign func(uuid.UUID, []byte) ([]byte, error)
+
 // GetSignedKeyRegistration creates a self-signed JSON key certificate
 // to be sent to the UBIRCH identity service for public key registration
-func (c *ECDSACryptoContext) GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte) ([]byte, error) {
+func GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte, sign Sign) ([]byte, error) {
 	const timeFormat = "2006-01-02T15:04:05.000Z"
 
 	// put it all together
@@ -45,7 +47,7 @@ func (c *ECDSACryptoContext) GetSignedKeyRegistration(uid uuid.UUID, pubKey []by
 		return nil, err
 	}
 
-	signature, err := c.Sign(uid, jsonKeyReg)
+	signature, err := sign(uid, jsonKeyReg)
 	if err != nil {
 		return nil, err
 	}

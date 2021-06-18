@@ -272,11 +272,6 @@ func (E *ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
 	return nil
 }
 
-//GetSignedKeyRegistration is not implemented.
-func (E *ECDSAPKCS11CryptoContext) GetSignedKeyRegistration(uuid.UUID, []byte) ([]byte, error) {
-	return nil, fmt.Errorf("GetSignedKeyRegistration not implemented") //TODO: check why this function is in the interface, it's not in crypto.go
-}
-
 // GetCSR gets a certificate signing request.
 func (E *ECDSAPKCS11CryptoContext) GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error) {
 	hsmPrivateKey, err := newPKCS11ECDSAPrivKey(id, E)
@@ -308,6 +303,40 @@ func (E *ECDSAPKCS11CryptoContext) SignatureLength() int {
 
 func (E *ECDSAPKCS11CryptoContext) HashLength() int {
 	return sha256Length
+}
+
+// PublicKeyBytesToPEM PublicKeyToPEM converts a ECDSA P-256 public key (64 bytes) to PEM format
+func (E *ECDSAPKCS11CryptoContext) PublicKeyBytesToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
+	return publicKeyBytesToPEM(pubKeyBytes)
+}
+
+// PublicKeyPEMToBytes PublicKeyToBytes converts a given public key from PEM format to raw bytes
+func (E *ECDSAPKCS11CryptoContext) PublicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
+	return publicKeyPEMToBytes(pubKeyPEM)
+}
+
+func (E *ECDSAPKCS11CryptoContext) EncodePublicKey(pub interface{}) ([]byte, error) {
+	typedKey, ok := pub.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("key is not of type ECDSA public key")
+	}
+	return encodePublicKey(typedKey)
+}
+
+func (E *ECDSAPKCS11CryptoContext) DecodePublicKey(pemEncoded []byte) (interface{}, error) {
+	return decodePublicKey(pemEncoded)
+}
+
+func (E *ECDSAPKCS11CryptoContext) EncodePrivateKey(priv interface{}) ([]byte, error) {
+	typedKey, ok := priv.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("key is not of type ECDSA private key")
+	}
+	return encodePrivateKey(typedKey)
+}
+
+func (E *ECDSAPKCS11CryptoContext) DecodePrivateKey(pemEncoded []byte) (interface{}, error) {
+	return decodePrivateKey(pemEncoded)
 }
 
 // Sign creates the signature for arbitrary data using the private key of the given UUID

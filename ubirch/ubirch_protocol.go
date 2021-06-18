@@ -48,13 +48,22 @@ type Crypto interface {
 	SetKey(id uuid.UUID, privKeyBytes []byte) error
 
 	GenerateKey(id uuid.UUID) error
-	GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte) ([]byte, error)
 	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
+
+	PublicKeyPEMToBytes(pubKeyPEM []byte) (pubKeyBytes []byte, err error)
+	PublicKeyBytesToPEM(pubKeyBytes []byte) (pubKeyPEM []byte, err error)
+
+	EncodePublicKey(pub interface{}) (pemEncoded []byte, err error)
+	DecodePublicKey(pemEncoded []byte) (pub interface{}, err error)
+
+	EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error)
+	DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error)
 
 	SignatureLength() int
 	HashLength() int
 
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
+	SignHash(id uuid.UUID, value []byte) ([]byte, error)
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
 }
 
