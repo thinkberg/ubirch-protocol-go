@@ -200,7 +200,7 @@ func main() {
 	defer func(myCrypto *ubirch.ECDSAPKCS11CryptoContext) {
 		err := myCrypto.Close()
 		if err != nil {
-			fmt.Printf("Error when closing crypto context: %s", err)
+			fmt.Printf("Error when closing crypto context: %s\n", err)
 		}
 	}(myCrypto)
 
