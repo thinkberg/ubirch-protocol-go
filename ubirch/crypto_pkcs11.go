@@ -547,10 +547,15 @@ func (E ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Duratio
 
 		time.Sleep(sleep) // wait a bit before trying again //TODO: add jitter to avoid 'thundering herd' problems?, pass sleep duration to error handler? (error might not benefit from waiting)
 
-		// call the pkcs11 error handler to try to fix the error before trying again
-		err = E.pkcs11HandleGenericErrors(err.(pkcs11.Error))
-		if err != nil { // the generic error handler thinks this is an unfixable error, return
-			return err
+		// check error type and call the pkcs11 error handler to try to fix the error before trying again
+		pkcs11Err, ErrTypeOk := err.(pkcs11.Error)
+		if ErrTypeOk {
+			err = E.pkcs11HandleGenericErrors(pkcs11Err)
+			if err != nil { // the generic error handler thinks this is an unfixable error, return
+				return err
+			}
+		} else {
+			return fmt.Errorf("pkcs11Retry used on non-pkcs11-context function (returned error type is not pkcs11.Error)")
 		}
 
 		//try again in next loop...
