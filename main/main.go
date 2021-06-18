@@ -204,7 +204,11 @@ func main() {
 		}
 	}(myCrypto)
 
-	if !myCrypto.PrivateKeyExists(myuuid) {
+	privExists, err := myCrypto.PrivateKeyExists(myuuid)
+	if err != nil {
+		panic(err)
+	}
+	if !privExists {
 		err = myCrypto.GenerateKey(myuuid)
 		if err != nil {
 			panic(err)

@@ -114,21 +114,19 @@ func (E ECDSAPKCS11CryptoContext) SetPublicKey(uuid.UUID, []byte) error {
 	return fmt.Errorf("SetPublicKey() not sensible on HSMs, please use SetKey() with a private key to set a keypair")
 }
 
-func (E ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) bool {
+func (E ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) {
 	objects, err := E.pkcs11GetObjects(id[:], pkcs11.CKO_PRIVATE_KEY, 5)
-	//TODO: how to handle errors if PrivateKeyExists can't return errors?
-	// panicking is not a good solution as the problem might be a temporary loss of HSM connection
 	if err != nil {
-		panic(err)
+		return true, fmt.Errorf("getting object failed: %s", err) //safer to assume there is a key in case of error
 	}
 	nrOfKeys := len(objects)
 	if nrOfKeys == 1 {
-		return true
+		return true, nil
 	} else if nrOfKeys == 0 {
-		return false
+		return false, nil
 	} else {
 		//something is wrong with the HSM setup
-		panic(fmt.Sprintf("found two or more private keys for the UUID '%s', this should never happen", id.String()))
+		return true, fmt.Errorf("found two or more private keys for the UUID '%s', this should never happen", id.String())
 	}
 }
 
@@ -145,7 +143,7 @@ func (E ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 		return false, nil
 	} else {
 		//something is wrong with the HSM setup
-		panic(fmt.Sprintf("found two or more public keys for the UUID '%s', this should never happen", id.String()))
+		return true, fmt.Errorf("found two or more public keys for the UUID '%s', this should never happen", id.String())
 	}
 }
 
@@ -159,7 +157,10 @@ func (E ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) erro
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
 	// check for existing keys
-	privExists := E.PrivateKeyExists(id)
+	privExists, err := E.PrivateKeyExists(id)
+	if err != nil {
+		return fmt.Errorf("SetKey: checking for private key existence failed: %s", err)
+	}
 	if privExists {
 		return fmt.Errorf("SetKey: private key already exists")
 	}
@@ -192,12 +193,18 @@ func (E ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) erro
 	pubKeyBytesHSM = append(pubKeyBytesHSM, bytesX[:]...)          // append X
 	pubKeyBytesHSM = append(pubKeyBytesHSM, bytesY[:]...)          // append Y
 
-	pubKeyTemplate := E.pkcs11PubKeyTemplate(id)
+	pubKeyTemplate, err := E.pkcs11PubKeyTemplate(id)
+	if err != nil {
+		return fmt.Errorf("SetKey: could not get public key template: %s", err)
+	}
 	pubKeyTemplate = append(pubKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, pubKeyBytesHSM)) // add the DER-encoding of ANSI X9.62 ECPoint value Q
 
 	var privKeyBytesHSM [nistp256PrivkeyLength]byte
 	privKey.D.FillBytes(privKeyBytesHSM[:])
-	privKeyTemplate := E.pkcs11PrivKeyTemplate(id)
+	privKeyTemplate, err := E.pkcs11PrivKeyTemplate(id)
+	if err != nil {
+		return fmt.Errorf("SetKey: could not get private key template: %s", err)
+	}
 	privKeyTemplate = append(privKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_VALUE, privKeyBytesHSM[:])) // add the X9.62 private value d
 	privKeyTemplate = append(privKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"))    // normally derived from public key, but must be explicit here
 
@@ -224,7 +231,10 @@ func (E ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) erro
 func (E ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
 
 	// check for existing keys
-	privExists := E.PrivateKeyExists(id)
+	privExists, err := E.PrivateKeyExists(id)
+	if err != nil {
+		return fmt.Errorf("GenerateKey: checking private key existence failed: %s", err)
+	}
 	if privExists {
 		return fmt.Errorf("GenerateKey: private key already exists")
 	}
@@ -236,12 +246,21 @@ func (E ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
 		return fmt.Errorf("GenerateKey: public key already exists")
 	}
 
+	// get key templates
+	pubKeyTemplate, err := E.pkcs11PubKeyTemplate(id)
+	if err != nil {
+		return fmt.Errorf("GenerateKey: can't get public key template: %s", err)
+	}
+	privKeyTemplate, err := E.pkcs11PrivKeyTemplate(id)
+	if err != nil {
+		return fmt.Errorf("GenerateKey: can't get private key template: %s", err)
+	}
 	// generate key with retries
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
 		_, _, err := E.pkcs11Ctx.GenerateKeyPair(E.sessionHandle,
 			[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
-			E.pkcs11PubKeyTemplate(id),
-			E.pkcs11PrivKeyTemplate(id),
+			pubKeyTemplate,
+			privKeyTemplate,
 		)
 		return err
 	})
@@ -369,15 +388,19 @@ func (E ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature []
 
 //// PKCS#11 related functions ////
 
-// pkcs11PubKeyTemplate returns the standard public key template, panics if UUID is invalid
-func (E ECDSAPKCS11CryptoContext) pkcs11PubKeyTemplate(id uuid.UUID) []*pkcs11.Attribute {
+// pkcs11PubKeyTemplate returns the standard public key template, errors if UUID is invalid
+func (E ECDSAPKCS11CryptoContext) pkcs11PubKeyTemplate(id uuid.UUID) ([]*pkcs11.Attribute, error) {
 	if id.String() == "" {
-		panic("invalid UUID used for creating public key template")
+		return nil, fmt.Errorf("invalid UUID used for creating public key template")
+	}
+	pubkeyLabel, err := E.pkcs11PubKeyLabel(id)
+	if err != nil {
+		return nil, fmt.Errorf("pkcs11PubKeyTemplate: can't get label: %s", err)
 	}
 	publicKeyTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_ID, id[:]), // ID should use a consistent identifier across private/public/certs etc.
 		// this allows for lookup of all object for a certain device. Here, we use the bytes of the UUID.
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, E.pkcs11PubKeyLabel(id)), // 'description' label of the object
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, pubkeyLabel), // 'description' label of the object
 
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
 		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
@@ -386,27 +409,31 @@ func (E ECDSAPKCS11CryptoContext) pkcs11PubKeyTemplate(id uuid.UUID) []*pkcs11.A
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"),
 	}
-	return publicKeyTemplate
+	return publicKeyTemplate, nil
 }
 
-// pkcs11PubKeyLabel returns the label string for CKA_LABEL used to identify pubkeys, panics if UUID is invalid
-func (E ECDSAPKCS11CryptoContext) pkcs11PubKeyLabel(id uuid.UUID) string {
+// pkcs11PubKeyLabel returns the label string for CKA_LABEL used to identify pubkeys, errors if UUID is invalid
+func (E ECDSAPKCS11CryptoContext) pkcs11PubKeyLabel(id uuid.UUID) (string, error) {
 	stringUuid := id.String()
 	if stringUuid == "" {
-		panic("invalid UUID used for creating public key label")
+		return "invalid_UUID", fmt.Errorf("invalid UUID used for creating public key label")
 	}
-	return stringUuid + "_pub"
+	return stringUuid + "_pub", nil
 }
 
-// pkcs11PrivKeyTemplate returns the standard private key template, panics if UUID is invalid
-func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) []*pkcs11.Attribute {
+// pkcs11PrivKeyTemplate returns the standard private key template, errors if UUID is invalid
+func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) ([]*pkcs11.Attribute, error) {
 	if id.String() == "" {
-		panic("invalid UUID used for creating private key template")
+		return nil, fmt.Errorf("invalid UUID used for creating private key template")
+	}
+	privkeyLabel, err := E.pkcs11PrivKeyLabel(id)
+	if err != nil {
+		return nil, fmt.Errorf("pkcs11PrivKeyTemplate: can't get label: %s", err)
 	}
 	privateKeyTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_ID, id[:]), // ID should use a consistent identifier across private/public/certs etc.
 		// this allows for lookup of all object for a certain device. Here, we use the bytes of the UUID.
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, E.pkcs11PrivKeyLabel(id)),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, privkeyLabel),
 
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
 		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
@@ -418,16 +445,16 @@ func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) []*pkcs11.
 		//pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"), //not needed as params are derived from public key
 		//TODO: check if these attributes make the key not displayable/queryable to user, but exportable in HSM backup
 	}
-	return privateKeyTemplate
+	return privateKeyTemplate, nil
 }
 
-// pkcs11PrivKeyLabel returns the label string for CKA_LABEL used to identify private keys, panics if UUID is invalid
-func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyLabel(id uuid.UUID) string {
+// pkcs11PrivKeyLabel returns the label string for CKA_LABEL used to identify private keys, errors if UUID is invalid
+func (E ECDSAPKCS11CryptoContext) pkcs11PrivKeyLabel(id uuid.UUID) (string, error) {
 	stringUuid := id.String()
 	if stringUuid == "" {
-		panic("invalid UUID used for creating private key label")
+		return "invalid_UUID", fmt.Errorf("invalid UUID used for creating private key label")
 	}
-	return stringUuid + "_priv"
+	return stringUuid + "_priv", nil
 }
 
 // gets objects of a certain class with a certain ID (CKA_ID = byte array), which usually is the device UUID bytes, returns up to 'max' objects

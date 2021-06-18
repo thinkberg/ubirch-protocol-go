@@ -294,12 +294,12 @@ func (c *ECDSACryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 }
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
-func (c *ECDSACryptoContext) PrivateKeyExists(id uuid.UUID) bool {
+func (c *ECDSACryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) {
 	_, err := c.getDecodedPrivateKey(id)
 	if err != nil {
-		return false
+		return true, fmt.Errorf("can't check for private key: %s", err) //safer to assume there is a key in case of error
 	}
-	return true
+	return true, nil
 }
 
 // Sign returns the signature for the SHA256 of 'data' using the private key of a specific UUID.
