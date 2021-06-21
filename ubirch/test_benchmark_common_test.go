@@ -71,7 +71,7 @@ type ExtendedProtocol struct {
 	signatures map[uuid.UUID][]byte
 }
 
-func NewExtendedProtocol(context *ECDSACryptoContext, signatures map[uuid.UUID][]byte) *ExtendedProtocol {
+func NewExtendedProtocol(context Crypto, signatures map[uuid.UUID][]byte) *ExtendedProtocol {
 	p := &ExtendedProtocol{}
 	p.signatures = signatures
 	p.Protocol.Crypto = context

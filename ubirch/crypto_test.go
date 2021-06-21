@@ -28,12 +28,20 @@ package ubirch
 
 import (
 	"encoding/hex"
+	"flag"
+	"github.com/miekg/pkcs11"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+//Flags used for testing pkcs#11 implementations of ubirch.crypto (as opposed to go library ubirch.crypto.)
+var pkcs11CryptoTests = flag.Bool("pkcs11CryptoTests", false, "perform tests using the pkcs#11 implementation of crypto where possible")
+var pkcs11LibLocation = flag.String("pkcs11LibLocation", "library_file.so", "where to find the pkcs#11 library file")
+var pkcs11SlotUserPin = flag.String("pkcs11SlotUserPin", "0000", "PIN for logging in the pkcs#11 user")
 
 // TestCreateKeyStore tests, if a new keystore can be created
 func TestCreateKeystore(t *testing.T) {
@@ -212,8 +220,25 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 //		Generate Key with no uuid
 func TestCryptoContext_GenerateKey(t *testing.T) {
 	asserter := assert.New(t)
-	var context = &ECDSACryptoContext{
-		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+	requirer := require.New(t)
+	var err error
+
+	//create golang or pkcs#11 crypto context depending on test settings
+	var context Crypto
+	if *pkcs11CryptoTests { // if pkcs#11 interface should be used
+		myPkcs11Context := pkcs11.New(*pkcs11LibLocation)
+		context, err = NewECDSAPKCS11CryptoContext(
+			myPkcs11Context,
+			*pkcs11SlotUserPin,
+			0,
+			false,
+			2,
+			50*time.Millisecond)
+		requirer.NoError(err, "creating new pkcs#11 crypto context failed")
+	} else {
+		context = &ECDSACryptoContext{
+			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+		}
 	}
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 
@@ -223,9 +248,11 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	pubKeyBytes, err := p.GetPublicKey(id)
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
-	privKeyBytes, err := getPrivateKey(context, id)
-	asserter.NoErrorf(err, "Getting Private key failed")
-	asserter.NotNilf(privKeyBytes, "Private Key for existing Key empty")
+	if !*pkcs11CryptoTests { // can't get private keys from HSMs
+		privKeyBytes, err := getPrivateKey(context.(*ECDSACryptoContext), id)
+		asserter.NoErrorf(err, "Getting Private key failed")
+		asserter.NotNilf(privKeyBytes, "Private Key for existing Key empty")
+	}
 
 	// generate Keypair with uuid = 00000000-0000-0000-0000-000000000000
 	id = uuid.Nil
@@ -233,9 +260,11 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	pubKeyBytes, err = p.GetPublicKey(id)
 	asserter.Errorf(err, "Getting Public without uuid")
 	asserter.Nilf(pubKeyBytes, "Public Key without uuid not empty")
-	privKeyBytes, err = getPrivateKey(context, id)
-	asserter.Errorf(err, "Getting Private Key without uuid")
-	asserter.Nilf(privKeyBytes, "Private Key without uuid not empty")
+	if !*pkcs11CryptoTests { // can't get private keys from HSMs
+		privKeyBytes, err := getPrivateKey(context.(*ECDSACryptoContext), id)
+		asserter.Errorf(err, "Getting Private Key without uuid")
+		asserter.Nilf(privKeyBytes, "Private Key without uuid not empty")
+	}
 }
 
 // TestGetPublicKey
