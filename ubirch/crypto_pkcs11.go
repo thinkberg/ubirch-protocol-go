@@ -37,7 +37,7 @@ func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr 
 
 	err := E.pkcs11SetupSession()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("NewECDSAPKCS11CryptoContext: %s", err)
 	}
 	return E, nil
 }
@@ -669,7 +669,8 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11HandleGenericErrors(pkcs11Error pkcs11.
 
 //pkcs11Retry is a helper function that retries a pkcs#11 function a defined number of times with an optional sleep delay.
 // The passed-in function must return a pkcs11.Error, as its error is passed to pkcs11HandleGenericErrors. Thus this should
-// only be used with E.pkcs11Ctx.(...) functions.
+// only be used with E.pkcs11Ctx.(...) functions. Setting maxRetries to 0 will disable retrying and the generic error handler and
+// pass any occurring errors directly back to the caller.
 // The sleep delay is passed to pkcs11HandleGenericErrors and only used if sensible for the type of error.
 // If the function to retry returns more than just an error use an anonymous function inline declaration in the calling
 // context to set the variables you need within the scope of the calling function.
@@ -698,7 +699,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Durati
 	}
 }
 
-//pkcs11SetupSession sets up a session including initialization and login, uses pkcs11Retry for pkcs11 function calls
+//pkcs11SetupSession sets up a session including initialization and login.
 func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 	// Warning: we can't use the retry handler in here, as the retry handler calls pkcs11SetupSession via the generic error handler
 	// and this will lead to a recursion.
@@ -713,7 +714,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 				return fmt.Errorf("pkcs11SetupSession: %s", pkcs11Err)
 			}
 		} else { //error is of unexpected type
-			return fmt.Errorf("pkcs11SetupSession: unexpected type of error returned from intialize. Error was: %s", err)
+			return fmt.Errorf("pkcs11SetupSession: unexpected type of error returned from intialize (not err.(pkcs11.Error)). Error was: %s", err)
 		}
 	}
 
@@ -721,6 +722,9 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 	slots, err := E.pkcs11Ctx.GetSlotList(true)
 	if err != nil {
 		return fmt.Errorf("pkcs11SetupSession: getting slot list: %s", err)
+	}
+	if len(slots) == 0 {
+		return fmt.Errorf("pkcs11SetupSession: no slots with token present available")
 	}
 
 	//open a session
@@ -732,28 +736,46 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 	//login
 	err = E.pkcs11Ctx.Login(E.sessionHandle, pkcs11.CKU_USER, E.loginPIN)
 	if err != nil {
-		return fmt.Errorf("pkcs11SetupSession: logging in: %s", err) //TODO: handle 'already logged in'?
+		return fmt.Errorf("pkcs11SetupSession: logging in: %s", err)
 	}
 	return nil
 }
 
-//pkcs11TeardownSession closes and finalizes a session including logout, uses pkcs11Retry for pkcs11 function calls
+// pkcs11TeardownSession closes and finalizes a session including logout. At the end, the cryptoki lib should be in
+// the 'uninitialized' state. (I.e. the last executed call is C_FINALIZE().)
 func (E *ECDSAPKCS11CryptoContext) pkcs11TeardownSession() error {
 	// Warning: we can't use the retry handler in here, as the retry handler calls pkcs11TeardownSession via the generic error handler
 	// and this will lead to a recursion.
-	//TODO: maybe better to check status of session then do steps as needed
 	var err error
 
 	//logout
 	err = E.pkcs11Ctx.Logout(E.sessionHandle)
-	if err != nil {
-		return fmt.Errorf("pkcs11TeardownSession: logout: %s", err)
+	if err != nil { // if there was an error
+		pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
+		if typeOK {                             //assertion worked
+			if pkcs11Err != pkcs11.CKR_OK &&
+				pkcs11Err != pkcs11.CKR_DEVICE_REMOVED &&
+				pkcs11Err != pkcs11.CKR_SESSION_CLOSED { //if it's not something that's ok or ok-ish (lost TCP/IP connection)
+				return fmt.Errorf("pkcs11TeardownSession: logout: %s", pkcs11Err)
+			}
+		} else { //error is of unexpected type
+			return fmt.Errorf("pkcs11TeardownSession: unexpected type of error returned from logout (not err.(pkcs11.Error)). Error was: %s", err)
+		}
 	}
 
 	//close session
 	err = E.pkcs11Ctx.CloseSession(E.sessionHandle)
-	if err != nil {
-		return fmt.Errorf("pkcs11TeardownSession: close: %s", err)
+	if err != nil { // if there was an error
+		pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
+		if typeOK {                             //assertion worked
+			if pkcs11Err != pkcs11.CKR_OK &&
+				pkcs11Err != pkcs11.CKR_DEVICE_REMOVED &&
+				pkcs11Err != pkcs11.CKR_SESSION_CLOSED { //if it's not something that's ok or ok-ish (lost TCP/IP connection)
+				return fmt.Errorf("pkcs11TeardownSession: close: %s", pkcs11Err)
+			}
+		} else { //error is of unexpected type
+			return fmt.Errorf("pkcs11TeardownSession: unexpected type of error returned from close (not err.(pkcs11.Error)). Error was: %s", err)
+		}
 	}
 
 	//finalize
