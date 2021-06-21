@@ -363,7 +363,7 @@ func (E *ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, 
 
 	keyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("SignHash: getting key handle: %s", err)
 	}
 
 	var signature []byte
