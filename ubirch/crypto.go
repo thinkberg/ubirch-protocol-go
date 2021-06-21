@@ -45,7 +45,7 @@ const (
 	sha256Length            = 32                                // length of a SHA256 hash
 )
 
-// ECDSACryptoContext contains the key store, a mapping for names -> UUIDs
+// ECDSACryptoContext contains the key store
 type ECDSACryptoContext struct {
 	Keystore Keystorer
 }
