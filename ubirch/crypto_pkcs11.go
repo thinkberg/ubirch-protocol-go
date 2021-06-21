@@ -20,6 +20,7 @@ type ECDSAPKCS11CryptoContext struct {
 	sessionHandle    pkcs11.SessionHandle // Handle of pkcs11 session
 	loginPIN         string               // PIN for logging into the pkcs#11 session
 	slotNr           int                  // pkcs#11 slot number to use (zero-based)
+	sessionFlags     uint                 // flags used when opening the session
 	pkcs11Retries    int                  // how often to retry in case of pkcs#11 errors
 	pkcs11RetryDelay time.Duration        // how long to pause before retrying after pkcs#11 errors
 }
@@ -27,13 +28,18 @@ type ECDSAPKCS11CryptoContext struct {
 var _ Crypto = (*ECDSAPKCS11CryptoContext)(nil)
 
 // NewECDSAPKCS11CryptoContext initializes the pkcs#11 crypto context including login and session
-func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr int, pkcs11Retries int, pkcs11RetryDelay time.Duration) (*ECDSAPKCS11CryptoContext, error) {
+func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr int, readOnlySession bool, pkcs11Retries int, pkcs11RetryDelay time.Duration) (*ECDSAPKCS11CryptoContext, error) {
 	E := new(ECDSAPKCS11CryptoContext)
 	E.pkcs11Ctx = pkcs11ctx
 	E.loginPIN = loginPIN
 	E.slotNr = slotNr
 	E.pkcs11Retries = pkcs11Retries
 	E.pkcs11RetryDelay = pkcs11RetryDelay
+	if !readOnlySession { // if this should be a session with read/write access (e.g. generate or set keys)
+		E.sessionFlags = pkcs11.CKF_SERIAL_SESSION | pkcs11.CKF_RW_SESSION
+	} else { // read-only session (e.g. only sign and verify)
+		E.sessionFlags = pkcs11.CKF_SERIAL_SESSION
+	}
 
 	err := E.pkcs11SetupSession()
 	if err != nil {
@@ -728,7 +734,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 	}
 
 	//open a session
-	E.sessionHandle, err = E.pkcs11Ctx.OpenSession(slots[E.slotNr], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION) //TODO: check if we really need RW access, maybe make this a parameter
+	E.sessionHandle, err = E.pkcs11Ctx.OpenSession(slots[E.slotNr], E.sessionFlags)
 	if err != nil {
 		return fmt.Errorf("pkcs11SetupSession: opening session: %s", err)
 	}
