@@ -236,6 +236,9 @@ func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) err
 
 // GenerateKey generates a new keypair using standard templates
 func (E *ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
+	if id == uuid.Nil {
+		return fmt.Errorf("GenerateKey: UUID \"Nil\"-value")
+	}
 
 	// check for existing keys
 	privExists, err := E.PrivateKeyExists(id)
