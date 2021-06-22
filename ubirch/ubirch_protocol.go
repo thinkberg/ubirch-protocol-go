@@ -65,6 +65,8 @@ type Crypto interface {
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
 	SignHash(id uuid.UUID, value []byte) ([]byte, error)
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
+
+	Close() error
 }
 
 // Protocol structure

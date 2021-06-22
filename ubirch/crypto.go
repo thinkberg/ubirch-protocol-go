@@ -421,3 +421,7 @@ func (c *ECDSACryptoContext) Verify(id uuid.UUID, data []byte, signature []byte)
 	hash := sha256.Sum256(data)
 	return ecdsa.Verify(pub, hash[:], r, s), nil
 }
+
+func (c *ECDSACryptoContext) Close() error {
+	return nil
+}
