@@ -29,7 +29,6 @@ package ubirch
 import (
 	"encoding/hex"
 	"flag"
-	"github.com/miekg/pkcs11"
 	"testing"
 	"time"
 
@@ -215,7 +214,7 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 	asserter.Errorf(context.SetPublicKey(id, pubBytesInvalid), "not recognized invalid key")
 }
 
-// TestCryptoContext_GenerateKey tests the generation of a KeyPair
+// TestCryptoContext_GenerateKey tests the generation of a KeyPair. Supports pkcs#11 crypto.
 //		Generate key with uuid
 //		Generate Key with no uuid
 func TestCryptoContext_GenerateKey(t *testing.T) {
@@ -226,9 +225,8 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	//create golang or pkcs#11 crypto context depending on test settings
 	var context Crypto
 	if *pkcs11CryptoTests { // if pkcs#11 interface should be used
-		myPkcs11Context := pkcs11.New(*pkcs11LibLocation)
 		context, err = NewECDSAPKCS11CryptoContext(
-			myPkcs11Context,
+			*pkcs11LibLocation,
 			*pkcs11SlotUserPin,
 			0,
 			false,

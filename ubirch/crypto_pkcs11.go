@@ -12,6 +12,7 @@ import (
 	"github.com/miekg/pkcs11"
 	"math/big"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -23,14 +24,28 @@ type ECDSAPKCS11CryptoContext struct {
 	sessionFlags     uint                 // flags used when opening the session
 	pkcs11Retries    int                  // how often to retry in case of pkcs#11 errors
 	pkcs11RetryDelay time.Duration        // how long to pause before retrying after pkcs#11 errors
+
+	signMtx *sync.Mutex
 }
 
 var _ Crypto = (*ECDSAPKCS11CryptoContext)(nil)
 
-// NewECDSAPKCS11CryptoContext initializes the pkcs#11 crypto context including login and session
-func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr int, readOnlySession bool, pkcs11Retries int, pkcs11RetryDelay time.Duration) (*ECDSAPKCS11CryptoContext, error) {
+// NewECDSAPKCS11CryptoContext initializes the pkcs#11 crypto context including login and session.
+// Parameters:
+// pkcs11LibLocation: path where to find the .so/.dll pkcs#11 interface file. Use full path or properly configured environment.
+// loginPIN: PIN for authenticating the pkcs11 USER (as opposed to the security officer)
+// slotNr: which pkcs#11 slot to use
+// readOnlySession: only allow operation which don't change the token (e.g. sign, verify OK, but generate, delete keys not OK)
+// pkcs11Retries: how often to retry in case of errors, set to 0 to disable generic error handling like re-establishing sessions
+// pkcs11RetryDelay: delay for retrying for handling of certain errors, see pkcs11HandleGenericErrors() for details
+func NewECDSAPKCS11CryptoContext(pkcs11LibLocation string, loginPIN string, slotNr int, readOnlySession bool, pkcs11Retries int, pkcs11RetryDelay time.Duration) (*ECDSAPKCS11CryptoContext, error) {
 	E := new(ECDSAPKCS11CryptoContext)
-	E.pkcs11Ctx = pkcs11ctx
+
+	E.pkcs11Ctx = pkcs11.New(pkcs11LibLocation)
+	if E.pkcs11Ctx == nil {
+		return nil, fmt.Errorf("NewECDSAPKCS11CryptoContext: failed to create new pkcs11Ctx with library '%s'", pkcs11LibLocation)
+	}
+
 	E.loginPIN = loginPIN
 	E.slotNr = slotNr
 	E.pkcs11Retries = pkcs11Retries
@@ -45,6 +60,9 @@ func NewECDSAPKCS11CryptoContext(pkcs11ctx *pkcs11.Ctx, loginPIN string, slotNr 
 	if err != nil {
 		return nil, fmt.Errorf("NewECDSAPKCS11CryptoContext: %s", err)
 	}
+
+	E.signMtx = &sync.Mutex{}
+
 	return E, nil
 }
 
@@ -363,6 +381,9 @@ func (E *ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, 
 	if len(hash) != sha256Length {
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
 	}
+
+	E.signMtx.Lock()
+	defer E.signMtx.Unlock()
 
 	keyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
 	if err != nil {

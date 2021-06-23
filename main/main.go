@@ -24,7 +24,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/miekg/pkcs11"
 	"github.com/ubirch/ubirch-protocol-go/ubirch/v2"
 	"io/ioutil"
 	"math/big"
@@ -192,9 +191,8 @@ func main() {
 	//test pkcs crypto interface
 	mydata := []byte("12345678901234564890123456789012HelloWorld!")
 	myuuid := uuid.MustParse("e94069b0-36ad-4bb5-8397-803e30461d4c")
-	myPkcs11Context := pkcs11.New("libcs_pkcs11_R3.so")
 	myCrypto, err := ubirch.NewECDSAPKCS11CryptoContext(
-		myPkcs11Context,
+		"libcs_pkcs11_R3.so",
 		"TestSlotPin",
 		0,
 		false,
