@@ -37,6 +37,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/miekg/pkcs11"
 	"io/ioutil"
 	"math/big"
 	insecuremathrand "math/rand"
@@ -496,4 +497,32 @@ func decodePublicKeyTestHelper(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 		return nil, err
 	}
 	return genericPublicKey.(*ecdsa.PublicKey), nil
+}
+
+// deletePkcs11PrivateKey deletes the private key for a certain UUID from an HSM. Used to clean up after tests.
+// Session must be already established, logged in, and read/write.
+func (E *ECDSAPKCS11CryptoContext) deletePkcs11PrivateKey(id uuid.UUID) error {
+	handle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
+	if err != nil {
+		return err
+	}
+	err = E.pkcs11Ctx.DestroyObject(E.sessionHandle, handle)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// deletePkcs11PublicKey deletes the public key for a certain UUID from an HSM. Used to clean up after tests.
+// Session must be already established, logged in, and read/write.
+func (E *ECDSAPKCS11CryptoContext) deletePkcs11PublicKey(id uuid.UUID) error {
+	handle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PUBLIC_KEY)
+	if err != nil {
+		return err
+	}
+	err = E.pkcs11Ctx.DestroyObject(E.sessionHandle, handle)
+	if err != nil {
+		return err
+	}
+	return nil
 }
