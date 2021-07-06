@@ -42,7 +42,7 @@ var pkcs11CryptoTests = flag.Bool("pkcs11CryptoTests", false, "perform tests usi
 var pkcs11LibLocation = flag.String("pkcs11LibLocation", "library_file.so", "where to find the pkcs#11 library file")
 var pkcs11SlotUserPin = flag.String("pkcs11SlotUserPin", "0000", "PIN for logging in the pkcs#11 user")
 
-// TestCreateKeyStore tests, if a new keystore can be created
+// TestCreateKeyStore tests, if a new keystore can be created. Generally incompatible with pkcs#11 crypto. (No keystore.)
 func TestCreateKeystore(t *testing.T) {
 	asserter := assert.New(t)
 	//create new crypto context and check, if the kystore is correct TODO not sure if this test is valid
@@ -56,7 +56,7 @@ func TestCreateKeystore(t *testing.T) {
 // TODO loadProtocolContext, why is this function in the main
 // TODO: Answer, the load and store functions are outside, to keep the protocol outside the keystore
 
-//TestCryptoContext_FaultyKeystores tests proper behavior with faulty keystores such as nil/uninitialized
+//TestCryptoContext_FaultyKeystores tests proper behavior with faulty keystores such as nil/uninitialized. Generally incompatible with pkcs#11 crypto. (No keystore.)
 func TestCryptoContext_FaultyKeystores(t *testing.T) {
 	var tests = []struct {
 		testName       string
@@ -115,7 +115,7 @@ func TestCryptoContext_FaultyKeystores(t *testing.T) {
 
 // TestTestLoadKeystore uses saveProtocolContext and loadProtocolContext to use the underlying functions
 // to set and get content from the Keystore. The content is compared to check if these methods work.
-// At the end the temporary file is deleted
+// At the end the temporary file is deleted. Generally incompatible with pkcs#11 crypto. (No keystore.)
 func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter := assert.New(t)
 	//Set up test objects and parameters
@@ -144,7 +144,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	asserter.NoErrorf(deleteProtocolContext("temp.json"), "context not deleted")
 }
 
-// TestCryptoContext_SetKey Tests the set function for a private key
+// TestCryptoContext_SetKey Tests the set function for a private key. Supports pkcs#11 crypto.
 //		Set a private key with correct length
 //		Set a private key, which is too long
 //		Set a private key, which is too short
@@ -210,7 +210,7 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	}
 }
 
-// TestCryptoContext_SetPublicKey Tests the set function for a public key
+// TestCryptoContext_SetPublicKey Tests the set function for a public key. Incompatible with pkcs#11 crypto. (No SetPublicKey() for HSMs)
 //		Set a public key with correct length
 //		Set a public key, which is too long
 //		Set a public key, which is too short
@@ -310,6 +310,7 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 //		Get not existing key
 //		Get new generated key
 //		Get Key from file and compare with generated key
+// TODO: add support for pkcs#11 crypto
 func TestCryptoContext_GetPublicKey(t *testing.T) {
 	const (
 		unknownID = "12345678-1234-1234-1234-123456789012"
@@ -340,7 +341,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 }
 
 // TestCryptoContext_GetPrivateKey performs tests to get the PrivateKey, which is not a library function, but
-// provides test results for the underlying functions
+// provides test results for the underlying functions. Generally incompatible with pkcs#11 crypto. (Private key never leaves HSM.)
 //		Get not existing key
 //		Get new generated key
 //		Get Key from file and compare with generated key
@@ -388,7 +389,8 @@ func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
 	t.Errorf("not implemented")
 }
 
-// TestCryptoContext_Sign test the (ECDSACryptoContext) Sign function with defaultData, which should pass
+// TestCryptoContext_Sign test the (ECDSACryptoContext) Sign function with defaultData, which should pass.
+//TODO: add support for pkcs#11 crypto
 func TestCryptoContext_Sign(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -432,6 +434,7 @@ func TestCryptoContext_Sign(t *testing.T) {
 }
 
 // TestCryptoContext_SignFails performs the (ECDSACryptoContext) Sign tests, which fail, due to incorrect parameters
+// TODO: add support for pkcs#11 crypto
 func TestCryptoContext_SignFails(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -490,6 +493,7 @@ func TestCryptoContext_SignFails(t *testing.T) {
 	}
 }
 
+// TODO: add support for pkcs#11 crypto
 func TestCryptoContext_Verify(t *testing.T) {
 	var tests = []struct {
 		testName          string
@@ -538,6 +542,7 @@ func TestCryptoContext_Verify(t *testing.T) {
 }
 
 // TestCryptoContext_Verify performs fail tests for the (ECDSACryptoContext) Verify function
+// TODO: add support for pkcs#11 crypto
 func TestCryptoContext_VerifyFails(t *testing.T) {
 	var tests = []struct {
 		testName          string
