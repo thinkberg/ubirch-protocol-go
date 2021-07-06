@@ -135,8 +135,46 @@ func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
-func (E *ECDSAPKCS11CryptoContext) SetPublicKey(uuid.UUID, []byte) error {
-	return fmt.Errorf("SetPublicKey() not sensible on HSMs, please use SetKey() with a private key to set a keypair")
+// SetPublicKey sets the public key only. Use SetKey() instead to create a working keypair from a private key.
+func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error {
+	// Sanity checks
+	if len(pubKeyBytes) != nistp256PubkeyLength {
+		return fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
+	}
+	if id == uuid.Nil {
+		return fmt.Errorf("UUID \"Nil\"-value")
+	}
+	//check key is on curve
+	pubKey := new(ecdsa.PublicKey)
+	pubKey.Curve = elliptic.P256()
+	pubKey.X = &big.Int{}
+	pubKey.X.SetBytes(pubKeyBytes[0:nistp256XLength])
+	pubKey.Y = &big.Int{}
+	pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
+
+	if !pubKey.IsOnCurve(pubKey.X, pubKey.Y) {
+		return fmt.Errorf("invalid public key value: point not on curve")
+	}
+
+	// create template from pub key bytes, add DER encoding header
+	pubKeyBytesHSM := []byte{0x04, nistp256PubkeyLength + 1, 0x04} // header = 0x04 'octet string' + length + 0x04 'uncompressed public key'
+	pubKeyBytesHSM = append(pubKeyBytesHSM, pubKeyBytes[:]...)
+
+	pubKeyTemplate, err := E.pkcs11PubKeyTemplate(id)
+	if err != nil {
+		return fmt.Errorf("SetPublicKey: could not get public key template: %s", err)
+	}
+	pubKeyTemplate = append(pubKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, pubKeyBytesHSM)) // add the DER-encoding of ANSI X9.62 ECPoint value Q
+
+	// write pub key to HSM
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		_, err := E.pkcs11Ctx.CreateObject(E.sessionHandle, pubKeyTemplate)
+		return err
+	})
+	if retriedErr != nil {
+		return fmt.Errorf("SetPublicKey: %s", retriedErr)
+	}
+	return nil
 }
 
 func (E *ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) {
@@ -209,20 +247,15 @@ func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) err
 		return fmt.Errorf("SetKey: invalid private key value: value is greater or equal curve order")
 	}
 
-	//create keypair templates and add key data and DER header  //TODO: check for more efficient way of concatenating
+	//create keypair bytes
 	var bytesX [nistp256XLength]byte
 	var bytesY [nistp256XLength]byte
 	privKey.PublicKey.X.FillBytes(bytesX[:])
 	privKey.PublicKey.Y.FillBytes(bytesY[:])
-	pubKeyBytesHSM := []byte{0x04, nistp256PubkeyLength + 1, 0x04} // header = 0x04 'octet string' + length + 0x04 'uncompressed public key'
-	pubKeyBytesHSM = append(pubKeyBytesHSM, bytesX[:]...)          // append X
-	pubKeyBytesHSM = append(pubKeyBytesHSM, bytesY[:]...)          // append Y
 
-	pubKeyTemplate, err := E.pkcs11PubKeyTemplate(id)
-	if err != nil {
-		return fmt.Errorf("SetKey: could not get public key template: %s", err)
-	}
-	pubKeyTemplate = append(pubKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, pubKeyBytesHSM)) // add the DER-encoding of ANSI X9.62 ECPoint value Q
+	var pubKeyBytes []byte
+	pubKeyBytes = append(pubKeyBytes, bytesX[:]...) // append X
+	pubKeyBytes = append(pubKeyBytes, bytesY[:]...) // append Y
 
 	var privKeyBytesHSM [nistp256PrivkeyLength]byte
 	privKey.D.FillBytes(privKeyBytesHSM[:])
@@ -234,14 +267,11 @@ func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) err
 	privKeyTemplate = append(privKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"))    // normally derived from public key, but must be explicit here
 
 	//write keys to HSM
-	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
-		_, err := E.pkcs11Ctx.CreateObject(E.sessionHandle, pubKeyTemplate)
-		return err
-	})
-	if retriedErr != nil {
-		return fmt.Errorf("SetKey: failed to set public key: %s", retriedErr)
+	err = E.SetPublicKey(id, pubKeyBytes)
+	if err != nil {
+		return fmt.Errorf("SetKey: %s", err)
 	}
-	retriedErr = E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
 		_, err := E.pkcs11Ctx.CreateObject(E.sessionHandle, privKeyTemplate)
 		return err
 	})
