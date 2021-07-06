@@ -43,6 +43,7 @@ import (
 	insecuremathrand "math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -285,6 +286,28 @@ func setProtocolContext(p *ExtendedProtocol, UUID string, PrivKey string, PubKey
 	}
 
 	return nil
+}
+
+//create golang or pkcs#11 crypto context depending on test settings
+func getCryptoContext() (Crypto, error) {
+	if *pkcs11CryptoTests { // if pkcs#11 interface should be used
+		context, err := NewECDSAPKCS11CryptoContext(
+			*pkcs11LibLocation,
+			*pkcs11SlotUserPin,
+			0,
+			false,
+			2,
+			50*time.Millisecond)
+		if err != nil {
+			return nil, fmt.Errorf("creating new pkcs#11 crypto context failed: %s", err)
+		}
+		return context, nil
+	} else {
+		context := &ECDSACryptoContext{
+			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+		}
+		return context, nil
+	}
 }
 
 //Generates reproducible pseudorandom data using a simple linear congruental generator.

@@ -29,12 +29,10 @@ package ubirch
 import (
 	"encoding/hex"
 	"flag"
-	"testing"
-	"time"
-
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 //Flags used for testing pkcs#11 implementations of ubirch.crypto (as opposed to go library ubirch.crypto.)
@@ -154,25 +152,11 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	//Set up test objects and parameters
+
 	//create golang or pkcs#11 crypto context depending on test settings
-	var context Crypto
-	var err error
-	if *pkcs11CryptoTests { // if pkcs#11 interface should be used
-		context, err = NewECDSAPKCS11CryptoContext(
-			*pkcs11LibLocation,
-			*pkcs11SlotUserPin,
-			0,
-			false,
-			2,
-			50*time.Millisecond)
-		requirer.NoError(err, "creating new pkcs#11 crypto context failed")
-		defer context.Close() //TODO: handle error?
-	} else {
-		context = &ECDSACryptoContext{
-			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-		}
-		defer context.Close() //TODO: handle error?
-	}
+	context, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+	defer context.Close()
 
 	id := uuid.MustParse(defaultUUID)
 	privBytesCorrect, err := hex.DecodeString(defaultPriv)
@@ -249,29 +233,14 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 //		Generate key with uuid
 //		Generate Key with no uuid
 func TestCryptoContext_GenerateKey(t *testing.T) {
-	//TODO: move deleting keypair from HSM into helper function
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	var err error
 
 	//create golang or pkcs#11 crypto context depending on test settings
-	var context Crypto
-	if *pkcs11CryptoTests { // if pkcs#11 interface should be used
-		context, err = NewECDSAPKCS11CryptoContext(
-			*pkcs11LibLocation,
-			*pkcs11SlotUserPin,
-			0,
-			false,
-			2,
-			50*time.Millisecond)
-		requirer.NoError(err, "creating new pkcs#11 crypto context failed")
-		defer context.Close() //TODO: handle error when closing?
-	} else {
-		context = &ECDSACryptoContext{
-			Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-		}
-		defer context.Close() //TODO: handle error when closing?
-	}
+	context, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+	defer context.Close()
 
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 
