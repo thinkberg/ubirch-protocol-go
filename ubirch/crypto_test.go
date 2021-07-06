@@ -194,20 +194,20 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	}
 }
 
-// TestCryptoContext_SetPublicKey Tests the set function for a public key.
+// TestCryptoContext_SetPublicKey Tests the set function for a public key. Supports pkcs#11 crypto.
 //		Set a public key with correct length
 //		Set a public key, which is too long
 //		Set a public key, which is too short
 //		Set a public key, which is nil
 //		Set a public key, which has correct length but is an invalid elliptic curve public key value
-//TODO: add support for pkcs#11 crypto
 func TestCryptoContext_SetPublicKey(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	//Set up test objects and parameters
-	var context = &ECDSACryptoContext{
-		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-	}
+	//create golang or pkcs#11 crypto context depending on test settings
+	context, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+	defer context.Close() //TODO: how to handle error?
 
 	id := uuid.MustParse(defaultUUID)
 	pubBytesCorrect, err := hex.DecodeString(defaultPub)
@@ -220,14 +220,29 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 
 	// Test valid key length
 	asserter.Nilf(context.SetPublicKey(id, pubBytesCorrect), "set key with correct length failed")
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
+	}
 	// Test a key, which is too short
 	asserter.Errorf(context.SetPublicKey(id, pubBytesTooShort), "not recognized too short key")
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
+	}
 	// Test a key, which is too long
 	asserter.Errorf(context.SetPublicKey(id, pubBytesTooLong), "not recognized too long key")
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
+	}
 	// Test a key, which is empty
 	asserter.Errorf(context.SetPublicKey(id, nil), "not recognized empty key")
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
+	}
 	// Test a key, which is an invalid elliptic curve public key value
 	asserter.Errorf(context.SetPublicKey(id, pubBytesInvalid), "not recognized invalid key")
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
+	}
 }
 
 // TestCryptoContext_GenerateKey tests the generation of a KeyPair. Supports pkcs#11 crypto.
