@@ -151,7 +151,6 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 //		Set a private key, which is nil
 //		Set a private key, which has correct length but is an invalid elliptic curve private key value
 func TestCryptoContext_SetKey(t *testing.T) {
-	//TODO: move deleting keypair from HSM into helper function
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	//Set up test objects and parameters
@@ -187,52 +186,27 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	// Test valid key length
 	asserter.Nilf(context.SetKey(id, privBytesCorrect), "set key with correct length failed")
 	if *pkcs11CryptoTests { //remove key from HSM again if this is a pkcs 11 test
-		privExists, err := context.PrivateKeyExists(id)
-		requirer.NoErrorf(err, "could not check for private key")
-		if privExists {
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PrivateKey(id), "deleting private key from HSM failed")
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PublicKey(id), "deleting public key from HSM failed")
-		}
+		requirer.NoError(pkcs11DeleteKeypair(context, id))
 	}
 	// Test a key, which is too short
 	asserter.Errorf(context.SetKey(id, privBytesTooShort), "not recognized too short key")
 	if *pkcs11CryptoTests { //remove key from HSM again if this is a pkcs 11 test
-		privExists, err := context.PrivateKeyExists(id)
-		requirer.NoErrorf(err, "could not check for private key")
-		if privExists {
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PrivateKey(id), "deleting private key from HSM failed")
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PublicKey(id), "deleting public key from HSM failed")
-		}
+		requirer.NoError(pkcs11DeleteKeypair(context, id))
 	}
 	// Test a key, which is too long
 	asserter.Errorf(context.SetKey(id, privBytesTooLong), "not recognized too long key")
 	if *pkcs11CryptoTests { //remove key from HSM again if this is a pkcs 11 test
-		privExists, err := context.PrivateKeyExists(id)
-		requirer.NoErrorf(err, "could not check for private key")
-		if privExists {
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PrivateKey(id), "deleting private key from HSM failed")
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PublicKey(id), "deleting public key from HSM failed")
-		}
+		requirer.NoError(pkcs11DeleteKeypair(context, id))
 	}
 	// Test a key, which is empty
 	asserter.Errorf(context.SetKey(id, nil), "not recognized empty key")
 	if *pkcs11CryptoTests { //remove key from HSM again if this is a pkcs 11 test
-		privExists, err := context.PrivateKeyExists(id)
-		requirer.NoErrorf(err, "could not check for private key")
-		if privExists {
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PrivateKey(id), "deleting private key from HSM failed")
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PublicKey(id), "deleting public key from HSM failed")
-		}
+		requirer.NoError(pkcs11DeleteKeypair(context, id))
 	}
 	// Test a key, which is an invalid elliptic curve private key value
 	asserter.Errorf(context.SetKey(id, privBytesInvalid), "not recognized invalid key")
 	if *pkcs11CryptoTests { //remove key from HSM again if this is a pkcs 11 test
-		privExists, err := context.PrivateKeyExists(id)
-		requirer.NoErrorf(err, "could not check for private key")
-		if privExists {
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PrivateKey(id), "deleting private key from HSM failed")
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PublicKey(id), "deleting public key from HSM failed")
-		}
+		requirer.NoError(pkcs11DeleteKeypair(context, id))
 	}
 }
 
@@ -312,13 +286,8 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 		asserter.NoErrorf(err, "Getting Private key failed")
 		asserter.NotNilf(privKeyBytes, "Private Key for existing Key empty")
 	}
-	if *pkcs11CryptoTests { //remove keypair from HSM again if this is a pkcs 11 test
-		privExists, err := context.PrivateKeyExists(id)
-		requirer.NoErrorf(err, "could not check for private key")
-		if privExists {
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PrivateKey(id), "deleting private key from HSM failed")
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PublicKey(id), "deleting public key from HSM failed")
-		}
+	if *pkcs11CryptoTests { //remove key from HSM again if this is a pkcs 11 test
+		requirer.NoError(pkcs11DeleteKeypair(context, id))
 	}
 
 	// generate Keypair with uuid = 00000000-0000-0000-0000-000000000000
@@ -332,13 +301,8 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 		asserter.Errorf(err, "Getting Private Key without uuid")
 		asserter.Nilf(privKeyBytes, "Private Key without uuid not empty")
 	}
-	if *pkcs11CryptoTests { //remove keypair from HSM again if this is a pkcs 11 test (in case one of the above tests failed and did wrongfully generate a keypair)
-		privExists, err := context.PrivateKeyExists(id)
-		requirer.NoErrorf(err, "could not check for private key")
-		if privExists {
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PrivateKey(id), "deleting private key from HSM failed")
-			requirer.NoError(context.(*ECDSAPKCS11CryptoContext).deletePkcs11PublicKey(id), "deleting public key from HSM failed")
-		}
+	if *pkcs11CryptoTests { //remove key from HSM again if this is a pkcs 11 test
+		requirer.NoError(pkcs11DeleteKeypair(context, id))
 	}
 }
 

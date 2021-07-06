@@ -499,9 +499,9 @@ func decodePublicKeyTestHelper(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
-// deletePkcs11PrivateKey deletes the private key for a certain UUID from an HSM. Used to clean up after tests.
+// pkcs11DeletePrivateKey deletes the private key for a certain UUID from an HSM. Used to clean up after tests.
 // Session must be already established, logged in, and read/write.
-func (E *ECDSAPKCS11CryptoContext) deletePkcs11PrivateKey(id uuid.UUID) error {
+func (E *ECDSAPKCS11CryptoContext) pkcs11DeletePrivateKey(id uuid.UUID) error {
 	handle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
 	if err != nil {
 		return err
@@ -513,9 +513,9 @@ func (E *ECDSAPKCS11CryptoContext) deletePkcs11PrivateKey(id uuid.UUID) error {
 	return nil
 }
 
-// deletePkcs11PublicKey deletes the public key for a certain UUID from an HSM. Used to clean up after tests.
+// pkcs11DeletePublicKey deletes the public key for a certain UUID from an HSM. Used to clean up after tests.
 // Session must be already established, logged in, and read/write.
-func (E *ECDSAPKCS11CryptoContext) deletePkcs11PublicKey(id uuid.UUID) error {
+func (E *ECDSAPKCS11CryptoContext) pkcs11DeletePublicKey(id uuid.UUID) error {
 	handle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PUBLIC_KEY)
 	if err != nil {
 		return err
@@ -523,6 +523,27 @@ func (E *ECDSAPKCS11CryptoContext) deletePkcs11PublicKey(id uuid.UUID) error {
 	err = E.pkcs11Ctx.DestroyObject(E.sessionHandle, handle)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// pkcs11DeleteKeypair deletes a keypair for a certain UUID from an HSM. Used to clean up after tests.
+// Session must be already established, logged in, and read/write. Existence of keypair is determined via
+// private key only. If keypair is not found function returns without an error.
+func pkcs11DeleteKeypair(context Crypto, id uuid.UUID) error {
+	privExists, err := context.PrivateKeyExists(id)
+	if err != nil {
+		return err
+	}
+	if privExists {
+		err = context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePrivateKey(id)
+		if err != nil {
+			return fmt.Errorf("deleting private key of keypair for uuid %s from HSM failed: %s", id, err)
+		}
+		err = context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id)
+		if err != nil {
+			return fmt.Errorf("deleting public key of keypair for uuid %s from HSM failed: %s", id, err)
+		}
 	}
 	return nil
 }
