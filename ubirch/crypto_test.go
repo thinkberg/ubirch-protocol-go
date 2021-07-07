@@ -156,7 +156,9 @@ func TestCryptoContext_SetKey(t *testing.T) {
 	//create golang or pkcs#11 crypto context depending on test settings
 	context, err := getCryptoContext()
 	requirer.NoError(err, "creating crypto context failed")
-	defer context.Close() //TODO: how to handle error?
+	defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+		myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+	}(context, requirer)
 
 	id := uuid.MustParse(defaultUUID)
 	privBytesCorrect, err := hex.DecodeString(defaultPriv)
@@ -207,7 +209,9 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 	//create golang or pkcs#11 crypto context depending on test settings
 	context, err := getCryptoContext()
 	requirer.NoError(err, "creating crypto context failed")
-	defer context.Close() //TODO: how to handle error?
+	defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+		myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+	}(context, requirer)
 
 	id := uuid.MustParse(defaultUUID)
 	pubBytesCorrect, err := hex.DecodeString(defaultPub)
@@ -256,7 +260,9 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	//create golang or pkcs#11 crypto context depending on test settings
 	context, err := getCryptoContext()
 	requirer.NoError(err, "creating crypto context failed")
-	defer context.Close() //TODO: how to handle error?
+	defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+		myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+	}(context, requirer)
 
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 
@@ -306,7 +312,9 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	//create golang or pkcs#11 crypto context depending on test settings
 	context, err := getCryptoContext()
 	requirer.NoError(err, "creating crypto context failed")
-	defer context.Close() //TODO: how to handle error?
+	defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+		myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+	}(context, requirer)
 
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	// check for non existing key
@@ -410,7 +418,9 @@ func TestCryptoContext_Sign(t *testing.T) {
 			//create golang or pkcs#11 crypto context depending on test settings
 			context, err := getCryptoContext()
 			requirer.NoError(err, "creating crypto context failed")
-			defer context.Close() //TODO: how to handle error?
+			defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+				myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+			}(context, requirer)
 
 			id := uuid.MustParse(currTest.UUID)
 			privBytes, err := hex.DecodeString(currTest.privateKey)
@@ -475,7 +485,9 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			//create golang or pkcs#11 crypto context depending on test settings
 			context, err := getCryptoContext()
 			requirer.NoError(err, "creating crypto context failed")
-			defer context.Close() //TODO: how to handle error?
+			defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+				myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+			}(context, requirer)
 
 			privBytes, err := hex.DecodeString(currTest.privateKey)
 			//Check created UPP (data/structure only, signature is checked later)
@@ -525,7 +537,9 @@ func TestCryptoContext_Verify(t *testing.T) {
 			//create golang or pkcs#11 crypto context depending on test settings
 			context, err := getCryptoContext()
 			requirer.NoError(err, "creating crypto context failed")
-			defer context.Close() //TODO: how to handle error?
+			defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+				myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+			}(context, requirer)
 
 			id := uuid.MustParse(currTest.UUID)
 			pubBytes, err := hex.DecodeString(currTest.publicKey)
@@ -605,7 +619,9 @@ func TestCryptoContext_VerifyFails(t *testing.T) {
 			//create golang or pkcs#11 crypto context depending on test settings
 			context, err := getCryptoContext()
 			requirer.NoError(err, "creating crypto context failed")
-			defer context.Close() //TODO: how to handle error?
+			defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+				myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+			}(context, requirer)
 
 			pubBytes, err := hex.DecodeString(currTest.publicKey)
 			//Check the inputs (data/structure only, signature is checked later)
