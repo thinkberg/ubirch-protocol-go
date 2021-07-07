@@ -497,7 +497,7 @@ func TestCryptoContext_SignFails(t *testing.T) {
 	}
 }
 
-// TODO: add support for pkcs#11 crypto
+// TestCryptoContext_Verify tests that the Verify function does not return errors for valid data. Supports pkcs#11 crypto interface.
 func TestCryptoContext_Verify(t *testing.T) {
 	var tests = []struct {
 		testName          string
@@ -522,10 +522,11 @@ func TestCryptoContext_Verify(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
-			var context = &ECDSACryptoContext{
-				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-			}
+			//create golang or pkcs#11 crypto context depending on test settings
+			context, err := getCryptoContext()
+			requirer.NoError(err, "creating crypto context failed")
+			defer context.Close() //TODO: how to handle error?
+
 			id := uuid.MustParse(currTest.UUID)
 			pubBytes, err := hex.DecodeString(currTest.publicKey)
 			requirer.NoErrorf(err, "Test configuration string (UUID) can't be decoded.\nString was: %v", currTest.UUID)
@@ -541,6 +542,10 @@ func TestCryptoContext_Verify(t *testing.T) {
 			valid, err := context.Verify(id, dataBytes, signatureBytes)
 			asserter.NoErrorf(err, "An unexpected error occured")
 			asserter.Truef(valid, "the verification failed")
+
+			if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+				requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
+			}
 		})
 	}
 }
