@@ -433,7 +433,7 @@ func TestCryptoContext_Sign(t *testing.T) {
 }
 
 // TestCryptoContext_SignFails performs the (ECDSACryptoContext) Sign tests, which fail, due to incorrect parameters
-// TODO: add support for pkcs#11 crypto
+// Supports pkcs#11 crypto interface.
 func TestCryptoContext_SignFails(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -472,10 +472,11 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
-			var context = &ECDSACryptoContext{
-				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-			}
+			//create golang or pkcs#11 crypto context depending on test settings
+			context, err := getCryptoContext()
+			requirer.NoError(err, "creating crypto context failed")
+			defer context.Close() //TODO: how to handle error?
+
 			privBytes, err := hex.DecodeString(currTest.privateKey)
 			//Check created UPP (data/structure only, signature is checked later)
 			hashBytes, err := hex.DecodeString(currTest.hashForSign)
@@ -488,6 +489,10 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			signature, err := context.Sign(currTest.UUID, hashBytes)
 			asserter.Errorf(err, "Sign() did not return an error for invalid input")
 			asserter.Nilf(signature, "the signature should be Nil, but is not")
+
+			if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+				requirer.NoError(pkcs11DeleteKeypair(context, currTest.UUIDforKey))
+			}
 		})
 	}
 }
