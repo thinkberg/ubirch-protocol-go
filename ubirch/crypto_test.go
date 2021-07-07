@@ -295,15 +295,19 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 //		Get not existing key
 //		Get new generated key
 //		Get Key from file and compare with generated key
-// TODO: add support for pkcs#11 crypto
+// Supports pkcs#11 crypto where applicable.
 func TestCryptoContext_GetPublicKey(t *testing.T) {
 	const (
 		unknownID = "12345678-1234-1234-1234-123456789012"
 	)
 	asserter := assert.New(t)
-	var context = &ECDSACryptoContext{
-		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-	}
+	requirer := require.New(t)
+
+	//create golang or pkcs#11 crypto context depending on test settings
+	context, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+	defer context.Close() //TODO: how to handle error?
+
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	// check for non existing key
 	pubKeyBytes, err := p.GetPublicKey(uuid.MustParse(unknownID))
@@ -317,12 +321,17 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	asserter.NoError(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
 	asserter.Equal(lenPubkeyECDSA, len(pubKeyBytesNew), "len(public key) not correct for a public key")
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		requirer.NoError(pkcs11DeleteKeypair(context, id))
+	}
 
-	// load the protocol and check if the Public key remains the same, as the new generated
-	asserter.NoErrorf(loadProtocolContext(p, "test2.json"), "Failed loading")
-	pubKeyBytesLoad, err := p.GetPublicKey(id)
-	asserter.NoError(err, "Getting Public key failed")
-	asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change when loading context")
+	if !*pkcs11CryptoTests { //run this test only for non-HSM crypto interface (no support for file loading in HSMs)
+		// load the protocol and check if the Public key remains the same, as the new generated
+		asserter.NoErrorf(loadProtocolContext(p, "test2.json"), "Failed loading")
+		pubKeyBytesLoad, err := p.GetPublicKey(id)
+		asserter.NoError(err, "Getting Public key failed")
+		asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change when loading context")
+	}
 }
 
 // TestCryptoContext_GetPrivateKey performs tests to get the PrivateKey, which is not a library function, but
