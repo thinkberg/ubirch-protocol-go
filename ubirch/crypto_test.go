@@ -384,7 +384,7 @@ func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
 }
 
 // TestCryptoContext_Sign test the (ECDSACryptoContext) Sign function with defaultData, which should pass.
-//TODO: add support for pkcs#11 crypto
+// Supports pkcs#11 crypto interface.
 func TestCryptoContext_Sign(t *testing.T) {
 	var tests = []struct {
 		testName    string
@@ -407,10 +407,11 @@ func TestCryptoContext_Sign(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
-			var context = &ECDSACryptoContext{
-				Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-			}
+			//create golang or pkcs#11 crypto context depending on test settings
+			context, err := getCryptoContext()
+			requirer.NoError(err, "creating crypto context failed")
+			defer context.Close() //TODO: how to handle error?
+
 			id := uuid.MustParse(currTest.UUID)
 			privBytes, err := hex.DecodeString(currTest.privateKey)
 			//Check created UPP (data/structure only, signature is checked later)
@@ -423,6 +424,10 @@ func TestCryptoContext_Sign(t *testing.T) {
 			signature, err := context.Sign(id, hashBytes)
 			asserter.NoErrorf(err, "Sign() returned an error for valid input")
 			asserter.NotNilf(signature, "the signature should not be Nil")
+
+			if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+				requirer.NoError(pkcs11DeleteKeypair(context, id))
+			}
 		})
 	}
 }
