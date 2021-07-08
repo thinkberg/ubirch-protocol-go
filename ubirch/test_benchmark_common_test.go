@@ -37,15 +37,13 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/miekg/pkcs11"
 	"io/ioutil"
 	"math/big"
 	insecuremathrand "math/rand"
 	"os"
 	"testing"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 ////Default Values////
@@ -296,8 +294,8 @@ func getCryptoContext() (Crypto, error) {
 			*pkcs11SlotUserPin,
 			0,
 			false,
-			2,
-			50*time.Millisecond)
+			0,
+			0)
 		if err != nil {
 			return nil, fmt.Errorf("creating new pkcs#11 crypto context failed: %s", err)
 		}
