@@ -357,7 +357,7 @@ func (c *ECDSACryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 func (c *ECDSACryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) {
 	_, err := c.getDecodedPrivateKey(id)
 	if err != nil {
-		return false, fmt.Errorf("can't check for private key: %s", err) //TODO: maybe safer to assume there is a key in case of error?
+		return false, nil
 	}
 	return true, nil
 }
