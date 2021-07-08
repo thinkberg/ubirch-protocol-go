@@ -355,11 +355,10 @@ func (c *ECDSACryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
 func (c *ECDSACryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) {
-	_, err := c.getDecodedPrivateKey(id)
-	if err != nil {
-		return false, nil
+	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
+		return false, fmt.Errorf("uninitialized keystore") //TODO: safer to assume there is a key?
 	}
-	return true, nil
+	return c.Keystore.PrivateKeyExists(id)
 }
 
 // Sign returns the signature for the SHA256 of 'data' using the private key of a specific UUID.
