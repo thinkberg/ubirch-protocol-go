@@ -144,6 +144,14 @@ func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
+	//check key does not exist
+	pubExists, err := E.PublicKeyExists(id)
+	if err != nil {
+		return fmt.Errorf("SetPublicKey: checking public key existence failed: %s", err)
+	}
+	if pubExists {
+		return fmt.Errorf("SetPublicKey: public key already exists")
+	}
 	//check key is on curve
 	pubKey := new(ecdsa.PublicKey)
 	pubKey.Curve = elliptic.P256()
