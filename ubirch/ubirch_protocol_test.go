@@ -208,7 +208,7 @@ func TestSignHash_Fails(t *testing.T) {
 				asserter := assert.New(t)
 				requirer := require.New(t)
 
-				//Create new crypto context
+				//Create new protocol context
 				protocol, err := newProtocolContextSigner(currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
 				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
@@ -219,6 +219,13 @@ func TestSignHash_Fails(t *testing.T) {
 				//Call SignHash() and assert error
 				_, err = protocol.SignHash(uuid.MustParse(currTest.UUIDForSign), hashBytes, currProtocolToTest)
 				asserter.Error(err, "SignHash() did not return an error for invalid input")
+
+				//remove keys from HSM again if this is a pkcs 11 test
+				if *pkcs11CryptoTests {
+					requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(currTest.UUIDForContext)))
+				}
+				//Close Protocol
+				requirer.NoError(protocol.Close())
 			})
 		}
 	}
@@ -235,7 +242,7 @@ func TestSignHash_RandomInput(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 
-	//Create new crypto context, we use this context for all created UPPs without resetting it
+	//Create new protocol context, we use this context for all created UPPs without resetting it
 	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
@@ -272,6 +279,14 @@ func TestSignHash_RandomInput(t *testing.T) {
 		lastChainUpp := createdChainedUpps[nrOfChainedUpps-1]
 		lastChainSig = hex.EncodeToString(lastChainUpp[len(lastChainUpp)-64:])
 	}
+
+	//Remove keys from HSM again if this is a pkcs 11 test
+	if *pkcs11CryptoTests {
+		requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(defaultUUID)))
+	}
+
+	//Close Protocol
+	requirer.NoError(protocol.Close())
 }
 
 //TestSignData_Fails tests the cases where SignData() function must return an error
@@ -360,7 +375,7 @@ func TestSignData_Fails(t *testing.T) {
 				asserter := assert.New(t)
 				requirer := require.New(t)
 
-				//Create new crypto context
+				//Create new protocol context
 				protocol, err := newProtocolContextSigner(currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
 				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
@@ -371,6 +386,14 @@ func TestSignData_Fails(t *testing.T) {
 				//Call SignData() and assert error
 				_, err = protocol.SignData(uuid.MustParse(currTest.UUIDForSign), dataBytes, currProtocolToTest)
 				asserter.Error(err, "SignData() did not return an error for invalid input")
+
+				//Remove keys from HSM again if this is a pkcs 11 test
+				if *pkcs11CryptoTests {
+					requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(currTest.UUIDForContext)))
+				}
+
+				//Close Protocol
+				requirer.NoError(protocol.Close())
 			})
 		}
 	}
@@ -401,7 +424,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
+			//Create new protocol context
 			protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
@@ -412,6 +435,14 @@ func TestSignData_DataInputLength(t *testing.T) {
 			//Check created UPP
 			expectedPayloadString := hex.EncodeToString(expectedDataHash[:])
 			asserter.NoError(checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub))
+
+			//Remove keys from HSM again if this is a pkcs 11 test
+			if *pkcs11CryptoTests {
+				requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(defaultUUID)))
+			}
+
+			//Close Protocol
+			requirer.NoError(protocol.Close())
 		})
 
 		//run test for chained type
@@ -419,7 +450,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
+			//Create new protocol context
 			protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
@@ -434,6 +465,14 @@ func TestSignData_DataInputLength(t *testing.T) {
 
 			//Check the created UPPs
 			asserter.NoError(checkChainedUPPs(t, createdChainedUpps, expectedPayloads, defaultLastSig, defaultPub))
+
+			//Remove keys from HSM again if this is a pkcs 11 test
+			if *pkcs11CryptoTests {
+				requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(defaultUUID)))
+			}
+
+			//Close Protocol
+			requirer.NoError(protocol.Close())
 		})
 
 	}
@@ -452,7 +491,7 @@ func TestSignData_RandomInput(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 
-	//Create new crypto context, we use this context for all created UPPs without resetting it
+	//Create new protocol context, we use this context for all created UPPs without resetting it
 	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
@@ -491,6 +530,14 @@ func TestSignData_RandomInput(t *testing.T) {
 		lastChainUpp := createdChainedUpps[nrOfChainedUpps-1]
 		lastChainSig = hex.EncodeToString(lastChainUpp[len(lastChainUpp)-64:])
 	}
+
+	//Remove keys from HSM again if this is a pkcs 11 test
+	if *pkcs11CryptoTests {
+		requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(defaultUUID)))
+	}
+
+	//Close Protocol
+	requirer.NoError(protocol.Close())
 }
 
 //TestSignData_Signed tests 'Signed' type UPP creation from given user data. The created encoded UPP
@@ -529,7 +576,7 @@ func TestSignData_SignedType(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
+			//Create new protocol context
 			protocol, err := newProtocolContextSigner(currTest.deviceUUID, currTest.privateKey, defaultLastSig)
 			requirer.NoError(err, "Creating protocol context failed")
 
@@ -554,6 +601,14 @@ func TestSignData_SignedType(t *testing.T) {
 			verifyOK, err := verifyUPPSignature(t, createdUpp, pubkeyBytes)
 			requirer.NoError(err, "Signature verification could not be performed due to errors")
 			asserter.True(verifyOK, "Signature is not OK")
+
+			//Remove keys from HSM again if this is a pkcs 11 test
+			if *pkcs11CryptoTests {
+				requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(currTest.deviceUUID)))
+			}
+
+			//Close Protocol
+			requirer.NoError(protocol.Close())
 		})
 	}
 }
@@ -613,7 +668,7 @@ func TestSignData_ChainedType(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
+			//Create new protocol context
 			protocol, err := newProtocolContextSigner(currTest.deviceUUID, currTest.privateKey, currTest.lastSignature)
 			requirer.NoError(err, "Creating protocol context failed")
 
@@ -630,6 +685,14 @@ func TestSignData_ChainedType(t *testing.T) {
 				//Save UPP into array of all created UPPs
 				createdUpps[currInputIndex] = createdUppData
 			}
+
+			//Remove keys from HSM again if this is a pkcs 11 test
+			if *pkcs11CryptoTests {
+				requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(currTest.deviceUUID)))
+			}
+
+			//Close Protocol
+			requirer.NoError(protocol.Close())
 
 			//Check all created UPPs (data/structure only, signature and lastSignature are ignored and are checked later)
 			for currCreatedUppIndex, currCreatedUppData := range createdUpps {
@@ -690,6 +753,11 @@ func TestSignData_CorruptContext(t *testing.T) {
 	protocolLastSigNil, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	require.NoError(t, err, "Could not create protocolLastSigNil")
 	protocolLastSigNil.signatures[uuid.MustParse(defaultUUID)] = nil
+	// If this is a pkcs#11 HSM test, remove the previously set keypair, as all crypto interfaces share the same HSM and else
+	// we will get an error because the Key already exists when we setup protocolLastSigEmpty next.
+	if *pkcs11CryptoTests {
+		require.NoError(t, pkcs11DeleteKeypair(protocolLastSigNil.Crypto, uuid.MustParse(defaultUUID)))
+	}
 	protocolLastSigEmpty, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	require.NoError(t, err, "Could not create protocolLastSigEmpty")
 	protocolLastSigEmpty.signatures[uuid.MustParse(defaultUUID)] = []byte{}
@@ -753,6 +821,18 @@ func TestSignData_CorruptContext(t *testing.T) {
 				asserter.Error(err, "SignData() did not return an error for a faulty protocol context")
 			})
 		}
+	}
+
+	//Clean up nil and empty protocols
+	//First, remove keys from HSM if this is a pkcs 11 test, we only need to do this for one protocol as the HSM is
+	// shared among contexts.
+	if *pkcs11CryptoTests {
+		require.NoError(t, pkcs11DeleteKeypair(protocolLastSigNil.Crypto, uuid.MustParse(defaultUUID)))
+	}
+	//Then close the protocols themselves
+	require.NoError(t, protocolLastSigNil.Close())
+	if !*pkcs11CryptoTests { //for pkcs#11 tests, the underlying hardware/library is shared, so the above close operation has already closed everything
+		require.NoError(t, protocolLastSigEmpty.Close())
 	}
 }
 
@@ -936,6 +1016,14 @@ func TestProtocol_Verify(t *testing.T) {
 			} else {
 				asserter.NoErrorf(err, "protocol.Verify() returned error: %v", err)
 			}
+
+			//Remove keys from HSM again if this is a pkcs 11 test
+			if *pkcs11CryptoTests {
+				requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(currTest.UUIDForProtocol)))
+			}
+
+			//Close Protocol
+			requirer.NoError(protocol.Close())
 		})
 	}
 }
@@ -987,6 +1075,11 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 		currPubkeyBytes, err := signer.GetPublicKey(uuid.MustParse(currUUID))
 		requirer.NoError(err, "Could not get pubkey from signer context")
 		currPub = hex.EncodeToString(currPubkeyBytes)
+		// If this is a test using the HSM, there is already a public key from the signer in the HSM at this point. We
+		// will remove only this public key, which will then be set by the creation of the verifier again.
+		if *pkcs11CryptoTests {
+			requirer.NoError(signer.Crypto.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(uuid.MustParse(currUUID)))
+		}
 		verifier, err := newProtocolContextVerifier(currUUID, currPub)
 		requirer.NoError(err, "Creating verifier protocol context failed")
 
@@ -1037,6 +1130,19 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 			asserter.Equal(currUUIDTypeUUID, decodedUPP.(*ChainedUPP).Uuid, "Chained type UUID not as expected\n%v", debugInfoString)
 			asserter.Equal(Hint(0x00), decodedUPP.(*ChainedUPP).Hint, "Chained type Hint not as expected\n%v", debugInfoString)
 			asserter.Equal(currDataHash[:], decodedUPP.(*ChainedUPP).Payload, "Chained type Payload not as expected\n%v", debugInfoString)
+		}
+
+		// Remove keys from HSM again if this is a pkcs 11 test, for a HSM signer and verifier will actually use the
+		// same keypair in the HSM as there is only one hardware/simulator, so deleting only the signer keypair should
+		// be enough.
+		if *pkcs11CryptoTests {
+			requirer.NoError(pkcs11DeleteKeypair(signer.Crypto, uuid.MustParse(currUUID)))
+		}
+
+		//Close Protocols
+		requirer.NoError(signer.Close())
+		if !*pkcs11CryptoTests { //for pkcs#11 tests, the underlying hardware/library is shared, so the above close operation has already closed everything
+			requirer.NoError(verifier.Close())
 		}
 	}
 }
@@ -1551,6 +1657,14 @@ func TestECDSASignatureChanges(t *testing.T) {
 		} else { //we found a duplicate, raise an error and abort
 			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with fresh context. Private key is leaked in UPPs. Signature was: %v", currTestNr+1, hex.EncodeToString(signature))
 		}
+
+		// Remove keys from HSM again if this is a pkcs 11 test
+		if *pkcs11CryptoTests {
+			requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(defaultUUID)))
+		}
+
+		//Close protocol
+		requirer.NoError(protocol.Close())
 	}
 
 	//Run the test with a continuous context
@@ -1571,6 +1685,14 @@ func TestECDSASignatureChanges(t *testing.T) {
 			t.Fatalf("ECDSA signature collision (duplicate) detected for test %v with continuous context. Private key is leaked in UPPs. Signature was: %v", currTestNr+1, hex.EncodeToString(signature))
 		}
 	}
+
+	// Remove keys from HSM again if this is a pkcs 11 test
+	if *pkcs11CryptoTests {
+		requirer.NoError(pkcs11DeleteKeypair(protocol.Crypto, uuid.MustParse(defaultUUID)))
+	}
+
+	//Close protocol
+	requirer.NoError(protocol.Close())
 }
 
 // TestCheckChainLink tests the CheckChainLink function of the ubirch protocol library.

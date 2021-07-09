@@ -202,24 +202,33 @@ func getPrivateKey(c *ECDSACryptoContext, id uuid.UUID) ([]byte, error) {
 
 //Creates a new protocol context for a UPP creator (privkey is passed, pubkey is calculated)
 func newProtocolContextSigner(UUID string, PrivKey string, LastSignature string) (*ExtendedProtocol, error) {
-	context := &ECDSACryptoContext{
-		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+	context, err := getCryptoContext()
+	if err != nil {
+		return nil, fmt.Errorf("newProtocolContextSigner: %s", err)
 	}
 	protocol := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	//Load reference data into context
-	err := setProtocolContext(protocol, UUID, PrivKey, "", LastSignature)
-	return protocol, err
+	err = setProtocolContext(protocol, UUID, PrivKey, "", LastSignature)
+	if err != nil {
+		return nil, fmt.Errorf("newProtocolContextSigner: %s", err)
+	}
+	return protocol, nil
 }
 
 //Creates a new protocol context for a UPP verifier (only pubkey is needed)
 func newProtocolContextVerifier(UUID string, PubKey string) (*ExtendedProtocol, error) {
-	context := &ECDSACryptoContext{
-		Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
+	//create golang or pkcs#11 crypto context depending on test settings
+	context, err := getCryptoContext()
+	if err != nil {
+		return nil, fmt.Errorf("newProtocolContextVerifier: %s", err)
 	}
 	protocol := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	//Load reference data into context
-	err := setProtocolContext(protocol, UUID, "", PubKey, "")
-	return protocol, err
+	err = setProtocolContext(protocol, UUID, "", PubKey, "")
+	if err != nil {
+		return nil, fmt.Errorf("newProtocolContextVerifier: %s", err)
+	}
+	return protocol, nil
 }
 
 //Sets the passed protocol context to the passed values (name, UUID, private Key, last signature), passed as hex strings
@@ -256,7 +265,7 @@ func setProtocolContext(p *ExtendedProtocol, UUID string, PrivKey string, PubKey
 		if UUID == "" {
 			return fmt.Errorf("Need UUID to set public key")
 		}
-		//Set public key (public key will automatically be calculated and set)
+		//Set public key
 		pubBytes, err := hex.DecodeString(PubKey)
 		if err != nil {
 			return fmt.Errorf("setProtocolContext: Error decoding public key string: : %v, string was: %v", err, PubKey)
