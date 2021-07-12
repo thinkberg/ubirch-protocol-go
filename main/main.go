@@ -31,7 +31,7 @@ import (
 	"time"
 )
 
-func signAndCheck(myCrypto *ubirch.ECDSAPKCS11CryptoContext, myUuid uuid.UUID, myData []byte, wg *sync.WaitGroup) error {
+func signAndCheck(myCrypto *ubirch.ECDSAPKCS11CryptoContext, myUuid uuid.UUID, myData []byte, wg *sync.WaitGroup) {
 
 	defer wg.Done()
 
@@ -45,7 +45,7 @@ func signAndCheck(myCrypto *ubirch.ECDSAPKCS11CryptoContext, myUuid uuid.UUID, m
 
 	pubKeyBytes, err := myCrypto.GetPublicKey(myUuid)
 	if err != nil {
-		return fmt.Errorf("Pubkey error: %s\n", err)
+		panic(fmt.Sprintf("Pubkey error: %s\n", err))
 	} else {
 		fmt.Printf("Pubkey bytes: %x\n", pubKeyBytes)
 	}
@@ -67,20 +67,19 @@ func signAndCheck(myCrypto *ubirch.ECDSAPKCS11CryptoContext, myUuid uuid.UUID, m
 	if ecdsa.Verify(pubKey, hash[:], r, s) {
 		fmt.Println("Signature OK")
 	} else {
-		return fmt.Errorf("signature not OK")
+		panic(fmt.Sprintf("signature not OK"))
 	}
 
 	fmt.Println("Verifying with lib")
 	sigOK, err := myCrypto.Verify(myUuid, myData, signature)
 	if err != nil {
-		return fmt.Errorf("verify (lib) failed: %s", err)
+		panic(fmt.Sprintf("verify (lib) failed: %s", err))
 	}
 	if sigOK {
 		fmt.Println("Signature OK")
 	} else {
-		return fmt.Errorf("signature not OK")
+		panic(fmt.Sprintf("signature not OK"))
 	}
-	return nil
 }
 
 func main() {
