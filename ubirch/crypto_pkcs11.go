@@ -3,7 +3,6 @@ package ubirch
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -206,12 +205,15 @@ func (E *ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 // SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key in the HSM
 // SetKey will fail if a private or public key for this UUID already exists, as else it would overwrite HSM keys.
 func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
-	if len(privKeyBytes) != nistp256PrivkeyLength {
-		return fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
-	}
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
+
+	privKey, err := PrivateKeyBytesToStruct(privKeyBytes)
+	if err != nil {
+		return err
+	}
+
 	// check for existing keys
 	privExists, err := E.PrivateKeyExists(id)
 	if err != nil {
@@ -226,18 +228,6 @@ func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) err
 	}
 	if pubExists {
 		return fmt.Errorf("SetKey: public key already exists")
-	}
-
-	// create private key object for calculation of public key and do calculation
-	privKey := new(ecdsa.PrivateKey)
-	privKey.D = new(big.Int)
-	privKey.D.SetBytes(privKeyBytes)
-	privKey.PublicKey.Curve = elliptic.P256()
-	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
-
-	curveOrder := privKey.PublicKey.Curve.Params().N
-	if privKey.D.Cmp(curveOrder) >= 0 {
-		return fmt.Errorf("SetKey: invalid private key value: value is greater or equal curve order")
 	}
 
 	//create keypair bytes

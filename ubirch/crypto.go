@@ -66,7 +66,7 @@ func (c *ECDSACryptoContext) storePrivateKey(id uuid.UUID, k *ecdsa.PrivateKey) 
 		return fmt.Errorf("uninitialized keystore")
 	}
 
-	privKeyBytes, err := EncodeEcdsaPrivateKey(k)
+	privKeyBytes, err := PrivateKeyStructToPEM(k)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (c *ECDSACryptoContext) storePublicKey(id uuid.UUID, k *ecdsa.PublicKey) er
 		return fmt.Errorf("uninitialized keystore")
 	}
 
-	pubKeyBytes, err := EncodeEcdsaPublicKey(k)
+	pubKeyBytes, err := PublicKeyStructToPEM(k)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (c *ECDSACryptoContext) getPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, err
 	}
 
 	// decode the key
-	return DecodeEcdsaPrivateKey(privKey)
+	return PrivateKeyPEMToStruct(privKey)
 }
 
 // getPublicKey gets the decoded public key for the given name.
@@ -117,7 +117,7 @@ func (c *ECDSACryptoContext) getPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error
 	}
 
 	// decode the key
-	return DecodeEcdsaPublicKey(pubKey)
+	return PublicKeyPEMToStruct(pubKey)
 }
 
 // storeKey stores the Private Key, as well as the Public Key, returns 'nil', if successful
@@ -159,22 +159,13 @@ func (c *ECDSACryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) erro
 
 //SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
 func (c *ECDSACryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
-	if len(privKeyBytes) != nistp256PrivkeyLength {
-		return fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
-	}
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
 
-	privKey := new(ecdsa.PrivateKey)
-	privKey.D = new(big.Int)
-	privKey.D.SetBytes(privKeyBytes)
-	privKey.PublicKey.Curve = elliptic.P256()
-	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
-
-	curveOrder := privKey.PublicKey.Curve.Params().N
-	if privKey.D.Cmp(curveOrder) >= 0 {
-		return fmt.Errorf("invalid private key value: value is greater or equal curve order")
+	privKey, err := PrivateKeyBytesToStruct(privKeyBytes)
+	if err != nil {
+		return err
 	}
 
 	return c.storeKey(id, privKey)
