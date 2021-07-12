@@ -187,7 +187,6 @@ func (E *ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) 
 
 func (E *ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 	objects, err := E.pkcs11GetObjects(id[:], pkcs11.CKO_PUBLIC_KEY, 5)
-
 	if err != nil {
 		return true, err
 	}
@@ -429,9 +428,6 @@ func (E *ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature [
 
 // pkcs11PubKeyTemplate returns the standard public key template, errors if UUID is invalid
 func (E *ECDSAPKCS11CryptoContext) pkcs11PubKeyTemplate(id uuid.UUID) ([]*pkcs11.Attribute, error) {
-	if id.String() == "" {
-		return nil, fmt.Errorf("invalid UUID used for creating public key template")
-	}
 	pubkeyLabel, err := E.pkcs11PubKeyLabel(id)
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11PubKeyTemplate: can't get label: %s", err)
@@ -453,18 +449,11 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11PubKeyTemplate(id uuid.UUID) ([]*pkcs11
 
 // pkcs11PubKeyLabel returns the label string for CKA_LABEL used to identify pubkeys, errors if UUID is invalid
 func (E *ECDSAPKCS11CryptoContext) pkcs11PubKeyLabel(id uuid.UUID) (string, error) {
-	stringUuid := id.String()
-	if stringUuid == "" {
-		return "invalid_UUID", fmt.Errorf("invalid UUID used for creating public key label")
-	}
-	return stringUuid + "_pub", nil
+	return id.String() + "_pub", nil
 }
 
 // pkcs11PrivKeyTemplate returns the standard private key template, errors if UUID is invalid
 func (E *ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) ([]*pkcs11.Attribute, error) {
-	if id.String() == "" {
-		return nil, fmt.Errorf("invalid UUID used for creating private key template")
-	}
 	privkeyLabel, err := E.pkcs11PrivKeyLabel(id)
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11PrivKeyTemplate: can't get label: %s", err)
@@ -489,11 +478,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) ([]*pkcs1
 
 // pkcs11PrivKeyLabel returns the label string for CKA_LABEL used to identify private keys, errors if UUID is invalid
 func (E *ECDSAPKCS11CryptoContext) pkcs11PrivKeyLabel(id uuid.UUID) (string, error) {
-	stringUuid := id.String()
-	if stringUuid == "" {
-		return "invalid_UUID", fmt.Errorf("invalid UUID used for creating private key label")
-	}
-	return stringUuid + "_priv", nil
+	return id.String() + "_priv", nil
 }
 
 // gets objects of a certain class with a certain ID (CKA_ID = byte array), which usually is the device UUID bytes, returns up to 'max' objects
