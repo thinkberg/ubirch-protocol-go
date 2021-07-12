@@ -3,7 +3,6 @@ package ubirch
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -121,15 +120,9 @@ func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	pubKeyBytes := info[0].Value[len(expectedHeader):] //save public key, remove DER encoding header
 
 	//check that key point is actually on curve
-	pubKey := new(ecdsa.PublicKey)
-	pubKey.Curve = elliptic.P256()
-	pubKey.X = &big.Int{}
-	pubKey.X.SetBytes(pubKeyBytes[0:nistp256XLength])
-	pubKey.Y = &big.Int{}
-	pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
-
-	if !pubKey.IsOnCurve(pubKey.X, pubKey.Y) {
-		return nil, fmt.Errorf("invalid public key value: point not on curve")
+	_, err = PublicKeyBytesToStruct(pubKeyBytes)
+	if err != nil {
+		return nil, err
 	}
 
 	return pubKeyBytes, nil
@@ -138,12 +131,14 @@ func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 // SetPublicKey sets the public key only. Use SetKey() instead to create a working keypair from a private key.
 func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error {
 	// Sanity checks
-	if len(pubKeyBytes) != nistp256PubkeyLength {
-		return fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
-	}
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
+	_, err := PublicKeyBytesToStruct(pubKeyBytes)
+	if err != nil {
+		return err
+	}
+
 	//check key does not exist
 	pubExists, err := E.PublicKeyExists(id)
 	if err != nil {
@@ -151,17 +146,6 @@ func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte
 	}
 	if pubExists {
 		return fmt.Errorf("SetPublicKey: public key already exists")
-	}
-	//check key is on curve
-	pubKey := new(ecdsa.PublicKey)
-	pubKey.Curve = elliptic.P256()
-	pubKey.X = &big.Int{}
-	pubKey.X.SetBytes(pubKeyBytes[0:nistp256XLength])
-	pubKey.Y = &big.Int{}
-	pubKey.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
-
-	if !pubKey.IsOnCurve(pubKey.X, pubKey.Y) {
-		return fmt.Errorf("invalid public key value: point not on curve")
 	}
 
 	// create template from pub key bytes, add DER encoding header
@@ -203,7 +187,6 @@ func (E *ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) 
 
 func (E *ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 	objects, err := E.pkcs11GetObjects(id[:], pkcs11.CKO_PUBLIC_KEY, 5)
-
 	if err != nil {
 		return true, err
 	}
@@ -221,12 +204,15 @@ func (E *ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 // SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key in the HSM
 // SetKey will fail if a private or public key for this UUID already exists, as else it would overwrite HSM keys.
 func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
-	if len(privKeyBytes) != nistp256PrivkeyLength {
-		return fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
-	}
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
+
+	privKey, err := PrivateKeyBytesToStruct(privKeyBytes)
+	if err != nil {
+		return err
+	}
+
 	// check for existing keys
 	privExists, err := E.PrivateKeyExists(id)
 	if err != nil {
@@ -241,18 +227,6 @@ func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) err
 	}
 	if pubExists {
 		return fmt.Errorf("SetKey: public key already exists")
-	}
-
-	// create private key object for calculation of public key and do calculation
-	privKey := new(ecdsa.PrivateKey)
-	privKey.D = new(big.Int)
-	privKey.D.SetBytes(privKeyBytes)
-	privKey.PublicKey.Curve = elliptic.P256()
-	privKey.PublicKey.X, privKey.PublicKey.Y = privKey.PublicKey.Curve.ScalarBaseMult(privKey.D.Bytes())
-
-	curveOrder := privKey.PublicKey.Curve.Params().N
-	if privKey.D.Cmp(curveOrder) >= 0 {
-		return fmt.Errorf("SetKey: invalid private key value: value is greater or equal curve order")
 	}
 
 	//create keypair bytes
@@ -370,40 +344,6 @@ func (E *ECDSAPKCS11CryptoContext) HashLength() int {
 	return sha256Length
 }
 
-// PublicKeyBytesToPEM PublicKeyToPEM converts a ECDSA P-256 public key (64 bytes) to PEM format
-func (E *ECDSAPKCS11CryptoContext) PublicKeyBytesToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
-	return publicKeyBytesToPEM(pubKeyBytes)
-}
-
-// PublicKeyPEMToBytes PublicKeyToBytes converts a given public key from PEM format to raw bytes
-func (E *ECDSAPKCS11CryptoContext) PublicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
-	return publicKeyPEMToBytes(pubKeyPEM)
-}
-
-func (E *ECDSAPKCS11CryptoContext) EncodePublicKey(pub interface{}) ([]byte, error) {
-	typedKey, ok := pub.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("key is not of type ECDSA public key")
-	}
-	return encodePublicKey(typedKey)
-}
-
-func (E *ECDSAPKCS11CryptoContext) DecodePublicKey(pemEncoded []byte) (interface{}, error) {
-	return decodePublicKey(pemEncoded)
-}
-
-func (E *ECDSAPKCS11CryptoContext) EncodePrivateKey(priv interface{}) ([]byte, error) {
-	typedKey, ok := priv.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("key is not of type ECDSA private key")
-	}
-	return encodePrivateKey(typedKey)
-}
-
-func (E *ECDSAPKCS11CryptoContext) DecodePrivateKey(pemEncoded []byte) (interface{}, error) {
-	return decodePrivateKey(pemEncoded)
-}
-
 // Sign creates the signature for arbitrary data using the private key of the given UUID
 func (E *ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, error) {
 	if len(data) == 0 {
@@ -471,7 +411,7 @@ func (E *ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature [
 	}
 
 	// convert bytes to pubkey struct
-	pub, err := E.pkcs11BytesToPublicKeyStruct(pubkeyBytes)
+	pub, err := PublicKeyBytesToStruct(pubkeyBytes)
 	if err != nil {
 		return false, err
 	}
@@ -488,9 +428,6 @@ func (E *ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature [
 
 // pkcs11PubKeyTemplate returns the standard public key template, errors if UUID is invalid
 func (E *ECDSAPKCS11CryptoContext) pkcs11PubKeyTemplate(id uuid.UUID) ([]*pkcs11.Attribute, error) {
-	if id.String() == "" {
-		return nil, fmt.Errorf("invalid UUID used for creating public key template")
-	}
 	pubkeyLabel, err := E.pkcs11PubKeyLabel(id)
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11PubKeyTemplate: can't get label: %s", err)
@@ -521,9 +458,6 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11PubKeyLabel(id uuid.UUID) (string, erro
 
 // pkcs11PrivKeyTemplate returns the standard private key template, errors if UUID is invalid
 func (E *ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) ([]*pkcs11.Attribute, error) {
-	if id.String() == "" {
-		return nil, fmt.Errorf("invalid UUID used for creating private key template")
-	}
 	privkeyLabel, err := E.pkcs11PrivKeyLabel(id)
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11PrivKeyTemplate: can't get label: %s", err)
@@ -853,26 +787,4 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11TeardownSession() error {
 	}
 
 	return nil
-}
-
-// pkcs11BytesToPublicKeyStruct converts the public key bytes as returned by the HSM (x,y) to an ecdsa.PublicKey struct.
-func (E *ECDSAPKCS11CryptoContext) pkcs11BytesToPublicKeyStruct(pubKeyBytes []byte) (*ecdsa.PublicKey, error) {
-	if len(pubKeyBytes) != nistp256PubkeyLength {
-		return nil, fmt.Errorf("pkcs11BytesToPublicKeyStruct: received invalid public key length: expected %d, got %d bytes", nistp256PubkeyLength, len(pubKeyBytes))
-	}
-
-	//create the key object
-	pubkeyStruct := new(ecdsa.PublicKey)
-	pubkeyStruct.Curve = elliptic.P256()
-	pubkeyStruct.X = &big.Int{}
-	pubkeyStruct.X.SetBytes(pubKeyBytes[0:nistp256XLength])
-	pubkeyStruct.Y = &big.Int{}
-	pubkeyStruct.Y.SetBytes(pubKeyBytes[nistp256XLength:(nistp256XLength + nistp256YLength)])
-
-	if !pubkeyStruct.IsOnCurve(pubkeyStruct.X, pubkeyStruct.Y) {
-		return nil, fmt.Errorf("pkcs11BytesToPublicKeyStruct:invalid public key value: point not on curve")
-	}
-
-	return pubkeyStruct, nil
-
 }
