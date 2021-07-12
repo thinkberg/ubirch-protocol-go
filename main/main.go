@@ -117,8 +117,14 @@ func main() {
 	}
 
 	//test signing and check signature with threads
+	//TODO: copy this into the tests when it works
 	var wg sync.WaitGroup
-	for i := 1; i <= 5; i++ {
+	for i := 1; i <= 100; i++ {
+		wg.Add(1)
+		go signAndCheck(myCrypto, myUuid, []byte("12345678901234564890123456789012HelloWorld!"), &wg)
+	}
+	time.Sleep(200 * time.Millisecond) //wait a bit, so the next batch is started when HSM is already busy
+	for i := 1; i <= 100; i++ {
 		wg.Add(1)
 		go signAndCheck(myCrypto, myUuid, []byte("12345678901234564890123456789012HelloWorld!"), &wg)
 	}
