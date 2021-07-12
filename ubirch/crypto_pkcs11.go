@@ -84,11 +84,6 @@ func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	E.pkcs11InterfaceMtx.Lock()
 	defer E.pkcs11InterfaceMtx.Unlock()
 
-	pubKeyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PUBLIC_KEY)
-	if err != nil {
-		return nil, err
-	}
-
 	infoTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, nil), //we want to get the public key curve point (x,y)
 	}
@@ -96,6 +91,11 @@ func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	// get the attribute with retries and error handling
 	var info []*pkcs11.Attribute
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		// always get current pubkey handle as it might have changed if the session was lost and restored
+		pubKeyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PUBLIC_KEY)
+		if err != nil {
+			return err
+		}
 		info, err = E.pkcs11Ctx.GetAttributeValue(E.sessionHandle, pubKeyHandle, infoTemplate)
 		return err
 	})
@@ -124,7 +124,7 @@ func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	pubKeyBytes := info[0].Value[len(expectedHeader):] //save public key, remove DER encoding header
 
 	//check that key point is actually on curve
-	_, err = PublicKeyBytesToStruct(pubKeyBytes)
+	_, err := PublicKeyBytesToStruct(pubKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -390,14 +390,15 @@ func (E *ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, 
 	E.pkcs11InterfaceMtx.Lock()
 	defer E.pkcs11InterfaceMtx.Unlock()
 
-	keyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
-	if err != nil {
-		return nil, fmt.Errorf("SignHash: getting key handle: %s", err)
-	}
-
 	var signature []byte
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
-		err := E.pkcs11Ctx.SignInit(E.sessionHandle, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, keyHandle)
+		// key handle might have changed if the session was lost so we need to get it again for every retry
+		keyHandle, err := E.pkcs11GetHandle(id, pkcs11.CKO_PRIVATE_KEY)
+		if err != nil {
+			return err
+		}
+
+		err = E.pkcs11Ctx.SignInit(E.sessionHandle, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}, keyHandle)
 		if err != nil {
 			return err
 		}
