@@ -24,7 +24,7 @@ type ECDSAPKCS11CryptoContext struct {
 	pkcs11Retries    int                  // how often to retry in case of pkcs#11 errors
 	pkcs11RetryDelay time.Duration        // how long to pause before retrying after pkcs#11 errors
 
-	pkcs11InterfaceMtx *sync.Mutex // Mutex to make sure that only one pkcs#11 interface operation is performed at a time
+	cryptoInterfaceMtx *sync.Mutex // Mutex to make sure that only one operation (using pkcs#11 interface) is performed at a time
 }
 
 var _ Crypto = (*ECDSAPKCS11CryptoContext)(nil)
@@ -60,7 +60,7 @@ func NewECDSAPKCS11CryptoContext(pkcs11LibLocation string, loginPIN string, slot
 		return nil, fmt.Errorf("NewECDSAPKCS11CryptoContext: %s", err)
 	}
 
-	E.pkcs11InterfaceMtx = &sync.Mutex{}
+	E.cryptoInterfaceMtx = &sync.Mutex{}
 
 	return E, nil
 }
@@ -78,12 +78,15 @@ func (E *ECDSAPKCS11CryptoContext) Close() error {
 	return nil
 }
 
-// GetPublicKey gets the binary public key data as returned by the HSM
+// GetPublicKey gets the binary public key data as returned by the HSM (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
-	//acquire mutex for pkcs#11 interface
-	E.pkcs11InterfaceMtx.Lock()
-	defer E.pkcs11InterfaceMtx.Unlock()
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+	return E.getPublicKey(id)
+}
 
+func (E *ECDSAPKCS11CryptoContext) getPublicKey(id uuid.UUID) ([]byte, error) {
 	infoTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, nil), //we want to get the public key curve point (x,y)
 	}
@@ -132,8 +135,15 @@ func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
-// SetPublicKey sets the public key only. Use SetKey() instead to create a working keypair from a private key.
+// SetPublicKey sets the public key only. Use SetKey() instead to create a working keypair from a private key. (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error {
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+	return E.setPublicKey(id, pubKeyBytes)
+}
+
+func (E *ECDSAPKCS11CryptoContext) setPublicKey(id uuid.UUID, pubKeyBytes []byte) error {
 	// Sanity checks
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
@@ -144,7 +154,7 @@ func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte
 	}
 
 	//check key does not exist
-	pubExists, err := E.PublicKeyExists(id)
+	pubExists, err := E.publicKeyExists(id)
 	if err != nil {
 		return fmt.Errorf("SetPublicKey: checking public key existence failed: %s", err)
 	}
@@ -162,10 +172,6 @@ func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte
 	}
 	pubKeyTemplate = append(pubKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, pubKeyBytesHSM)) // add the DER-encoding of ANSI X9.62 ECPoint value Q
 
-	//acquire mutex for pkcs#11 interface
-	E.pkcs11InterfaceMtx.Lock()
-	defer E.pkcs11InterfaceMtx.Unlock()
-
 	// write pub key to HSM
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
 		_, err := E.pkcs11Ctx.CreateObject(E.sessionHandle, pubKeyTemplate)
@@ -177,11 +183,15 @@ func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte
 	return nil
 }
 
+//PrivateKeyExists checks if key exists in HSM. (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) {
-	//acquire mutex for pkcs#11 interface
-	E.pkcs11InterfaceMtx.Lock()
-	defer E.pkcs11InterfaceMtx.Unlock()
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+	return E.privateKeyExists(id)
+}
 
+func (E *ECDSAPKCS11CryptoContext) privateKeyExists(id uuid.UUID) (bool, error) {
 	objects, err := E.pkcs11GetObjects(id[:], pkcs11.CKO_PRIVATE_KEY, 5)
 	if err != nil {
 		return true, fmt.Errorf("getting object failed: %s", err) //safer to assume there is a key in case of error
@@ -197,11 +207,15 @@ func (E *ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) 
 	}
 }
 
+//PublicKeyExists checks if key exists in HSM. (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 	//acquire mutex for pkcs#11 interface
-	E.pkcs11InterfaceMtx.Lock()
-	defer E.pkcs11InterfaceMtx.Unlock()
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+	return E.publicKeyExists(id)
+}
 
+func (E *ECDSAPKCS11CryptoContext) publicKeyExists(id uuid.UUID) (bool, error) {
 	objects, err := E.pkcs11GetObjects(id[:], pkcs11.CKO_PUBLIC_KEY, 5)
 	if err != nil {
 		return true, err
@@ -218,8 +232,15 @@ func (E *ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 }
 
 // SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key in the HSM
-// SetKey will fail if a private or public key for this UUID already exists, as else it would overwrite HSM keys.
+// SetKey will fail if a private or public key for this UUID already exists, as else it would overwrite HSM keys. (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+	return E.setKey(id, privKeyBytes)
+}
+
+func (E *ECDSAPKCS11CryptoContext) setKey(id uuid.UUID, privKeyBytes []byte) error {
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
@@ -230,14 +251,14 @@ func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) err
 	}
 
 	// check for existing keys
-	privExists, err := E.PrivateKeyExists(id)
+	privExists, err := E.privateKeyExists(id)
 	if err != nil {
 		return fmt.Errorf("SetKey: checking for private key existence failed: %s", err)
 	}
 	if privExists {
 		return fmt.Errorf("SetKey: private key already exists")
 	}
-	pubExists, err := E.PublicKeyExists(id)
+	pubExists, err := E.publicKeyExists(id)
 	if err != nil {
 		return fmt.Errorf("SetKey: checking public key existence failed: %s", err)
 	}
@@ -265,14 +286,10 @@ func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) err
 	privKeyTemplate = append(privKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"))    // normally derived from public key, but must be explicit here
 
 	//write keys to HSM
-	err = E.SetPublicKey(id, pubKeyBytes)
+	err = E.setPublicKey(id, pubKeyBytes)
 	if err != nil {
 		return fmt.Errorf("SetKey: %s", err)
 	}
-
-	//acquire mutex for pkcs#11 interface
-	E.pkcs11InterfaceMtx.Lock()
-	defer E.pkcs11InterfaceMtx.Unlock()
 
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
 		_, err := E.pkcs11Ctx.CreateObject(E.sessionHandle, privKeyTemplate)
@@ -285,21 +302,27 @@ func (E *ECDSAPKCS11CryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) err
 	return nil
 }
 
-// GenerateKey generates a new keypair using standard templates
+// GenerateKey generates a new keypair using standard templates (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+	return E.generateKey(id)
+}
+func (E *ECDSAPKCS11CryptoContext) generateKey(id uuid.UUID) error {
 	if id == uuid.Nil {
 		return fmt.Errorf("GenerateKey: UUID \"Nil\"-value")
 	}
 
 	// check for existing keys
-	privExists, err := E.PrivateKeyExists(id)
+	privExists, err := E.privateKeyExists(id)
 	if err != nil {
 		return fmt.Errorf("GenerateKey: checking private key existence failed: %s", err)
 	}
 	if privExists {
 		return fmt.Errorf("GenerateKey: private key already exists")
 	}
-	pubExists, err := E.PublicKeyExists(id)
+	pubExists, err := E.publicKeyExists(id)
 	if err != nil {
 		return fmt.Errorf("GenerateKey: checking public key existence failed: %s", err)
 	}
@@ -316,10 +339,6 @@ func (E *ECDSAPKCS11CryptoContext) GenerateKey(id uuid.UUID) error {
 	if err != nil {
 		return fmt.Errorf("GenerateKey: can't get private key template: %s", err)
 	}
-
-	//acquire mutex for pkcs#11 interface
-	E.pkcs11InterfaceMtx.Lock()
-	defer E.pkcs11InterfaceMtx.Unlock()
 
 	// generate key with retries
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
@@ -380,15 +399,18 @@ func (E *ECDSAPKCS11CryptoContext) Sign(id uuid.UUID, data []byte) ([]byte, erro
 	return E.SignHash(id, hash[:])
 }
 
-// SignHash retrieves the signature for an already computed SHA-256 hash using the private key of the given UUID from the HSM.
+// SignHash retrieves the signature for an already computed SHA-256 hash using the private key of the given UUID from the HSM. (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) SignHash(id uuid.UUID, hash []byte) ([]byte, error) {
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+	return E.signHash(id, hash)
+}
+
+func (E *ECDSAPKCS11CryptoContext) signHash(id uuid.UUID, hash []byte) ([]byte, error) {
 	if len(hash) != sha256Length {
 		return nil, fmt.Errorf("invalid sha256 size: expected %d, got %d", sha256Length, len(hash))
 	}
-
-	// acquire pkcs#11 interface mutex
-	E.pkcs11InterfaceMtx.Lock()
-	defer E.pkcs11InterfaceMtx.Unlock()
 
 	var signature []byte
 	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
