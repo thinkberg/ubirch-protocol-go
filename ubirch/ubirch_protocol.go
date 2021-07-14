@@ -230,8 +230,8 @@ func appendSignature(data []byte, signature []byte) []byte {
 
 // Sign encodes, signs and appends the signature to a UPP
 func (p *Protocol) Sign(privKeyPEM []byte, upp UPP) ([]byte, error) {
-	if len(upp.GetPayload()) != p.HashLength() {
-		return nil, fmt.Errorf("invalid hash size: expected %d, got %d bytes", p.HashLength(), len(upp.GetPayload()))
+	if len(upp.GetPayload()) != p.HashLength() && len(upp.GetPayload()) != p.SignatureLength() {
+		return nil, fmt.Errorf("invalid payload size: expected %d or %d, got %d bytes", p.HashLength(), p.SignatureLength(), len(upp.GetPayload()))
 	}
 	if upp.GetVersion() == Chained && len(upp.GetPrevSignature()) != p.SignatureLength() {
 		return nil, fmt.Errorf("invalid prev. signature size: expected %d, got %d bytes", p.SignatureLength(), len(upp.GetPrevSignature()))
