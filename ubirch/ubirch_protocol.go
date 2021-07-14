@@ -41,11 +41,19 @@ const (
 
 // Crypto Interface for exported functionality
 type Crypto interface {
-	GetPublicKey(id uuid.UUID) ([]byte, error)
-	SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error
+	GetPublicKeyBytes(id uuid.UUID) ([]byte, error)
+	SetPublicKeyBytes(id uuid.UUID, pubKeyBytes []byte) error
+
+	GetPublicKeyPEM(id uuid.UUID) ([]byte, error)
+	SetPublicKeyPEM(id uuid.UUID, pubKeyPEM []byte) error
 
 	PrivateKeyExists(id uuid.UUID) (bool, error)
 	SetKey(id uuid.UUID, privKeyBytes []byte) error
+
+	EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error)
+	DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error)
+	EncodePublicKey(pub interface{}) (pemEncoded []byte, err error)
+	DecodePublicKey(pemEncoded []byte) (pub interface{}, err error)
 
 	GenerateKey(id uuid.UUID) error
 	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)

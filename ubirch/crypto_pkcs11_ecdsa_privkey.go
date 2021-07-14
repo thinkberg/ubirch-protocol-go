@@ -47,7 +47,7 @@ func newPKCS11ECDSAPrivKey(id uuid.UUID, ctx *ECDSAPKCS11CryptoContext) (*ECDSAP
 	}
 
 	//get public key bytes
-	pubKeyBytes, err := P.pkcs11Crypto.GetPublicKey(id)
+	pubKeyBytes, err := P.pkcs11Crypto.GetPublicKeyBytes(id)
 	if err != nil {
 		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: getting pubkey failed: %s", err)
 	}

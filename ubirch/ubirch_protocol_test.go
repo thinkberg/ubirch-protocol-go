@@ -1075,7 +1075,7 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 		signer, err := newProtocolContextSigner(currUUID, currPriv, currLastSig)
 		requirer.NoError(err, "Creating signer protocol context failed")
 		//Verifier
-		currPubkeyBytes, err := signer.GetPublicKey(uuid.MustParse(currUUID))
+		currPubkeyBytes, err := signer.GetPublicKeyBytes(uuid.MustParse(currUUID))
 		requirer.NoError(err, "Could not get pubkey from signer context")
 		currPub = hex.EncodeToString(currPubkeyBytes)
 		// If this is a test using the HSM, there is already a public key from the signer in the HSM at this point. We

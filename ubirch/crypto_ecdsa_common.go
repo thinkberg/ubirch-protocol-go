@@ -9,8 +9,8 @@ import (
 	"math/big"
 )
 
-// PublicKeyStructToPEM encodes the Public Key as x509 and returns the encoded PEM
-func PublicKeyStructToPEM(pub interface{}) ([]byte, error) {
+// EncodePublicKey encodes the Public Key as x509 and returns the encoded PEM
+func EncodePublicKey(pub interface{}) ([]byte, error) {
 	publicKeyStruct, ok := pub.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, fmt.Errorf("key is not of type ECDSA public key")
@@ -23,8 +23,8 @@ func PublicKeyStructToPEM(pub interface{}) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-// PublicKeyPEMToStruct decodes a Public Key from the x509 PEM format and returns the Public Key
-func PublicKeyPEMToStruct(pemEncoded []byte) (*ecdsa.PublicKey, error) {
+// DecodePublicKey decodes a Public Key from the x509 PEM format and returns the Public Key
+func DecodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	if block == nil {
 		return nil, fmt.Errorf("unable to parse PEM block")
@@ -80,12 +80,12 @@ func PublicKeyBytesToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
 		return nil, err
 	}
 
-	return PublicKeyStructToPEM(pubKey)
+	return EncodePublicKey(pubKey)
 }
 
 // PublicKeyPEMToBytes converts a public key from PEM format to raw bytes
 func PublicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
-	decodedPubKey, err := PublicKeyPEMToStruct(pubKeyPEM)
+	decodedPubKey, err := DecodePublicKey(pubKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("decoding public key failed: %v", err)
 	}
@@ -93,8 +93,8 @@ func PublicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
 	return PublicKeyStructToBytes(decodedPubKey)
 }
 
-// PrivateKeyStructToPEM encodes the Private Key as x509 and returns the encoded PEM
-func PrivateKeyStructToPEM(priv interface{}) ([]byte, error) {
+// EncodePrivateKey encodes the Private Key as x509 and returns the encoded PEM
+func EncodePrivateKey(priv interface{}) ([]byte, error) {
 	privateKeyStruct, ok := priv.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, fmt.Errorf("key is not of type ECDSA private key")
@@ -107,8 +107,8 @@ func PrivateKeyStructToPEM(priv interface{}) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-// PrivateKeyPEMToStruct decodes a Private Key from the x509 PEM format and returns the Private Key
-func PrivateKeyPEMToStruct(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
+// DecodePrivateKey decodes a Private Key from the x509 PEM format and returns the Private Key
+func DecodePrivateKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	if block == nil {
 		return nil, fmt.Errorf("unable to parse PEM block")
@@ -144,5 +144,5 @@ func PrivateKeyBytesToPEM(privKeyBytes []byte) (privKeyPEM []byte, err error) {
 		return nil, err
 	}
 
-	return PrivateKeyStructToPEM(privKey)
+	return EncodePrivateKey(privKey)
 }

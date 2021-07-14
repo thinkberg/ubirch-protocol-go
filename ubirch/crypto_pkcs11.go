@@ -78,8 +78,8 @@ func (E *ECDSAPKCS11CryptoContext) Close() error {
 	return nil
 }
 
-// GetPublicKey gets the binary public key data as returned by the HSM (Mutex wrapper)
-func (E *ECDSAPKCS11CryptoContext) GetPublicKey(id uuid.UUID) ([]byte, error) {
+// GetPublicKeyBytes gets the binary public key data as returned by the HSM (Mutex wrapper)
+func (E *ECDSAPKCS11CryptoContext) GetPublicKeyBytes(id uuid.UUID) ([]byte, error) {
 	//acquire mutex for pkcs#11 interface related operations
 	E.cryptoInterfaceMtx.Lock()
 	defer E.cryptoInterfaceMtx.Unlock()
@@ -135,8 +135,16 @@ func (E *ECDSAPKCS11CryptoContext) getPublicKey(id uuid.UUID) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
-// SetPublicKey sets the public key only. Use SetKey() instead to create a working keypair from a private key. (Mutex wrapper)
-func (E *ECDSAPKCS11CryptoContext) SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error {
+func (E *ECDSAPKCS11CryptoContext) GetPublicKeyPEM(id uuid.UUID) ([]byte, error) {
+	pubKeyBytes, err := E.GetPublicKeyBytes(id)
+	if err != nil {
+		return nil, err
+	}
+	return PublicKeyBytesToPEM(pubKeyBytes)
+}
+
+// SetPublicKeyBytes sets the public key only. Use SetKey() instead to create a working keypair from a private key. (Mutex wrapper)
+func (E *ECDSAPKCS11CryptoContext) SetPublicKeyBytes(id uuid.UUID, pubKeyBytes []byte) error {
 	//acquire mutex for pkcs#11 interface related operations
 	E.cryptoInterfaceMtx.Lock()
 	defer E.cryptoInterfaceMtx.Unlock()
@@ -156,10 +164,10 @@ func (E *ECDSAPKCS11CryptoContext) setPublicKey(id uuid.UUID, pubKeyBytes []byte
 	//check key does not exist
 	pubExists, err := E.publicKeyExists(id)
 	if err != nil {
-		return fmt.Errorf("SetPublicKey: checking public key existence failed: %s", err)
+		return fmt.Errorf("SetPublicKeyBytes: checking public key existence failed: %s", err)
 	}
 	if pubExists {
-		return fmt.Errorf("SetPublicKey: public key already exists")
+		return fmt.Errorf("SetPublicKeyBytes: public key already exists")
 	}
 
 	// create template from pub key bytes, add DER encoding header
@@ -168,7 +176,7 @@ func (E *ECDSAPKCS11CryptoContext) setPublicKey(id uuid.UUID, pubKeyBytes []byte
 
 	pubKeyTemplate, err := E.pkcs11PubKeyTemplate(id)
 	if err != nil {
-		return fmt.Errorf("SetPublicKey: could not get public key template: %s", err)
+		return fmt.Errorf("SetPublicKeyBytes: could not get public key template: %s", err)
 	}
 	pubKeyTemplate = append(pubKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, pubKeyBytesHSM)) // add the DER-encoding of ANSI X9.62 ECPoint value Q
 
@@ -178,9 +186,17 @@ func (E *ECDSAPKCS11CryptoContext) setPublicKey(id uuid.UUID, pubKeyBytes []byte
 		return err
 	})
 	if retriedErr != nil {
-		return fmt.Errorf("SetPublicKey: %s", retriedErr)
+		return fmt.Errorf("SetPublicKeyBytes: %s", retriedErr)
 	}
 	return nil
+}
+
+func (E *ECDSAPKCS11CryptoContext) SetPublicKeyPEM(id uuid.UUID, pubKeyPEM []byte) error {
+	pubKeyBytes, err := PublicKeyPEMToBytes(pubKeyPEM)
+	if err != nil {
+		return err
+	}
+	return E.SetPublicKeyBytes(id, pubKeyBytes)
 }
 
 //PrivateKeyExists checks if key exists in HSM. (Mutex wrapper)
@@ -455,7 +471,7 @@ func (E *ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature [
 	}
 
 	//get public key bytes from HSM
-	pubkeyBytes, err := E.GetPublicKey(id)
+	pubkeyBytes, err := E.GetPublicKeyBytes(id)
 	if err != nil {
 		return false, fmt.Errorf("Verify: could not get public key bytes from HSM: %s", err)
 	}
@@ -472,6 +488,22 @@ func (E *ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature [
 
 	hash := sha256.Sum256(data)
 	return ecdsa.Verify(pub, hash[:], r, s), nil
+}
+
+func (E *ECDSAPKCS11CryptoContext) EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error) {
+	return EncodePrivateKey(priv)
+}
+
+func (E *ECDSAPKCS11CryptoContext) DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error) {
+	return DecodePrivateKey(pemEncoded)
+}
+
+func (E *ECDSAPKCS11CryptoContext) EncodePublicKey(pub interface{}) (pemEncoded []byte, err error) {
+	return EncodePublicKey(pub)
+}
+
+func (E *ECDSAPKCS11CryptoContext) DecodePublicKey(pemEncoded []byte) (pub interface{}, err error) {
+	return DecodePublicKey(pemEncoded)
 }
 
 //// PKCS#11 related functions ////

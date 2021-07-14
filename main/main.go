@@ -44,7 +44,7 @@ func signAndCheck(myCrypto *ubirch.ECDSAPKCS11CryptoContext, myUuid uuid.UUID, m
 		fmt.Printf("Signature: %x\n", signature)
 	}
 
-	pubKeyBytes, err := myCrypto.GetPublicKey(myUuid)
+	pubKeyBytes, err := myCrypto.GetPublicKeyBytes(myUuid)
 	if err != nil {
 		panic(fmt.Sprintf("Pubkey error: %s\n", err))
 	} else {

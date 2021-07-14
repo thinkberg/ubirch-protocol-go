@@ -98,9 +98,9 @@ func TestCryptoContext_FaultyKeystores(t *testing.T) {
 			result, err := context.PrivateKeyExists(testUUID)
 			asserter.Error(err, "PrivateKeyExists(): no error for faulty keystore")
 			asserter.False(result, "Private key found in faulty keystore")
-			//context.SetPublicKey
-			err = context.SetPublicKey(testUUID, make([]byte, nistp256PubkeyLength))
-			asserter.Error(err, "SetPublicKey() did not return an error for a faulty keystore")
+			//context.SetPublicKeyBytes
+			err = context.SetPublicKeyBytes(testUUID, make([]byte, nistp256PubkeyLength))
+			asserter.Error(err, "SetPublicKeyBytes() did not return an error for a faulty keystore")
 			//context.Sign
 			bytes, err = context.Sign(testUUID, []byte("justsomedata"))
 			asserter.Error(err, "context.Sign() did not return an error for a faulty keystore")
@@ -127,7 +127,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(p.GenerateKey(id), "Generating key failed")
-	pubKeyBytesNew, err := p.GetPublicKey(id)
+	pubKeyBytesNew, err := p.GetPublicKeyBytes(id)
 	asserter.Nilf(err, "Getting key failed")
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
 	asserter.NoErrorf(saveProtocolContext(p, "temp.json"), "Failed Saving protocol context")
@@ -137,7 +137,7 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 	}
 	p2 := NewExtendedProtocol(context2, map[uuid.UUID][]byte{})
 	asserter.NoErrorf(loadProtocolContext(p2, "temp.json"), "Failed loading protocol context")
-	pubKeyBytesLoad, err := p2.GetPublicKey(id)
+	pubKeyBytesLoad, err := p2.GetPublicKeyBytes(id)
 	asserter.Nilf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytesLoad, "Public Key for existing Key empty")
 
@@ -226,27 +226,27 @@ func TestCryptoContext_SetPublicKey(t *testing.T) {
 	requirer.NoErrorf(err, "Decoding invalid key bytes failed")
 
 	// Test valid key length
-	asserter.Nilf(context.SetPublicKey(id, pubBytesCorrect), "set key with correct length failed")
+	asserter.Nilf(context.SetPublicKeyBytes(id, pubBytesCorrect), "set key with correct length failed")
 	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
 		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
 	}
 	// Test a key, which is too short
-	asserter.Errorf(context.SetPublicKey(id, pubBytesTooShort), "not recognized too short key")
+	asserter.Errorf(context.SetPublicKeyBytes(id, pubBytesTooShort), "not recognized too short key")
 	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
 		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
 	}
 	// Test a key, which is too long
-	asserter.Errorf(context.SetPublicKey(id, pubBytesTooLong), "not recognized too long key")
+	asserter.Errorf(context.SetPublicKeyBytes(id, pubBytesTooLong), "not recognized too long key")
 	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
 		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
 	}
 	// Test a key, which is empty
-	asserter.Errorf(context.SetPublicKey(id, nil), "not recognized empty key")
+	asserter.Errorf(context.SetPublicKeyBytes(id, nil), "not recognized empty key")
 	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
 		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
 	}
 	// Test a key, which is an invalid elliptic curve public key value
-	asserter.Errorf(context.SetPublicKey(id, pubBytesInvalid), "not recognized invalid key")
+	asserter.Errorf(context.SetPublicKeyBytes(id, pubBytesInvalid), "not recognized invalid key")
 	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
 		requirer.NoError(context.(*ECDSAPKCS11CryptoContext).pkcs11DeletePublicKey(id))
 	}
@@ -272,7 +272,7 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	//Generate Key with valid uuid
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(p.GenerateKey(id), "Generating key failed")
-	pubKeyBytes, err := p.GetPublicKey(id)
+	pubKeyBytes, err := p.GetPublicKeyBytes(id)
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
 	if !*pkcs11CryptoTests { // can't get private keys from HSMs, so skip this part
@@ -287,7 +287,7 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	// generate Keypair with uuid = 00000000-0000-0000-0000-000000000000
 	id = uuid.Nil
 	asserter.Errorf(p.GenerateKey(id), "Generating key without id")
-	pubKeyBytes, err = p.GetPublicKey(id)
+	pubKeyBytes, err = p.GetPublicKeyBytes(id)
 	asserter.Errorf(err, "Getting Public without uuid")
 	asserter.Nilf(pubKeyBytes, "Public Key without uuid not empty")
 	if !*pkcs11CryptoTests { // can't get private keys from HSMs
@@ -321,14 +321,14 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 
 	p := NewExtendedProtocol(context, map[uuid.UUID][]byte{})
 	// check for non existing key
-	pubKeyBytes, err := p.GetPublicKey(uuid.MustParse(unknownID))
+	pubKeyBytes, err := p.GetPublicKeyBytes(uuid.MustParse(unknownID))
 	asserter.Errorf(err, "Getting non existing Public key did not fail as expected")
 	asserter.Nilf(pubKeyBytes, "Public Key for non existing Key not empty")
 
 	// check for new generated key
 	id := uuid.MustParse(defaultUUID)
 	asserter.NoError(p.GenerateKey(id), "Generating key failed")
-	pubKeyBytesNew, err := p.GetPublicKey(id)
+	pubKeyBytesNew, err := p.GetPublicKeyBytes(id)
 	asserter.NoError(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytesNew, "Public Key for existing Key empty")
 	asserter.Equal(lenPubkeyECDSA, len(pubKeyBytesNew), "len(public key) not correct for a public key")
@@ -339,7 +339,7 @@ func TestCryptoContext_GetPublicKey(t *testing.T) {
 	if !*pkcs11CryptoTests { //run this test only for non-HSM crypto interface (no support for file loading in HSMs)
 		// load the protocol and check if the Public key remains the same, as the new generated
 		asserter.NoErrorf(loadProtocolContext(p, "test2.json"), "Failed loading")
-		pubKeyBytesLoad, err := p.GetPublicKey(id)
+		pubKeyBytesLoad, err := p.GetPublicKeyBytes(id)
 		asserter.NoError(err, "Getting Public key failed")
 		asserter.NotEqualf(pubKeyBytesLoad, pubKeyBytesNew, "the public key did not change when loading context")
 	}
@@ -553,7 +553,7 @@ func TestCryptoContext_Verify(t *testing.T) {
 			dataBytes, err := hex.DecodeString(currTest.dataToVerify)
 			requirer.NoErrorf(err, "Test configuration string (dataToVerify) can't be decoded.\nString was: %v", currTest.dataToVerify)
 			//Set the PublicKey for the Verification and check, that it is set correctly
-			requirer.NoErrorf(context.SetPublicKey(id, pubBytes), "Setting the Private Key failed")
+			requirer.NoErrorf(context.SetPublicKeyBytes(id, pubBytes), "Setting the Private Key failed")
 
 			//Call Verify() and assert error
 			valid, err := context.Verify(id, dataBytes, signatureBytes)
@@ -633,7 +633,7 @@ func TestCryptoContext_VerifyFails(t *testing.T) {
 			dataBytes, err := hex.DecodeString(currTest.dataToVerify)
 			requirer.NoErrorf(err, "Test configuration string (dataToVerify) can't be decoded.\nString was: %v", currTest.dataToVerify)
 			// deliberately set UUIDforKey and not the UUID
-			requirer.NoErrorf(context.SetPublicKey(currTest.UUIDforKey, pubBytes), "Setting the Private Key failed")
+			requirer.NoErrorf(context.SetPublicKeyBytes(currTest.UUIDforKey, pubBytes), "Setting the Private Key failed")
 
 			//Call Verify() with UUID and assert error
 			valid, err := context.Verify(currTest.UUID, dataBytes, signatureBytes)
