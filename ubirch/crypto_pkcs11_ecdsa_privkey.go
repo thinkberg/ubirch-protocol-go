@@ -53,7 +53,7 @@ func newPKCS11ECDSAPrivKey(id uuid.UUID, ctx *ECDSAPKCS11CryptoContext) (*ECDSAP
 	}
 
 	// convert bytes to struct
-	pubkey, err := PublicKeyBytesToStruct(pubKeyBytes)
+	pubkey, err := publicKeyBytesToStruct(pubKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: converting bytes to public key struct failed: %s", err)
 	}

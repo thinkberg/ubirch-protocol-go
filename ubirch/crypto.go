@@ -66,7 +66,7 @@ func (c *ECDSACryptoContext) storePrivateKey(id uuid.UUID, k *ecdsa.PrivateKey) 
 		return fmt.Errorf("uninitialized keystore")
 	}
 
-	privKeyBytes, err := EncodePrivateKey(k)
+	privKeyBytes, err := encodePrivateKey(k)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (c *ECDSACryptoContext) storePublicKey(id uuid.UUID, k *ecdsa.PublicKey) er
 		return fmt.Errorf("uninitialized keystore")
 	}
 
-	pubKeyBytes, err := EncodePublicKey(k)
+	pubKeyBytes, err := encodePublicKey(k)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (c *ECDSACryptoContext) getPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, err
 	}
 
 	// decode the key
-	return DecodePrivateKey(privKey)
+	return decodePrivateKey(privKey)
 }
 
 // getPublicKey gets the decoded public key for the given name.
@@ -117,7 +117,7 @@ func (c *ECDSACryptoContext) getPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error
 	}
 
 	// decode the key
-	return DecodePublicKey(pubKey)
+	return decodePublicKey(pubKey)
 }
 
 // storeKey stores the Private Key, as well as the Public Key, returns 'nil', if successful
@@ -149,7 +149,7 @@ func (c *ECDSACryptoContext) SetPublicKeyBytes(id uuid.UUID, pubKeyBytes []byte)
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
 
-	pubKey, err := PublicKeyBytesToStruct(pubKeyBytes)
+	pubKey, err := publicKeyBytesToStruct(pubKeyBytes)
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (c *ECDSACryptoContext) SetPublicKeyBytes(id uuid.UUID, pubKeyBytes []byte)
 }
 
 func (c *ECDSACryptoContext) SetPublicKeyPEM(id uuid.UUID, pubKeyPEM []byte) error {
-	pubKeyBytes, err := PublicKeyPEMToBytes(pubKeyPEM)
+	pubKeyBytes, err := publicKeyPEMToBytes(pubKeyPEM)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (c *ECDSACryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
 
-	privKey, err := PrivateKeyBytesToStruct(privKeyBytes)
+	privKey, err := privateKeyBytesToStruct(privKeyBytes)
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (c *ECDSACryptoContext) GetPublicKeyBytes(id uuid.UUID) ([]byte, error) {
 		return nil, fmt.Errorf("public key from keystore has unexpected type: %s", decodedPubKey.Curve.Params().Name)
 	}
 
-	return PublicKeyStructToBytes(decodedPubKey)
+	return publicKeyStructToBytes(decodedPubKey)
 }
 
 func (c *ECDSACryptoContext) GetPublicKeyPEM(id uuid.UUID) ([]byte, error) {
@@ -216,7 +216,7 @@ func (c *ECDSACryptoContext) GetPublicKeyPEM(id uuid.UUID) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return PublicKeyBytesToPEM(pubKeyBytes)
+	return publicKeyBytesToPEM(pubKeyBytes)
 }
 
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
@@ -288,19 +288,19 @@ func (c *ECDSACryptoContext) Verify(id uuid.UUID, data []byte, signature []byte)
 }
 
 func (c *ECDSACryptoContext) EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error) {
-	return EncodePrivateKey(priv)
+	return encodePrivateKey(priv)
 }
 
 func (c *ECDSACryptoContext) DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error) {
-	return DecodePrivateKey(pemEncoded)
+	return decodePrivateKey(pemEncoded)
 }
 
 func (c *ECDSACryptoContext) EncodePublicKey(pub interface{}) (pemEncoded []byte, err error) {
-	return EncodePublicKey(pub)
+	return encodePublicKey(pub)
 }
 
 func (c *ECDSACryptoContext) DecodePublicKey(pemEncoded []byte) (pub interface{}, err error) {
-	return DecodePublicKey(pemEncoded)
+	return decodePublicKey(pemEncoded)
 }
 
 func (c *ECDSACryptoContext) Close() error {

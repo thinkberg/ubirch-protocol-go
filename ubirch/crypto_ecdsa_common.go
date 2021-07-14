@@ -9,8 +9,8 @@ import (
 	"math/big"
 )
 
-// EncodePublicKey encodes the Public Key as x509 and returns the encoded PEM
-func EncodePublicKey(pub interface{}) ([]byte, error) {
+// encodePublicKey encodes the Public Key as x509 and returns the encoded PEM
+func encodePublicKey(pub interface{}) ([]byte, error) {
 	publicKeyStruct, ok := pub.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, fmt.Errorf("key is not of type ECDSA public key")
@@ -23,8 +23,8 @@ func EncodePublicKey(pub interface{}) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-// DecodePublicKey decodes a Public Key from the x509 PEM format and returns the Public Key
-func DecodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
+// decodePublicKey decodes a Public Key from the x509 PEM format and returns the Public Key
+func decodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	if block == nil {
 		return nil, fmt.Errorf("unable to parse PEM block")
@@ -36,8 +36,8 @@ func DecodePublicKey(pemEncoded []byte) (*ecdsa.PublicKey, error) {
 	return genericPublicKey.(*ecdsa.PublicKey), nil
 }
 
-// PublicKeyBytesToStruct converts the public key bytes (x,y) to an ecdsa.PublicKey struct.
-func PublicKeyBytesToStruct(pubKeyBytes []byte) (*ecdsa.PublicKey, error) {
+// publicKeyBytesToStruct converts the public key bytes (x,y) to an ecdsa.PublicKey struct.
+func publicKeyBytesToStruct(pubKeyBytes []byte) (*ecdsa.PublicKey, error) {
 	if len(pubKeyBytes) != nistp256PubkeyLength {
 		return nil, fmt.Errorf("unexpected length for ECDSA public key: expected %d, got %d", nistp256PubkeyLength, len(pubKeyBytes))
 	}
@@ -56,8 +56,8 @@ func PublicKeyBytesToStruct(pubKeyBytes []byte) (*ecdsa.PublicKey, error) {
 	return pubKey, nil
 }
 
-// PublicKeyStructToBytes converts a ecdsa.PublicKey struct to raw bytes
-func PublicKeyStructToBytes(pub *ecdsa.PublicKey) ([]byte, error) {
+// publicKeyStructToBytes converts a ecdsa.PublicKey struct to raw bytes
+func publicKeyStructToBytes(pub *ecdsa.PublicKey) ([]byte, error) {
 	pubKeyBytes := make([]byte, 0, 0)
 
 	//copy only the bytes available in X/Y.Bytes() while preserving the leading zeroes in paddedX/Y
@@ -73,28 +73,28 @@ func PublicKeyStructToBytes(pub *ecdsa.PublicKey) ([]byte, error) {
 	return pubKeyBytes, nil
 }
 
-// PublicKeyBytesToPEM converts a ECDSA P-256 public key (64 bytes) to PEM format
-func PublicKeyBytesToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
-	pubKey, err := PublicKeyBytesToStruct(pubKeyBytes)
+// publicKeyBytesToPEM converts a ECDSA P-256 public key (64 bytes) to PEM format
+func publicKeyBytesToPEM(pubKeyBytes []byte) (pubkeyPEM []byte, err error) {
+	pubKey, err := publicKeyBytesToStruct(pubKeyBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	return EncodePublicKey(pubKey)
+	return encodePublicKey(pubKey)
 }
 
-// PublicKeyPEMToBytes converts a public key from PEM format to raw bytes
-func PublicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
-	decodedPubKey, err := DecodePublicKey(pubKeyPEM)
+// publicKeyPEMToBytes converts a public key from PEM format to raw bytes
+func publicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
+	decodedPubKey, err := decodePublicKey(pubKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("decoding public key failed: %v", err)
 	}
 
-	return PublicKeyStructToBytes(decodedPubKey)
+	return publicKeyStructToBytes(decodedPubKey)
 }
 
-// EncodePrivateKey encodes the Private Key as x509 and returns the encoded PEM
-func EncodePrivateKey(priv interface{}) ([]byte, error) {
+// encodePrivateKey encodes the Private Key as x509 and returns the encoded PEM
+func encodePrivateKey(priv interface{}) ([]byte, error) {
 	privateKeyStruct, ok := priv.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, fmt.Errorf("key is not of type ECDSA private key")
@@ -107,8 +107,8 @@ func EncodePrivateKey(priv interface{}) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-// DecodePrivateKey decodes a Private Key from the x509 PEM format and returns the Private Key
-func DecodePrivateKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
+// decodePrivateKey decodes a Private Key from the x509 PEM format and returns the Private Key
+func decodePrivateKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemEncoded)
 	if block == nil {
 		return nil, fmt.Errorf("unable to parse PEM block")
@@ -117,8 +117,8 @@ func DecodePrivateKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	return x509.ParseECPrivateKey(x509Encoded)
 }
 
-// PrivateKeyBytesToStruct converts the private key bytes to an ecdsa.PrivateKey struct.
-func PrivateKeyBytesToStruct(privKeyBytes []byte) (*ecdsa.PrivateKey, error) {
+// privateKeyBytesToStruct converts the private key bytes to an ecdsa.PrivateKey struct.
+func privateKeyBytesToStruct(privKeyBytes []byte) (*ecdsa.PrivateKey, error) {
 	if len(privKeyBytes) != nistp256PrivkeyLength {
 		return nil, fmt.Errorf("unexpected length for ECDSA private key: expected %d, got %d", nistp256PrivkeyLength, len(privKeyBytes))
 	}
@@ -137,12 +137,12 @@ func PrivateKeyBytesToStruct(privKeyBytes []byte) (*ecdsa.PrivateKey, error) {
 	return privKey, nil
 }
 
-// PrivateKeyBytesToPEM converts a ECDSA P-256 private key (32 bytes) to PEM format
-func PrivateKeyBytesToPEM(privKeyBytes []byte) (privKeyPEM []byte, err error) {
-	privKey, err := PrivateKeyBytesToStruct(privKeyBytes)
+// privateKeyBytesToPEM converts a ECDSA P-256 private key (32 bytes) to PEM format
+func privateKeyBytesToPEM(privKeyBytes []byte) (privKeyPEM []byte, err error) {
+	privKey, err := privateKeyBytesToStruct(privKeyBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	return EncodePrivateKey(privKey)
+	return encodePrivateKey(privKey)
 }

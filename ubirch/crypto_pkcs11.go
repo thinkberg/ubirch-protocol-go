@@ -127,7 +127,7 @@ func (E *ECDSAPKCS11CryptoContext) getPublicKey(id uuid.UUID) ([]byte, error) {
 	pubKeyBytes := info[0].Value[len(expectedHeader):] //save public key, remove DER encoding header
 
 	//check that key point is actually on curve
-	_, err := PublicKeyBytesToStruct(pubKeyBytes)
+	_, err := publicKeyBytesToStruct(pubKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (E *ECDSAPKCS11CryptoContext) GetPublicKeyPEM(id uuid.UUID) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	return PublicKeyBytesToPEM(pubKeyBytes)
+	return publicKeyBytesToPEM(pubKeyBytes)
 }
 
 // SetPublicKeyBytes sets the public key only. Use SetKey() instead to create a working keypair from a private key. (Mutex wrapper)
@@ -156,7 +156,7 @@ func (E *ECDSAPKCS11CryptoContext) setPublicKey(id uuid.UUID, pubKeyBytes []byte
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
-	_, err := PublicKeyBytesToStruct(pubKeyBytes)
+	_, err := publicKeyBytesToStruct(pubKeyBytes)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (E *ECDSAPKCS11CryptoContext) setPublicKey(id uuid.UUID, pubKeyBytes []byte
 }
 
 func (E *ECDSAPKCS11CryptoContext) SetPublicKeyPEM(id uuid.UUID, pubKeyPEM []byte) error {
-	pubKeyBytes, err := PublicKeyPEMToBytes(pubKeyPEM)
+	pubKeyBytes, err := publicKeyPEMToBytes(pubKeyPEM)
 	if err != nil {
 		return err
 	}
@@ -261,7 +261,7 @@ func (E *ECDSAPKCS11CryptoContext) setKey(id uuid.UUID, privKeyBytes []byte) err
 		return fmt.Errorf("UUID \"Nil\"-value")
 	}
 
-	privKey, err := PrivateKeyBytesToStruct(privKeyBytes)
+	privKey, err := privateKeyBytesToStruct(privKeyBytes)
 	if err != nil {
 		return err
 	}
@@ -477,7 +477,7 @@ func (E *ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature [
 	}
 
 	// convert bytes to pubkey struct
-	pub, err := PublicKeyBytesToStruct(pubkeyBytes)
+	pub, err := publicKeyBytesToStruct(pubkeyBytes)
 	if err != nil {
 		return false, err
 	}
@@ -491,19 +491,19 @@ func (E *ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature [
 }
 
 func (E *ECDSAPKCS11CryptoContext) EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error) {
-	return EncodePrivateKey(priv)
+	return encodePrivateKey(priv)
 }
 
 func (E *ECDSAPKCS11CryptoContext) DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error) {
-	return DecodePrivateKey(pemEncoded)
+	return decodePrivateKey(pemEncoded)
 }
 
 func (E *ECDSAPKCS11CryptoContext) EncodePublicKey(pub interface{}) (pemEncoded []byte, err error) {
-	return EncodePublicKey(pub)
+	return encodePublicKey(pub)
 }
 
 func (E *ECDSAPKCS11CryptoContext) DecodePublicKey(pemEncoded []byte) (pub interface{}, err error) {
-	return DecodePublicKey(pemEncoded)
+	return decodePublicKey(pemEncoded)
 }
 
 //// PKCS#11 related functions ////
