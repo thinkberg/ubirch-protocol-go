@@ -35,6 +35,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"log"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -183,4 +184,58 @@ func BenchmarkCryptoContextSignHashExistingKeys(b *testing.B) {
 
 	requirer.NoError(crypto.Close(), "error when closing crypto context")
 
+}
+
+//BenchmarkCryptoContextSignHashExistingKeys benchmarks signing only directly with the crypto interface (with go or pkcs#11
+// ecdsa lib depending on test flags). Uses a list of existing keys instead of generating a new one, switching the key is
+// included in the benchmark. It uses parallel go routines to test concurrent access to the HSM interface.
+func BenchmarkCryptoContextSignHashExistingKeysGoroutines(b *testing.B) {
+
+	requirer := require.New(b)
+
+	//load list of existing uuids/keys
+	c := UuidList{}
+	err := c.Load("uuid_list.json")
+	if err != nil {
+		log.Fatalf("ERROR: unable to load configuration: %s", err)
+	}
+	nrOfUuids := len(c.Token)
+
+	//create golang or pkcs#11 crypto crypto depending on test settings
+	crypto, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+
+	id := uuid.MustParse(defaultUUID)
+
+	//Generate pseudorandom input data
+	hashData := deterministicPseudoRandomBytes(0, crypto.HashLength())
+
+	// waitgroup for the go routines
+	var wg sync.WaitGroup
+
+	//Run the current benchmark, time is for signing *all* uuids in list
+	b.Run("SignAllUuidsFromList(n="+fmt.Sprint(nrOfUuids)+")", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for id, _ := range c.Token { //iterate over all uuids in list, start go routine for each
+				wg.Add(1)
+				go signHashGoroutine(crypto, uuid.MustParse(id), hashData, &wg)
+			}
+			wg.Wait() // wait for operations to finish
+		}
+	})
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		requirer.NoError(pkcs11DeleteKeypair(crypto, id))
+	}
+
+	requirer.NoError(crypto.Close(), "error when closing crypto context")
+
+}
+func signHashGoroutine(myCrypto Crypto, myUuid uuid.UUID, myData []byte, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	signature, err := myCrypto.SignHash(myUuid, myData)
+	if err != nil {
+		panic(err)
+	}
+	_ = signature
 }
