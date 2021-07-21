@@ -30,11 +30,28 @@ package ubirch
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/require"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
 )
+
+type UuidList struct {
+	Token map[string]string
+}
+
+func (c *UuidList) Load(filename string) error {
+	fileHandle, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer fileHandle.Close()
+	return json.NewDecoder(fileHandle).Decode(c)
+}
 
 //BenchmarkCryptoContextSign benchmarks hashing and signing directly with the crypto interface (with go or pkcs#11
 // ecdsa lib depending on test flags).
@@ -114,6 +131,50 @@ func BenchmarkCryptoContextSignHash(b *testing.B) {
 				b.Fatalf("Protocol.SignHash() failed with error %v", err)
 			}
 			_ = signature
+		}
+	})
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		requirer.NoError(pkcs11DeleteKeypair(crypto, id))
+	}
+
+	requirer.NoError(crypto.Close(), "error when closing crypto context")
+
+}
+
+//BenchmarkCryptoContextSignHashExistingKeys benchmarks signing only directly with the crypto interface (with go or pkcs#11
+// ecdsa lib depending on test flags). Uses a list of existing keys instead of generating a new one, switching the key is
+// included in the benchmark.
+func BenchmarkCryptoContextSignHashExistingKeys(b *testing.B) {
+
+	requirer := require.New(b)
+
+	//load list of existing uuids/keys
+	c := UuidList{}
+	err := c.Load("uuid_list.json")
+	if err != nil {
+		log.Fatalf("ERROR: unable to load configuration: %s", err)
+	}
+	nrOfUuids := len(c.Token)
+
+	//create golang or pkcs#11 crypto crypto depending on test settings
+	crypto, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+
+	id := uuid.MustParse(defaultUUID)
+
+	//Generate pseudorandom input data
+	hashData := deterministicPseudoRandomBytes(0, crypto.HashLength())
+
+	//Run the current benchmark, time is for signing *all* uuids in list
+	b.Run("SignAllUuidsFromList(n="+fmt.Sprint(nrOfUuids)+")", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for id, _ := range c.Token { //iterate over all uuids in list
+				signature, err := crypto.SignHash(uuid.MustParse(id), hashData)
+				if err != nil {
+					b.Fatalf("Protocol.SignHash() failed with error %v", err)
+				}
+				_ = signature
+			}
 		}
 	})
 	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
