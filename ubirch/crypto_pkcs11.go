@@ -776,7 +776,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Durati
 				return fmt.Errorf("pkcs11Retry: unfixable error: %s", err)
 			}
 		} else {
-			return fmt.Errorf("pkcs11Retry used on non-pkcs11-context function (returned error type is not pkcs11.Error)")
+			return fmt.Errorf("pkcs11Retry used on non-pkcs11-context function (returned error type is not pkcs11.Error). Error was: %s", err)
 		}
 
 		//try again in next loop...
