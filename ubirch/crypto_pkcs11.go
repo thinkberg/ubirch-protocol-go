@@ -610,7 +610,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11GetHandle(id uuid.UUID, class uint) (pk
 	if len(objects) > 1 {
 		return 0, fmt.Errorf("found more than one object")
 	} else if len(objects) == 0 {
-		return 0, fmt.Errorf("could not find object")
+		return 0, fmt.Errorf("could not find object for UUID %s and CKA_CLASS %d", id, class)
 	}
 	return objects[0], nil
 }
@@ -776,7 +776,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Durati
 				return fmt.Errorf("pkcs11Retry: unfixable error: %s", err)
 			}
 		} else {
-			return fmt.Errorf("pkcs11Retry used on non-pkcs11-context function (returned error type is not pkcs11.Error). Error was: %s", err)
+			return fmt.Errorf("pkcs11Retry: can't use error handler, pkcs11Retry was used on non-pkcs11-context function (returned error type is not pkcs11.Error).\n  non-pkcs11 Error was: %s", err)
 		}
 
 		//try again in next loop...
@@ -837,9 +837,13 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11TeardownSession() error {
 	if err != nil { // if there was an error
 		pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
 		if typeOK {                             //assertion worked
-			if pkcs11Err != pkcs11.CKR_OK &&
-				pkcs11Err != pkcs11.CKR_DEVICE_REMOVED &&
-				pkcs11Err != pkcs11.CKR_SESSION_CLOSED { //if it's not something that's ok or ok-ish (lost TCP/IP connection)
+			//we check if the error is not of a type that is considered 'OK' or at least 'we will just continued'
+			// (in the context of tearing down a session)
+			if pkcs11Err != pkcs11.CKR_OK && //it worked
+				pkcs11Err != pkcs11.CKR_DEVICE_ERROR && //returned when HSM is offline when logging out
+				pkcs11Err != pkcs11.CKR_DEVICE_REMOVED && //device is gone/offline
+				pkcs11Err != pkcs11.CKR_SESSION_CLOSED { // session already closed
+				//if it's not something that's ok or ok-ish (lost TCP/IP connection)
 				return fmt.Errorf("pkcs11TeardownSession: logout: %s", pkcs11Err)
 			}
 		} else { //error is of unexpected type
