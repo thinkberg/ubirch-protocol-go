@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+const sessionHandleNotInitialized = 0
+
 type ECDSAPKCS11CryptoContext struct {
 	pkcs11Ctx        *pkcs11.Ctx          // pkcs11 context for accessing HSM interface
 	sessionHandle    pkcs11.SessionHandle // Handle of pkcs11 session
@@ -29,7 +31,7 @@ type ECDSAPKCS11CryptoContext struct {
 
 var _ Crypto = (*ECDSAPKCS11CryptoContext)(nil)
 
-// NewECDSAPKCS11CryptoContext initializes the pkcs#11 crypto context including login and session.
+// NewECDSAPKCS11CryptoContext initializes the pkcs#11 crypto context.
 // Parameters:
 // pkcs11LibLocation: path where to find the .so/.dll pkcs#11 interface file. Use full path or properly configured environment.
 // loginPIN: PIN for authenticating the pkcs11 USER (as opposed to the security officer)
@@ -55,27 +57,38 @@ func NewECDSAPKCS11CryptoContext(pkcs11LibLocation string, loginPIN string, slot
 		E.sessionFlags = pkcs11.CKF_SERIAL_SESSION
 	}
 
-	err := E.pkcs11SetupSession()
-	if err != nil {
-		return nil, fmt.Errorf("NewECDSAPKCS11CryptoContext: %s", err)
-	}
-
 	E.cryptoInterfaceMtx = &sync.Mutex{}
 
 	return E, nil
 }
 
-// Close closes/logs out of the pkcs#11 session and destroys the pkcs#11 context
+// Close closes/destroys the pkcs#11 context
 func (E *ECDSAPKCS11CryptoContext) Close() error {
-
-	err := E.pkcs11TeardownSession()
-	if err != nil {
-		return err
-	}
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
 
 	E.pkcs11Ctx.Destroy()
 
 	return nil
+}
+
+// SetupSession sets up a session including initialization and login. (Mutex wrapper)
+func (E *ECDSAPKCS11CryptoContext) SetupSession() error {
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+
+	return E.pkcs11SetupSession()
+}
+
+// TeardownSession closes/logs out of the pkcs#11 session
+func (E *ECDSAPKCS11CryptoContext) TeardownSession() error {
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+
+	return E.pkcs11TeardownSession()
 }
 
 // GetPublicKeyBytes gets the binary public key data as returned by the HSM (Mutex wrapper)
@@ -832,37 +845,42 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11TeardownSession() error {
 	// and this will lead to a recursion.
 	var err error
 
-	//logout
-	err = E.pkcs11Ctx.Logout(E.sessionHandle)
-	if err != nil { // if there was an error
-		pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
-		if typeOK {                             //assertion worked
-			//we check if the error is not of a type that is considered 'OK' or at least 'we will just continued'
-			// (in the context of tearing down a session)
-			if pkcs11Err != pkcs11.CKR_OK && //it worked
-				pkcs11Err != pkcs11.CKR_DEVICE_ERROR && //returned when HSM is offline when logging out
-				pkcs11Err != pkcs11.CKR_DEVICE_REMOVED && //device is gone/offline
-				pkcs11Err != pkcs11.CKR_SESSION_CLOSED { // session already closed
-				//if it's not something that's ok or ok-ish (lost TCP/IP connection)
-				return fmt.Errorf("pkcs11TeardownSession: logout: %s", pkcs11Err)
+	if E.sessionHandle != sessionHandleNotInitialized {
+		//logout
+		err = E.pkcs11Ctx.Logout(E.sessionHandle)
+		if err != nil { // if there was an error
+			pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
+			if typeOK {                             //assertion worked
+				if pkcs11Err == pkcs11.CKR_CRYPTOKI_NOT_INITIALIZED { //not initialized
+					return nil
+				}
+				//we check if the error is not of a type that is considered 'OK' or at least 'we will just continued'
+				// (in the context of tearing down a session)
+				if pkcs11Err != pkcs11.CKR_OK && //it worked
+					pkcs11Err != pkcs11.CKR_DEVICE_ERROR && //returned when HSM is offline when logging out
+					pkcs11Err != pkcs11.CKR_DEVICE_REMOVED && //device is gone/offline
+					pkcs11Err != pkcs11.CKR_SESSION_CLOSED { // session already closed
+					//if it's not something that's ok or ok-ish (lost TCP/IP connection)
+					return fmt.Errorf("pkcs11TeardownSession: logout: %s", pkcs11Err)
+				}
+			} else { //error is of unexpected type
+				return fmt.Errorf("pkcs11TeardownSession: unexpected type of error returned from logout (not err.(pkcs11.Error)). Error was: %s", err)
 			}
-		} else { //error is of unexpected type
-			return fmt.Errorf("pkcs11TeardownSession: unexpected type of error returned from logout (not err.(pkcs11.Error)). Error was: %s", err)
 		}
-	}
 
-	//close session
-	err = E.pkcs11Ctx.CloseSession(E.sessionHandle)
-	if err != nil { // if there was an error
-		pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
-		if typeOK {                             //assertion worked
-			if pkcs11Err != pkcs11.CKR_OK &&
-				pkcs11Err != pkcs11.CKR_DEVICE_REMOVED &&
-				pkcs11Err != pkcs11.CKR_SESSION_CLOSED { //if it's not something that's ok or ok-ish (lost TCP/IP connection)
-				return fmt.Errorf("pkcs11TeardownSession: close: %s", pkcs11Err)
+		//close session
+		err = E.pkcs11Ctx.CloseSession(E.sessionHandle)
+		if err != nil { // if there was an error
+			pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
+			if typeOK {                             //assertion worked
+				if pkcs11Err != pkcs11.CKR_OK &&
+					pkcs11Err != pkcs11.CKR_DEVICE_REMOVED &&
+					pkcs11Err != pkcs11.CKR_SESSION_CLOSED { //if it's not something that's ok or ok-ish (lost TCP/IP connection)
+					return fmt.Errorf("pkcs11TeardownSession: close: %s", pkcs11Err)
+				}
+			} else { //error is of unexpected type
+				return fmt.Errorf("pkcs11TeardownSession: unexpected type of error returned from close (not err.(pkcs11.Error)). Error was: %s", err)
 			}
-		} else { //error is of unexpected type
-			return fmt.Errorf("pkcs11TeardownSession: unexpected type of error returned from close (not err.(pkcs11.Error)). Error was: %s", err)
 		}
 	}
 
