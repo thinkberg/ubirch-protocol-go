@@ -91,6 +91,31 @@ func (E *ECDSAPKCS11CryptoContext) TeardownSession() error {
 	return E.pkcs11TeardownSession()
 }
 
+// IsReady checks if the pkcs#11 context is ready to use
+func (E *ECDSAPKCS11CryptoContext) IsReady() error {
+	//acquire mutex for pkcs#11 interface related operations
+	E.cryptoInterfaceMtx.Lock()
+	defer E.cryptoInterfaceMtx.Unlock()
+
+	slots, err := E.pkcs11Ctx.GetSlotList(true)
+	if err != nil {
+		return fmt.Errorf("pkcs11Ctx.GetSlotList: %v", err)
+	}
+	if len(slots) == 0 {
+		return fmt.Errorf("pkcs11Ctx.GetSlotList: no slots with token present available")
+	}
+
+	retriedErr := E.pkcs11Retry(E.pkcs11Retries, E.pkcs11RetryDelay, func() error {
+		_, err = E.pkcs11Ctx.GetTokenInfo(slots[E.slotNr])
+		return err
+	})
+
+	if retriedErr != nil {
+		return fmt.Errorf("PKCS#11 crypto context not ready: %v", retriedErr)
+	}
+	return nil
+}
+
 // GetPublicKeyBytes gets the binary public key data as returned by the HSM (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) GetPublicKeyBytes(id uuid.UUID) ([]byte, error) {
 	//acquire mutex for pkcs#11 interface related operations
