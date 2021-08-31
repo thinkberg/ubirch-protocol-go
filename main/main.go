@@ -103,6 +103,17 @@ func main() {
 		}
 	}(myCrypto)
 
+	err = myCrypto.SetupSession()
+	if err != nil {
+		fmt.Printf("unable to set up session with HSM: %v", err)
+	}
+	defer func() {
+		err := myCrypto.TeardownSession()
+		if err != nil {
+			fmt.Print(err)
+		}
+	}()
+
 	privExists, err := myCrypto.PrivateKeyExists(myUuid)
 	if err != nil {
 		panic(err)
