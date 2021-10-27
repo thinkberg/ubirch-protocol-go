@@ -66,12 +66,12 @@ func (c *ECDSACryptoContext) storePrivateKey(id uuid.UUID, k *ecdsa.PrivateKey) 
 		return fmt.Errorf("uninitialized keystore")
 	}
 
-	privKeyBytes, err := encodePrivateKey(k)
+	privKeyPEM, err := encodePrivateKey(k)
 	if err != nil {
 		return err
 	}
 
-	return c.Keystore.SetPrivateKey(id, privKeyBytes)
+	return c.Keystore.SetPrivateKey(id, privKeyPEM)
 }
 
 // storePublicKey stores the public Key, returns 'nil', if successful
@@ -80,12 +80,12 @@ func (c *ECDSACryptoContext) storePublicKey(id uuid.UUID, k *ecdsa.PublicKey) er
 		return fmt.Errorf("uninitialized keystore")
 	}
 
-	pubKeyBytes, err := encodePublicKey(k)
+	pubKeyPEM, err := encodePublicKey(k)
 	if err != nil {
 		return err
 	}
 
-	return c.Keystore.SetPublicKey(id, pubKeyBytes)
+	return c.Keystore.SetPublicKey(id, pubKeyPEM)
 }
 
 // getPrivateKey gets the decoded private key for the given name.
@@ -95,13 +95,13 @@ func (c *ECDSACryptoContext) getPrivateKey(id uuid.UUID) (*ecdsa.PrivateKey, err
 	}
 
 	// get encoded private key from keystore
-	privKey, err := c.Keystore.GetPrivateKey(id)
+	privKeyPEM, err := c.Keystore.GetPrivateKey(id)
 	if err != nil {
 		return nil, err
 	}
 
 	// decode the key
-	return decodePrivateKey(privKey)
+	return decodePrivateKey(privKeyPEM)
 }
 
 // getPublicKey gets the decoded public key for the given name.
@@ -111,13 +111,13 @@ func (c *ECDSACryptoContext) getPublicKey(id uuid.UUID) (*ecdsa.PublicKey, error
 	}
 
 	// get encoded public key from keystore
-	pubKey, err := c.Keystore.GetPublicKey(id)
+	pubKeyPEM, err := c.Keystore.GetPublicKey(id)
 	if err != nil {
 		return nil, err
 	}
 
 	// decode the key
-	return decodePublicKey(pubKey)
+	return decodePublicKey(pubKeyPEM)
 }
 
 // storeKey stores the Private Key, as well as the Public Key, returns 'nil', if successful
