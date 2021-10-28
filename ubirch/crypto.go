@@ -287,20 +287,28 @@ func (c *ECDSACryptoContext) Verify(id uuid.UUID, data []byte, signature []byte)
 	return ecdsa.Verify(pub, hash[:], r, s), nil
 }
 
-func (c *ECDSACryptoContext) EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error) {
+func (*ECDSACryptoContext) EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error) {
 	return encodePrivateKey(priv)
 }
 
-func (c *ECDSACryptoContext) DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error) {
+func (*ECDSACryptoContext) DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error) {
 	return decodePrivateKey(pemEncoded)
 }
 
-func (c *ECDSACryptoContext) EncodePublicKey(pub interface{}) (pemEncoded []byte, err error) {
+func (*ECDSACryptoContext) EncodePublicKey(pub interface{}) (pemEncoded []byte, err error) {
 	return encodePublicKey(pub)
 }
 
-func (c *ECDSACryptoContext) DecodePublicKey(pemEncoded []byte) (pub interface{}, err error) {
+func (*ECDSACryptoContext) DecodePublicKey(pemEncoded []byte) (pub interface{}, err error) {
 	return decodePublicKey(pemEncoded)
+}
+
+func (*ECDSACryptoContext) PublicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
+	return publicKeyPEMToBytes(pubKeyPEM)
+}
+
+func (*ECDSACryptoContext) PublicKeyBytesToPEM(pubKeyBytes []byte) ([]byte, error) {
+	return publicKeyBytesToPEM(pubKeyBytes)
 }
 
 func (c *ECDSACryptoContext) Close() error {

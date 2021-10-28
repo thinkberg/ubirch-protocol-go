@@ -528,20 +528,28 @@ func (E *ECDSAPKCS11CryptoContext) Verify(id uuid.UUID, data []byte, signature [
 	return ecdsa.Verify(pub, hash[:], r, s), nil
 }
 
-func (E *ECDSAPKCS11CryptoContext) EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error) {
+func (*ECDSAPKCS11CryptoContext) EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error) {
 	return encodePrivateKey(priv)
 }
 
-func (E *ECDSAPKCS11CryptoContext) DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error) {
+func (*ECDSAPKCS11CryptoContext) DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error) {
 	return decodePrivateKey(pemEncoded)
 }
 
-func (E *ECDSAPKCS11CryptoContext) EncodePublicKey(pub interface{}) (pemEncoded []byte, err error) {
+func (*ECDSAPKCS11CryptoContext) EncodePublicKey(pub interface{}) (pemEncoded []byte, err error) {
 	return encodePublicKey(pub)
 }
 
-func (E *ECDSAPKCS11CryptoContext) DecodePublicKey(pemEncoded []byte) (pub interface{}, err error) {
+func (*ECDSAPKCS11CryptoContext) DecodePublicKey(pemEncoded []byte) (pub interface{}, err error) {
 	return decodePublicKey(pemEncoded)
+}
+
+func (*ECDSAPKCS11CryptoContext) PublicKeyPEMToBytes(pubKeyPEM []byte) ([]byte, error) {
+	return publicKeyPEMToBytes(pubKeyPEM)
+}
+
+func (*ECDSAPKCS11CryptoContext) PublicKeyBytesToPEM(pubKeyBytes []byte) ([]byte, error) {
+	return publicKeyBytesToPEM(pubKeyBytes)
 }
 
 //// PKCS#11 related functions ////

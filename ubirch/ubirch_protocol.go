@@ -55,6 +55,9 @@ type Crypto interface {
 	EncodePublicKey(pub interface{}) (pemEncoded []byte, err error)
 	DecodePublicKey(pemEncoded []byte) (pub interface{}, err error)
 
+	PublicKeyPEMToBytes(pubKeyPEM []byte) (pubKeyBytes []byte, err error)
+	PublicKeyBytesToPEM(pubKeyBytes []byte) (pubKeyPEM []byte, err error)
+
 	GenerateKey(id uuid.UUID) error
 	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
 
