@@ -22,14 +22,10 @@ type SignedKeyRegistration struct {
 	Signature  string          `json:"signature"`
 }
 
-type Sign func(uuid.UUID, []byte) ([]byte, error)
-
-// GetSignedKeyRegistration creates a self-signed JSON key certificate
-// to be sent to the UBIRCH identity service for public key registration
-func GetSignedKeyRegistration(uid uuid.UUID, pubKeyPEM []byte, sign Sign) ([]byte, error) {
+func getSignedKeyRegistration(c Crypto, uid uuid.UUID) ([]byte, error) {
 	const timeFormat = "2006-01-02T15:04:05.000Z"
 
-	pubKeyBytes, err := publicKeyPEMToBytes(pubKeyPEM)
+	pubKeyBytes, err := c.GetPublicKeyBytes(uid)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +48,7 @@ func GetSignedKeyRegistration(uid uuid.UUID, pubKeyPEM []byte, sign Sign) ([]byt
 		return nil, err
 	}
 
-	signature, err := sign(uid, jsonKeyReg)
+	signature, err := c.Sign(uid, jsonKeyReg)
 	if err != nil {
 		return nil, err
 	}

@@ -60,6 +60,7 @@ type Crypto interface {
 
 	GenerateKey(id uuid.UUID) error
 	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
+	GetSignedKeyRegistration(uid uuid.UUID) ([]byte, error)
 
 	SignatureLength() int
 	HashLength() int

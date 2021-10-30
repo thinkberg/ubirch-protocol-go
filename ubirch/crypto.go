@@ -198,6 +198,12 @@ func (c *ECDSACryptoContext) GetCSR(id uuid.UUID, subjectCountry string, subject
 	return x509.CreateCertificateRequest(rand.Reader, template, priv)
 }
 
+// GetSignedKeyRegistration creates a self-signed JSON key certificate
+// to be sent to the UBIRCH identity service for public key registration
+func (c *ECDSACryptoContext) GetSignedKeyRegistration(uid uuid.UUID) ([]byte, error) {
+	return getSignedKeyRegistration(c, uid)
+}
+
 // GetPublicKeyBytes gets the public key bytes for the given name.
 func (c *ECDSACryptoContext) GetPublicKeyBytes(id uuid.UUID) ([]byte, error) {
 	decodedPubKey, err := c.getPublicKey(id)
