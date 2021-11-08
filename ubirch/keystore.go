@@ -22,16 +22,21 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/ubirch/go.crypto/keystore"
+	"strings"
 )
 
 // Keystorer contains the methods that must be implemented by the keystore
 // implementation.
 type Keystorer interface {
+	GetIDs() ([]uuid.UUID, error)
+
 	GetPrivateKey(id uuid.UUID) ([]byte, error)
 	SetPrivateKey(id uuid.UUID, key []byte) error
+	PrivateKeyExists(id uuid.UUID) (bool, error)
 
 	GetPublicKey(id uuid.UUID) ([]byte, error)
 	SetPublicKey(id uuid.UUID, key []byte) error
+	PublicKeyExists(id uuid.UUID) (bool, error)
 }
 
 // EncryptedKeystore is the reference implementation for a simple keystore.
@@ -55,14 +60,34 @@ func NewEncryptedKeystore(secret []byte) *EncryptedKeystore {
 	}
 }
 
+func (enc *EncryptedKeystore) GetIDs() ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	for name := range *enc.Keystore {
+		if strings.HasPrefix(name, "_") {
+			id, err := uuid.Parse(strings.TrimPrefix(name, "_"))
+			if err != nil {
+				return nil, err
+			}
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
 // GetKey returns a Key from the Keystore
 func (enc *EncryptedKeystore) getKey(keyname string) ([]byte, error) {
 	return enc.Keystore.Get(keyname, enc.Secret)
 }
 
-// SetKey sets a key in the Keystore
+// setKey sets a key in the Keystore
 func (enc *EncryptedKeystore) setKey(keyname string, keyvalue []byte) error {
 	return enc.Keystore.Set(keyname, keyvalue, enc.Secret)
+}
+
+// keyExists checks if a certain entry exists in the keystore
+func (enc *EncryptedKeystore) keyExists(keyname string) (bool, error) {
+	_, keyPresent := (*enc.Keystore)[keyname]
+	return keyPresent, nil
 }
 
 func (enc *EncryptedKeystore) GetPrivateKey(id uuid.UUID) ([]byte, error) {
@@ -73,12 +98,20 @@ func (enc *EncryptedKeystore) SetPrivateKey(id uuid.UUID, key []byte) error {
 	return enc.setKey(privKeyEntryTitle(id), key)
 }
 
+func (enc *EncryptedKeystore) PrivateKeyExists(id uuid.UUID) (bool, error) {
+	return enc.keyExists(privKeyEntryTitle(id))
+}
+
 func (enc *EncryptedKeystore) GetPublicKey(id uuid.UUID) ([]byte, error) {
 	return enc.getKey(pubKeyEntryTitle(id))
 }
 
 func (enc *EncryptedKeystore) SetPublicKey(id uuid.UUID, key []byte) error {
 	return enc.setKey(pubKeyEntryTitle(id), key)
+}
+
+func (enc *EncryptedKeystore) PublicKeyExists(id uuid.UUID) (bool, error) {
+	return enc.keyExists(pubKeyEntryTitle(id))
 }
 
 // MarshalJSON implements the json.Marshaler interface. The Password will not be

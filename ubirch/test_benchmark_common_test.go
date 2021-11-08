@@ -71,7 +71,7 @@ type ExtendedProtocol struct {
 	signatures map[uuid.UUID][]byte
 }
 
-func NewExtendedProtocol(context *ECDSACryptoContext, signatures map[uuid.UUID][]byte) *ExtendedProtocol {
+func NewExtendedProtocol(context Crypto, signatures map[uuid.UUID][]byte) *ExtendedProtocol {
 	p := &ExtendedProtocol{}
 	p.signatures = signatures
 	p.Protocol.Crypto = context
@@ -261,7 +261,7 @@ func setProtocolContext(p *ExtendedProtocol, UUID string, PrivKey string, PubKey
 		if err != nil {
 			return fmt.Errorf("setProtocolContext: Error decoding public key string: : %v, string was: %v", err, PubKey)
 		}
-		err = p.Crypto.SetPublicKey(id, pubBytes)
+		err = p.Crypto.SetPublicKeyBytes(id, pubBytes)
 		if err != nil {
 			return fmt.Errorf("setProtocolContext: Error setting public key bytes: : %v,", err)
 		}

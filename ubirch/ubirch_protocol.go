@@ -41,20 +41,32 @@ const (
 
 // Crypto Interface for exported functionality
 type Crypto interface {
-	GetPublicKey(id uuid.UUID) ([]byte, error)
-	SetPublicKey(id uuid.UUID, pubKeyBytes []byte) error
+	GetPublicKeyBytes(id uuid.UUID) ([]byte, error)
+	SetPublicKeyBytes(id uuid.UUID, pubKeyBytes []byte) error
 
-	PrivateKeyExists(id uuid.UUID) bool
+	GetPublicKeyPEM(id uuid.UUID) ([]byte, error)
+	SetPublicKeyPEM(id uuid.UUID, pubKeyPEM []byte) error
+
+	PrivateKeyExists(id uuid.UUID) (bool, error)
 	SetKey(id uuid.UUID, privKeyBytes []byte) error
 
+	EncodePrivateKey(priv interface{}) (pemEncoded []byte, err error)
+	DecodePrivateKey(pemEncoded []byte) (priv interface{}, err error)
+	EncodePublicKey(pub interface{}) (pemEncoded []byte, err error)
+	DecodePublicKey(pemEncoded []byte) (pub interface{}, err error)
+
+	PublicKeyPEMToBytes(pubKeyPEM []byte) (pubKeyBytes []byte, err error)
+	PublicKeyBytesToPEM(pubKeyBytes []byte) (pubKeyPEM []byte, err error)
+
 	GenerateKey(id uuid.UUID) error
-	GetSignedKeyRegistration(uid uuid.UUID, pubKey []byte) ([]byte, error)
 	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
+	GetSignedKeyRegistration(uid uuid.UUID) ([]byte, error)
 
 	SignatureLength() int
 	HashLength() int
 
 	Sign(id uuid.UUID, value []byte) ([]byte, error)
+	SignHash(id uuid.UUID, value []byte) ([]byte, error)
 	Verify(id uuid.UUID, value []byte, signature []byte) (bool, error)
 }
 

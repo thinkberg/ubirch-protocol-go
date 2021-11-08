@@ -19,6 +19,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
@@ -60,33 +61,31 @@ func loadProtocolContext(p *ubirch.Protocol) error {
 }
 
 func main() {
-	name := "A"
+	uid := uuid.MustParse("10adfe73-9819-4121-b575-97e614ab441a")
 
 	p := ubirch.Protocol{
 		Crypto: &ubirch.ECDSACryptoContext{
 			Keystore: ubirch.NewEncryptedKeystore([]byte("2234567890123456")), //this is only a demo code secret, use a real secret here in your code
-			Names:    map[string]uuid.UUID{},
 		},
 	}
 
 	err := loadProtocolContext(&p)
 	if err != nil {
 		log.Printf("keystore not found, or unable to load: %v", err)
-		uid, _ := uuid.NewRandom()
-		err = p.GenerateKey(name, uid)
+		err = p.GenerateKey(uid)
 		if err != nil {
 			log.Fatalf("can't add key to key store: %v", err)
 		}
 	}
 
-	uid, _ := p.GetUUID(name)
 	data, _ := hex.DecodeString("010203040506070809FF")
+	hash := sha256.Sum256(data)
 	encoded, err := p.Sign(
 		&ubirch.SignedUPP{
 			Version:   ubirch.Signed,
 			Uuid:      uid,
 			Hint:      0,
-			Payload:   data,
+			Payload:   hash[:],
 			Signature: nil,
 		})
 	if err != nil {

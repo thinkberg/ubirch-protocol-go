@@ -208,7 +208,7 @@ func TestSignHash_Fails(t *testing.T) {
 				asserter := assert.New(t)
 				requirer := require.New(t)
 
-				//Create new crypto context
+				//Create new protocol context
 				protocol, err := newProtocolContextSigner(currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
 				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
@@ -235,7 +235,7 @@ func TestSignHash_RandomInput(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 
-	//Create new crypto context, we use this context for all created UPPs without resetting it
+	//Create new protocol context, we use this context for all created UPPs without resetting it
 	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
@@ -360,7 +360,7 @@ func TestSignData_Fails(t *testing.T) {
 				asserter := assert.New(t)
 				requirer := require.New(t)
 
-				//Create new crypto context
+				//Create new protocol context
 				protocol, err := newProtocolContextSigner(currTest.UUIDForContext, currTest.privateKeyForContext, currTest.lastSigForContext)
 				requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
@@ -401,7 +401,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
+			//Create new protocol context
 			protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
@@ -419,7 +419,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
+			//Create new protocol context
 			protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
 
@@ -452,7 +452,7 @@ func TestSignData_RandomInput(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
 
-	//Create new crypto context, we use this context for all created UPPs without resetting it
+	//Create new protocol context, we use this context for all created UPPs without resetting it
 	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
@@ -529,7 +529,7 @@ func TestSignData_SignedType(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
+			//Create new protocol context
 			protocol, err := newProtocolContextSigner(currTest.deviceUUID, currTest.privateKey, defaultLastSig)
 			requirer.NoError(err, "Creating protocol context failed")
 
@@ -613,7 +613,7 @@ func TestSignData_ChainedType(t *testing.T) {
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
-			//Create new crypto context
+			//Create new protocol context
 			protocol, err := newProtocolContextSigner(currTest.deviceUUID, currTest.privateKey, currTest.lastSignature)
 			requirer.NoError(err, "Creating protocol context failed")
 
@@ -984,7 +984,7 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 		signer, err := newProtocolContextSigner(currUUID, currPriv, currLastSig)
 		requirer.NoError(err, "Creating signer protocol context failed")
 		//Verifier
-		currPubkeyBytes, err := signer.GetPublicKey(uuid.MustParse(currUUID))
+		currPubkeyBytes, err := signer.GetPublicKeyBytes(uuid.MustParse(currUUID))
 		requirer.NoError(err, "Could not get pubkey from signer context")
 		currPub = hex.EncodeToString(currPubkeyBytes)
 		verifier, err := newProtocolContextVerifier(currUUID, currPub)
@@ -1574,7 +1574,6 @@ func TestECDSASignatureChanges(t *testing.T) {
 }
 
 // TestCheckChainLink tests the CheckChainLink function of the ubirch protocol library.
-// To test invalid input, don't set the `protoType`-attribute of the test-struct (defaults to 0).
 // If the input is decoded successfully despite being invalid, the test should fail.
 func TestCheckChainLink(t *testing.T) {
 	var tests = []struct {
