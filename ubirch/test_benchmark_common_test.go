@@ -308,6 +308,11 @@ func getCryptoContext() (Crypto, error) {
 		if err != nil {
 			return nil, fmt.Errorf("creating new pkcs#11 crypto context failed: %s", err)
 		}
+		// open a session and login to the HSM/pkcs#11 device
+		err = context.SetupSession()
+		if err != nil {
+			return nil, fmt.Errorf("setting up session with pkcs#11 crypto interface failed: %s", err)
+		}
 		return context, nil
 	} else {
 		context := &ECDSACryptoContext{

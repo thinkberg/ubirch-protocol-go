@@ -62,11 +62,16 @@ func NewECDSAPKCS11CryptoContext(pkcs11LibLocation string, loginPIN string, slot
 	return E, nil
 }
 
-// Close closes/destroys the pkcs#11 context
+// Close closes/logs out of the pkcs#11 session and destroys the pkcs#11 context
 func (E *ECDSAPKCS11CryptoContext) Close() error {
 	//acquire mutex for pkcs#11 interface related operations
 	E.cryptoInterfaceMtx.Lock()
 	defer E.cryptoInterfaceMtx.Unlock()
+
+	err := E.pkcs11TeardownSession()
+	if err != nil {
+		return err
+	}
 
 	E.pkcs11Ctx.Destroy()
 
