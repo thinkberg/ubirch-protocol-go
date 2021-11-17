@@ -22,6 +22,10 @@
  * `go test -v -test.run=.*([^N].....|[^O]....|[^T]...|[^R]..|[^D].|[^Y])$`
  *
  * which will skip all test with the name `Test...NOTRDY()`
+ * To test against a pkcs#11 HSM interface use the following flags:
+ * go test -test.run=.*([^N].....|[^O]....|[^T]...|[^R]..|[^D].|[^Y])$ -pkcs11CryptoTests -pkcs11LibLocation="/absolute/path/to/pkcs11.so" -pkcs11SlotUserPin="YourPin"
+ * Be aware that some tests might take much longer with pkcs#11 interfaces so adjust the number of tests or skip them as needed.
+ * You can use the -quickTests flag to do less thorough tests.
 
  */
 package ubirch

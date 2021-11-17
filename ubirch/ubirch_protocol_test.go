@@ -25,6 +25,7 @@
  * To test against a pkcs#11 HSM interface use the following flags:
  * go test -test.run=.*([^N].....|[^O]....|[^T]...|[^R]..|[^D].|[^Y])$ -pkcs11CryptoTests -pkcs11LibLocation="/absolute/path/to/pkcs11.so" -pkcs11SlotUserPin="YourPin"
  * Be aware that some tests might take much longer with pkcs#11 interfaces so adjust the number of tests or skip them as needed.
+ * You can use the -quickTests flag to do less thorough tests.
  */
 
 package ubirch
@@ -237,7 +238,11 @@ func TestSignHash_Fails(t *testing.T) {
 //TestSignHash_RandomInput tests if SignHash can correctly create UPPs
 // for a random input hash for the signed and chained protocol type
 func TestSignHash_RandomInput(t *testing.T) {
-	const numberOfTests = 1000
+	numberOfTests := 1000
+	if *quickTests {
+		numberOfTests = 100
+	} //reduce amount for quick tests
+
 	const nrOfChainedUpps = 3
 
 	inputHash := make([]byte, 32)
@@ -406,10 +411,12 @@ func TestSignData_Fails(t *testing.T) {
 //Signed and chained UPPs are created for all data input sizes and correct signature, payload/expected hash and chain (for chained)
 //are checked. This should help in catching errors that only occur for certain input lengths e.g. buffer and len() calculation issues.
 func TestSignData_DataInputLength(t *testing.T) {
-	const (
-		maxDataSizetoTest = 2 * 1024 //in Byte, be aware that test time is on the order of (Size!)
-		nrOfChainedUpps   = 3
-	)
+	maxDataSizetoTest := 2 * 1024 //in Byte, be aware that test time is on the order of (Size!)
+	if *quickTests {
+		maxDataSizetoTest = 100
+	} //reduce amount for quick tests
+
+	const nrOfChainedUpps = 3
 
 	//Tests for signed and chained type
 	for currentDataSize := 1; currentDataSize <= maxDataSizetoTest; currentDataSize++ {
@@ -485,7 +492,11 @@ func TestSignData_DataInputLength(t *testing.T) {
 // for random input data for the signed and chained protocol type
 //TODO: add randomization of parameters?
 func TestSignData_RandomInput(t *testing.T) {
-	const numberOfTests = 1000
+	numberOfTests := 1000
+	if *quickTests {
+		numberOfTests = 100
+	} //reduce amount for quick tests
+
 	const nrOfChainedUpps = 3
 	const dataLength = defaultDataSize
 
@@ -1039,7 +1050,11 @@ func TestProtocol_Verify(t *testing.T) {
 //chaining is however checked in TestSignData_RandomInput with a test helper function.
 //TODO: Add library chain check function here when/if library is extended to support it
 func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
-	const numberOfTests = 1000 //total number of tests
+	numberOfTests := 1000 //total number of tests
+	if *quickTests {
+		numberOfTests = 100
+	} //reduce amount for quick tests
+
 	const nrOfUPPsPerTest = 10 //number of chained and signed packets for each test (generated with one set of parameters)
 	const dataLength = defaultDataSize
 
@@ -1638,7 +1653,10 @@ func TestRandomBitFrequency(t *testing.T) {
 //in k/nonce generation. See also  https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm#Security
 //For testing, 'signed' type UPPs are used. Both "new context for each UPP" and "one context across all UPPs" cases are tested
 func TestECDSASignatureChanges(t *testing.T) {
-	const nrOfSigsToCheck = 1000 //effective number of tests is two time this number as both "new context for each test" and "consistent context" cases are tested
+	nrOfSigsToCheck := 1000 //effective number of tests is two time this number as both "new context for each test" and "consistent context" cases are tested
+	if *quickTests {
+		nrOfSigsToCheck = 100
+	} //reduce amount for quick tests
 
 	requirer := require.New(t)
 

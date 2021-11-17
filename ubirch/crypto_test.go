@@ -25,6 +25,7 @@
  * To test against a pkcs#11 HSM interface use the following flags:
  * go test -test.run=.*([^N].....|[^O]....|[^T]...|[^R]..|[^D].|[^Y])$ -pkcs11CryptoTests -pkcs11LibLocation="/absolute/path/to/pkcs11.so" -pkcs11SlotUserPin="YourPin"
  * Be aware that some tests might take much longer with pkcs#11 interfaces so adjust the number of tests or skip them as needed.
+ * You can use the -quickTests flag to do less thorough tests.
  */
 
 package ubirch
@@ -42,6 +43,9 @@ import (
 var pkcs11CryptoTests = flag.Bool("pkcs11CryptoTests", false, "perform tests using the pkcs#11 implementation of crypto where possible")
 var pkcs11LibLocation = flag.String("pkcs11LibLocation", "library_file.so", "where to find the pkcs#11 library file")
 var pkcs11SlotUserPin = flag.String("pkcs11SlotUserPin", "0000", "PIN for logging in the pkcs#11 user")
+
+//Flag controlling the speed/extent of tests
+var quickTests = flag.Bool("quickTests", false, "reduce number of test iterations for some tests")
 
 // TestCreateKeyStore tests, if a new keystore can be created. Generally incompatible with pkcs#11 crypto. (No keystore.)
 func TestCreateKeystore(t *testing.T) {
