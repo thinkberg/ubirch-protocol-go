@@ -852,10 +852,10 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 		pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
 		if typeOK {                             //assertion worked
 			if pkcs11Err != pkcs11.CKR_OK && pkcs11Err != pkcs11.CKR_CRYPTOKI_ALREADY_INITIALIZED { //if it's not something that's ok
-				return fmt.Errorf("pkcs11SetupSession: %s", pkcs11Err)
+				return fmt.Errorf("pkcs11SetupSession: initialize: %s", pkcs11Err)
 			}
 		} else { //error is of unexpected type
-			return fmt.Errorf("pkcs11SetupSession: unexpected type of error returned from intialize (not err.(pkcs11.Error)). Error was: %s", err)
+			return fmt.Errorf("pkcs11SetupSession: unexpected type of error returned from initialize (not err.(pkcs11.Error)). Error was: %s", err)
 		}
 	}
 
@@ -876,9 +876,17 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 
 	//login
 	err = E.pkcs11Ctx.Login(E.sessionHandle, pkcs11.CKU_USER, E.loginPIN)
-	if err != nil {
-		return fmt.Errorf("pkcs11SetupSession: logging in: %s", err)
+	if err != nil { // if there was an error
+		pkcs11Err, typeOK := err.(pkcs11.Error) // assert that it's pkcs11 type
+		if typeOK {                             //assertion worked
+			if pkcs11Err != pkcs11.CKR_OK && pkcs11Err != pkcs11.CKR_USER_ALREADY_LOGGED_IN { //if it's not something that's ok
+				return fmt.Errorf("pkcs11SetupSession: log in: %s", pkcs11Err)
+			}
+		} else { //error is of unexpected type
+			return fmt.Errorf("pkcs11SetupSession: unexpected type of error returned from login (not err.(pkcs11.Error)). Error was: %s", err)
+		}
 	}
+
 	return nil
 }
 
