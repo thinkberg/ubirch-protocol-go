@@ -123,7 +123,6 @@ func main() {
 	}
 
 	//test signing and check signature with threads
-	//TODO: copy this into the tests when it works
 	var wg sync.WaitGroup
 	for i := 1; i <= 500; i++ {
 		randData := make([]byte, 64)

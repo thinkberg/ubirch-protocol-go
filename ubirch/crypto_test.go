@@ -31,12 +31,19 @@
 package ubirch
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/sha256"
 	"encoding/hex"
 	"flag"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"math/big"
+	mathrand "math/rand"
+	"sync"
 	"testing"
+	"time"
 )
 
 //Flags used for testing pkcs#11 implementations of ubirch.crypto (as opposed to go library ubirch.crypto.)
@@ -676,4 +683,88 @@ func TestCryptoContext_PrivateKeyExists_NOTRDY(t *testing.T) {
 
 func TestCryptoContext_getDecodedPrivateKey_NOTRDY(t *testing.T) {
 	t.Error("TestgetDecodedPrivateKey() not implemented")
+}
+
+// TestECDSACryptoContext_SignWithGoroutines signs data with multiple goroutines/threads to see if concurrent execution
+// works properly. The resulting signature is verified locally. It sends two batches of goroutines with a short delay
+// in between.
+// Supports pkcs#11 crypto interface.
+func TestECDSACryptoContext_SignWithGoroutines(t *testing.T) {
+	const (
+		goroutinesPerBatch = 500
+		batchTwoDelayMs    = 200
+	)
+
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//declare the function to use as goroutine later
+	signAndCheck := func(myCrypto Crypto, myUuid uuid.UUID, myData []byte, wg *sync.WaitGroup) {
+		defer wg.Done()
+
+		//abort if test has already failed in some other goroutine, this will not be perfect because of concurrency
+		// but will stop the majority of the goroutines
+		if t.Failed() {
+			return
+		}
+
+		signature, err := myCrypto.Sign(myUuid, myData)
+		requirer.NoError(err, "signing failed")
+
+		pubKeyBytes, err := myCrypto.GetPublicKeyBytes(myUuid)
+		requirer.NoError(err, "getting pubkey failed")
+
+		//check the signature locally
+		pubKey := new(ecdsa.PublicKey)
+		pubKey.Curve = elliptic.P256()
+		pubKey.X = &big.Int{}
+		pubKey.X.SetBytes(pubKeyBytes[0:32])
+		pubKey.Y = &big.Int{}
+		pubKey.Y.SetBytes(pubKeyBytes[32:(32 + 32)])
+
+		r, s := &big.Int{}, &big.Int{}
+		r.SetBytes(signature[:32])
+		s.SetBytes(signature[32:])
+
+		hash := sha256.Sum256(myData)
+		result := ecdsa.Verify(pubKey, hash[:], r, s)
+		requirer.True(result, "local ecdsa.Verify failed on signed data")
+
+		sigOK, err := myCrypto.Verify(myUuid, myData, signature)
+		requirer.True(sigOK, "verify (lib): incorrect signature")
+		requirer.NoError(err, "verify (lib) returned error for signed data")
+	}
+
+	//create golang or pkcs#11 crypto context depending on test settings
+	context, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+	defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+		myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+	}(context, requirer)
+
+	// create new key for test
+	id := uuid.MustParse(defaultUUID)
+	asserter.NoError(context.GenerateKey(id), "Generating key for test failed")
+
+	//test signing and check signature with threads
+
+	var wg sync.WaitGroup
+	for i := 1; i <= goroutinesPerBatch; i++ {
+		randData := make([]byte, 64)
+		mathrand.Read(randData)
+		wg.Add(1)
+		go signAndCheck(context, id, []byte("12345678901234564890123456789012HelloWorld!"), &wg)
+	}
+	time.Sleep(batchTwoDelayMs * time.Millisecond) //wait a bit, so the next batch is started when lib is already busy
+	for i := 1; i <= goroutinesPerBatch; i++ {
+		randData := make([]byte, 64)
+		mathrand.Read(randData)
+		wg.Add(1)
+		go signAndCheck(context, id, []byte("12345678901234564890123456789012HelloWorld!"), &wg)
+	}
+	wg.Wait() // wait for the end of all goroutines
+
+	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
+		defer requirer.NoError(pkcs11DeleteKeypair(context, id))
+	}
 }
