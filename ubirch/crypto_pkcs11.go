@@ -614,7 +614,6 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11PrivKeyTemplate(id uuid.UUID) ([]*pkcs1
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		//pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "secp256r1"), //not needed as params are derived from public key
-		//TODO: check if these attributes make the key not displayable/queryable to user, but exportable in HSM backup
 	}
 	return privateKeyTemplate, nil
 }
