@@ -392,7 +392,7 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	asserter.Containsf(string(privKeyBytesLoad), "-----BEGIN PRIVATE KEY-----", "not a private key")
 }
 
-// TestCryptoContext_GetCSR Generates a CSR and does some basic checks on it
+// TestCryptoContext_GetCSR Generates a CSR and does some basic checks on it. Supports pkcs#11 crypto interface.
 func TestCryptoContext_GetCSR(t *testing.T) {
 	asserter := assert.New(t)
 	requirer := require.New(t)
