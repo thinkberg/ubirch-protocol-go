@@ -59,6 +59,20 @@ func newPKCS11ECDSAPrivKey(id uuid.UUID, ctx *ECDSAPKCS11CryptoContext) (*ECDSAP
 	}
 	P.pubKey = pubkey
 
+	//check that priv and pub actually are a keypair/in sync (simple sign and verify with this uuid)
+	data := []byte("HelloWorld!")
+	signature, err := P.pkcs11Crypto.Sign(id, data)
+	if err != nil {
+		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: not able to sign with key")
+	}
+	result, err := P.pkcs11Crypto.Verify(id, data, signature)
+	if err != nil {
+		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: not able to verify with key")
+	}
+	if result != true {
+		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: signature invalid, private/public key pair may not match")
+	}
+
 	return P, nil
 }
 
@@ -75,8 +89,6 @@ func (P *ECDSAPKCS11PrivKey) Sign(_ io.Reader, digest []byte, opts crypto.Signer
 	if err != nil {
 		return nil, err
 	}
-
-	//TODO: How to make sure that the pubkey is in sync with the privkey?
 
 	// check of len(signatureBytes): must be two times order of curve basepoint (which we get from the pubkey),
 	// according to pkcs#11 specs '2.3.1 EC Signatures' first half is r, second half s
