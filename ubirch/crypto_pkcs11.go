@@ -843,7 +843,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Durati
 func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 	// Warning: we can't use the retry handler in here, as the retry handler calls pkcs11SetupSession via the generic error handler
 	// and this will lead to a recursion.
-	//TODO: maybe better to check status of session then do steps as needed
+	// possible improvement: maybe better to check status of session then do steps as needed
 
 	//initialize
 	err := E.pkcs11Ctx.Initialize()
