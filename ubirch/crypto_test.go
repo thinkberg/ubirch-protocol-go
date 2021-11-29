@@ -34,6 +34,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"flag"
 	"github.com/google/uuid"
@@ -391,18 +392,43 @@ func TestCryptoContext_GetPrivateKey(t *testing.T) {
 	asserter.Containsf(string(privKeyBytesLoad), "-----BEGIN PRIVATE KEY-----", "not a private key")
 }
 
-// TestCryptoContext_GetCSR_NOTRDY the required method is not implemented yet
-func TestCryptoContext_GetCSR_NOTRDY(t *testing.T) {
-	// asserter := assert.New(t)
-	// var context = &ECDSACryptoContext{
-	// 	Keystore: NewEncryptedKeystore([]byte(defaultSecret)),
-	// 	Names:    map[string]uuid.UUID{},
-	// }
-	// p := Protocol{Crypto: context, signatures: map[uuid.UUID][]byte{}}
-	// certificate, err := p.GetCSR(defaultName)
-	// asserter.Nilf(err, "Getting CSR failed")
-	// asserter.NotNilf(certificate, "The Certificate is \"Nil\"")
-	t.Errorf("not implemented")
+// TestCryptoContext_GetCSR Generates a CSR and does some basic checks on it
+func TestCryptoContext_GetCSR(t *testing.T) {
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	id := uuid.MustParse(defaultUUID)
+
+	//create golang or pkcs#11 crypto context depending on test settings
+	context, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+	defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+		myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+	}(context, requirer)
+
+	// generate a keypair
+	requirer.NoError(context.GenerateKey(id))
+	if *pkcs11CryptoTests { // defer removal of keys again for pkcs#11 tests
+		defer func() { // we need this as else the parameters (=deleteKeyPair) is evaluated (=run) immediately
+			deleteErr := pkcs11DeleteKeypair(context, id)
+			asserter.NoError(deleteErr)
+		}()
+	}
+
+	//do tests
+	country := "DE"
+	org := "TestOrg"
+	certificateData, err := context.GetCSR(id, country, org)
+	asserter.Nilf(err, "getting CSR failed")
+	requirer.NotNilf(certificateData, "the certificate is \"Nil\"")
+	parsedCertificate, err := x509.ParseCertificateRequest(certificateData)
+	asserter.NoError(err, "parsing the created certificate data failed")
+	requirer.NotNilf(parsedCertificate, "the parsed certificate is \"Nil\"")
+	err = parsedCertificate.CheckSignature()
+	asserter.NoError(err, "created CSR signature invalid")
+	asserter.Equal([]string{country}, parsedCertificate.Subject.Country, "CSR country string mismatch")
+	asserter.Equal([]string{org}, parsedCertificate.Subject.Organization, "CSR organization string mismatch")
+	asserter.Equal(id.String(), parsedCertificate.Subject.CommonName, "UUID/CommonName mismatch")
 }
 
 // TestCryptoContext_Sign test the (ECDSACryptoContext) Sign function with defaultData, which should pass.
