@@ -767,6 +767,12 @@ func TestECDSACryptoContext_SignWithGoroutines(t *testing.T) {
 	// create new key for test
 	id := uuid.MustParse(defaultUUID)
 	asserter.NoError(context.GenerateKey(id), "Generating key for test failed")
+	if *pkcs11CryptoTests { // defer removal of keys later for pkcs#11 tests
+		defer func() { // we need this as else the parameters (=deleteKeyPair) is evaluated (=run) immediately
+			deleteErr := pkcs11DeleteKeypair(context, id)
+			asserter.NoError(deleteErr)
+		}()
+	}
 
 	//test signing and check signature with threads
 
@@ -785,8 +791,4 @@ func TestECDSACryptoContext_SignWithGoroutines(t *testing.T) {
 		go signAndCheck(context, id, []byte("12345678901234564890123456789012HelloWorld!"), &wg)
 	}
 	wg.Wait() // wait for the end of all goroutines
-
-	if *pkcs11CryptoTests { // remove keys again for pkcs#11 tests
-		defer requirer.NoError(pkcs11DeleteKeypair(context, id))
-	}
 }
