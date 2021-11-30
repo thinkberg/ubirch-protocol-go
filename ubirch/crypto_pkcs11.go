@@ -498,7 +498,7 @@ func (E *ECDSAPKCS11CryptoContext) signHash(id uuid.UUID, hash []byte) ([]byte, 
 		return err
 	})
 	if retriedErr != nil {
-		return nil, retriedErr
+		return nil, fmt.Errorf("signing failed: %v", retriedErr)
 	}
 
 	if len(signature) != nistp256SignatureLength {
@@ -639,15 +639,13 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11GetObjects(pkcs11id []byte, class uint,
 		if err != nil {
 			return err
 		}
+
 		objects, _, err = E.pkcs11Ctx.FindObjects(E.sessionHandle, max)
 		if err != nil {
 			return err
 		}
 
-		if err = E.pkcs11Ctx.FindObjectsFinal(E.sessionHandle); err != nil {
-			return err
-		}
-		return err
+		return E.pkcs11Ctx.FindObjectsFinal(E.sessionHandle)
 	})
 	if retriedErr != nil {
 		return nil, retriedErr
@@ -832,7 +830,8 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Durati
 				return fmt.Errorf("pkcs11Retry: unfixable error: %s", err)
 			}
 		} else {
-			return fmt.Errorf("pkcs11Retry: can't use error handler, pkcs11Retry was used on non-pkcs11-context function (returned error type is not pkcs11.Error).\n  non-pkcs11 Error was: %s", err)
+			// can't use error handler, pkcs11Retry was used on non-pkcs11-context function (returned error type is not pkcs11.Error)
+			return err
 		}
 
 		//try again in next loop...
