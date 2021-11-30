@@ -65,10 +65,6 @@ func TestCreateKeystore(t *testing.T) {
 	asserter.IsTypef(kstore, context.Keystore, "Keystore creation failed")
 }
 
-// TODO saveProtocolContext why is this function in the main
-// TODO loadProtocolContext, why is this function in the main
-// TODO: Answer, the load and store functions are outside, to keep the protocol outside the keystore
-
 //TestCryptoContext_FaultyKeystores tests proper behavior with faulty keystores such as nil/uninitialized. Generally incompatible with pkcs#11 crypto. (No keystore.)
 func TestCryptoContext_FaultyKeystores(t *testing.T) {
 	var tests = []struct {

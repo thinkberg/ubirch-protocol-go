@@ -228,7 +228,7 @@ func (c *ECDSACryptoContext) GetPublicKeyPEM(id uuid.UUID) ([]byte, error) {
 // PrivateKeyExists Checks if a private key entry for the given name exists in the keystore.
 func (c *ECDSACryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) {
 	if c.Keystore == nil || reflect.ValueOf(c.Keystore).IsNil() {
-		return false, fmt.Errorf("uninitialized keystore") //TODO: safer to assume there is a key?
+		return false, fmt.Errorf("uninitialized keystore")
 	}
 	return c.Keystore.PrivateKeyExists(id)
 }

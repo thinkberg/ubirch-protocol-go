@@ -248,7 +248,6 @@ func TestEncryptedKeystore_MarshalJSON(t *testing.T) {
 		"keyvalue not present")
 }
 
-// todo: figure out, how to test this
 func TestEncryptedKeystore_UnmarshalJSON_NOTRDY(t *testing.T) {
 	t.Errorf("not yet implemented")
 }
