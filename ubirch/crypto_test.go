@@ -707,11 +707,11 @@ func TestCryptoContext_getDecodedPrivateKey_NOTRDY(t *testing.T) {
 	t.Error("TestgetDecodedPrivateKey() not implemented")
 }
 
-// TestECDSACryptoContext_SignWithGoroutines signs data with multiple goroutines/threads to see if concurrent execution
+// TestCryptoContext_SignWithGoroutines signs data with multiple goroutines/threads to see if concurrent execution
 // works properly. The resulting signature is verified locally. It sends two batches of goroutines with a short delay
 // in between.
 // Supports pkcs#11 crypto interface.
-func TestECDSACryptoContext_SignWithGoroutines(t *testing.T) {
+func TestCryptoContext_SignWithGoroutines(t *testing.T) {
 	const (
 		goroutinesPerBatch = 500
 		batchTwoDelayMs    = 200
