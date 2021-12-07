@@ -51,6 +51,7 @@ import (
 var pkcs11CryptoTests = flag.Bool("pkcs11CryptoTests", false, "perform tests using the pkcs#11 implementation of crypto where possible")
 var pkcs11LibLocation = flag.String("pkcs11LibLocation", "library_file.so", "where to find the pkcs#11 library file")
 var pkcs11SlotUserPin = flag.String("pkcs11SlotUserPin", "0000", "PIN for logging in the pkcs#11 user")
+var pkcs11CP5HSM = flag.Bool("pkcs11CP5HSM", false, "skip/alter tests to work on HSMs with CP5 firmware which have restricted functions")
 
 //Flag controlling the speed/extent of tests
 var quickTests = flag.Bool("quickTests", false, "reduce number of test iterations for some tests")
@@ -160,6 +161,9 @@ func TestLoadKeystore_SaveKeystore(t *testing.T) {
 //		Set a private key, which is nil
 //		Set a private key, which has correct length but is an invalid elliptic curve private key value
 func TestCryptoContext_SetKey(t *testing.T) {
+	if *pkcs11CP5HSM {
+		t.Skip("SetKey is not supported on CP5 HSMs (no direct import of private keys), skipping test")
+	}
 	asserter := assert.New(t)
 	requirer := require.New(t)
 	//Set up test objects and parameters
