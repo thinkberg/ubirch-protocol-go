@@ -419,7 +419,7 @@ func TestCryptoContext_GetCSR(t *testing.T) {
 	country := "DE"
 	org := "TestOrg"
 	certificateData, err := context.GetCSR(id, country, org)
-	asserter.Nilf(err, "getting CSR failed")
+	asserter.NoError(err, "getting CSR failed")
 	requirer.NotNilf(certificateData, "the certificate is \"Nil\"")
 	parsedCertificate, err := x509.ParseCertificateRequest(certificateData)
 	asserter.NoError(err, "parsing the created certificate data failed")

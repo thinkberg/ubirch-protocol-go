@@ -63,11 +63,11 @@ func newPKCS11ECDSAPrivKey(id uuid.UUID, ctx *ECDSAPKCS11CryptoContext) (*ECDSAP
 	data := []byte("HelloWorld!")
 	signature, err := P.pkcs11Crypto.Sign(id, data)
 	if err != nil {
-		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: not able to sign with key")
+		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: not able to sign with key: %s", err)
 	}
 	result, err := P.pkcs11Crypto.Verify(id, data, signature)
 	if err != nil {
-		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: not able to verify with key")
+		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: not able to verify with key: %s", err)
 	}
 	if result != true {
 		return nil, fmt.Errorf("newPKCS11ECDSAPrivKey: signature invalid, private/public key pair may not match")
