@@ -796,3 +796,36 @@ func TestCryptoContext_SignWithGoroutines(t *testing.T) {
 	}
 	wg.Wait() // wait for the end of all goroutines
 }
+
+// TestCP5HSMCheckSimTestingSetup tests if pkcs11CP5HSMInitAndAuthorizeKey test helper and the connected bash script work
+// properly in CP5 HSM (pkcs11CP5HSM flag) mode. Thus, it tests test prerequisites and not the library itself.
+// This mainly tests if simulator is running, properly configured, and pkcs11CP5HSMInitAndAuthorizeKey works.
+func TestCP5HSMCheckSimTestingSetup(t *testing.T) {
+	if !*pkcs11CP5HSM || !*pkcs11CryptoTests {
+		t.Skip("No reason to check CP5 simulator setup without pkcs11CP5HSM and pkcs11CryptoTests flag, skipping test")
+	}
+	asserter := assert.New(t)
+	requirer := require.New(t)
+
+	//create golang or pkcs#11 crypto context depending on test settings
+	context, err := getCryptoContext()
+	requirer.NoError(err, "creating crypto context failed")
+	defer func(myCrypto Crypto, myRequirer *require.Assertions) { //defer closing but prepare error handling
+		myRequirer.NoError(myCrypto.Close(), "error when closing crypto context")
+	}(context, requirer)
+
+	// create new key for test
+	id := uuid.MustParse(defaultUUID)
+	asserter.NoError(context.GenerateKey(id), "Generating key for test failed")
+	if *pkcs11CryptoTests { // defer removal of keys later for pkcs#11 tests
+		defer func() { // we need this as else the parameters (=deleteKeyPair) is evaluated (=run) immediately
+			deleteErr := pkcs11DeleteKeypair(context, id)
+			asserter.NoError(deleteErr)
+		}()
+	}
+	asserter.NoError(pkcs11CP5HSMInitAndAuthorizeKey(context, id, t)) //init and authorize new key
+	signature, err := context.Sign(id, []byte("Hello World!"))        // test signing
+	asserter.NoError(err)
+	asserter.NotNil(signature)
+	//t.Log(signature)
+}
