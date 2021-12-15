@@ -259,9 +259,25 @@ func setProtocolContext(p *ExtendedProtocol, UUID string, PrivKey string, PubKey
 		if err != nil {
 			return fmt.Errorf("setProtocolContext: Error decoding private key string: : %v, string was: %v", err, PrivKey)
 		}
-		err = p.Crypto.SetKey(id, privBytes)
-		if err != nil {
-			return fmt.Errorf("setProtocolContext: Error setting private key bytes: %v,", err)
+		if *pkcs11CryptoTests && *pkcs11CP5HSM { //on CP5 HSM simulators, use workaround for setting the key
+			if PrivKey == defaultPriv { // if it's default key
+				fmt.Println("setProtocolContext: warning: pkcs11CP5HSM flag set, can't use SetKey(defaultPriv), generating new keypair as workaround")
+				err = p.Crypto.GenerateKey(id) //generate key
+				if err != nil {
+					return fmt.Errorf("setProtocolContext: Error gnerating private key as workaround: %v,", err)
+				}
+				err = pkcs11CP5HSMInitAndAuthorizeKey(p.Crypto, id) //activate key
+				if err != nil {
+					return fmt.Errorf("setProtocolContext: Error activating key: %v,", err)
+				}
+			} else { // test wants specific key, we can't do that, return error
+				return fmt.Errorf("setProtocolContext: pkcs11CP5HSM flag set, can't use SetKey(%s)", PrivKey)
+			}
+		} else { //for 'normal' tests, just set the key
+			err = p.Crypto.SetKey(id, privBytes)
+			if err != nil {
+				return fmt.Errorf("setProtocolContext: Error setting private key bytes: %v,", err)
+			}
 		}
 	}
 
@@ -606,7 +622,7 @@ func pkcs11DeleteKeypair(context Crypto, id uuid.UUID) error {
 // needed on CP5 HSMs before using the keys. This simply calls a bash script with one argument: the label of the private
 // key to authorize and initialize. A suitable bash script can be pulled with the HSM helper scripts repo and a symbolic
 // link created.
-func pkcs11CP5HSMInitAndAuthorizeKey(context Crypto, id uuid.UUID, t *testing.T) error {
+func pkcs11CP5HSMInitAndAuthorizeKey(context Crypto, id uuid.UUID) error {
 
 	keyLabel, err := context.(*ECDSAPKCS11CryptoContext).pkcs11PrivKeyLabel(id)
 	if err != nil {
@@ -617,17 +633,18 @@ func pkcs11CP5HSMInitAndAuthorizeKey(context Crypto, id uuid.UUID, t *testing.T)
 	cmdStdout, err := cmd.Output()
 	cmdStdoutStr := string(cmdStdout)
 	if err != nil {
-		t.Log("pkcs11CP5HSMInitAndAuthorizeKey: error during script execution")
+		errMessage := "" // for building error with all script info
+		errMessage += "pkcs11CP5HSMInitAndAuthorizeKey: error during script execution\n"
+		errMessage += fmt.Sprintf("cmd.Output() returned: %s\n", err)
 		if len(cmdStdoutStr) > 0 { // print stdout if available
-			t.Logf("stdout:\n%s", cmdStdoutStr)
+			errMessage += fmt.Sprintf("\nstdout:\n%s", cmdStdoutStr)
 		}
 		// also get + print stderr output if available
 		_, isExitError := err.(*exec.ExitError)
 		if isExitError {
-			t.Logf("stderr:\n%s", string(err.(*exec.ExitError).Stderr))
+			errMessage += fmt.Sprintf("\nstderr:\n%s", string(err.(*exec.ExitError).Stderr))
 		}
-		return err
+		return fmt.Errorf(errMessage)
 	}
-	//t.Log(cmdStdoutStr)
 	return nil
 }

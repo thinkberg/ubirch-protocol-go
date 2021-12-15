@@ -254,6 +254,16 @@ func TestSignHash_RandomInput(t *testing.T) {
 	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
 
+	// on CP5 HSM simulators, because of no setKey(), a new keypair is generated instead of defaultPriv, thus we
+	// must get the actual matching pubkey manually for this test
+	pubkey := defaultPub
+	if *pkcs11CryptoTests && *pkcs11CP5HSM {
+		t.Log("warning: pkcs11CP5HSM flag set, getting pubkey generated as workaround from HSM")
+		pubBytes, err := protocol.GetPublicKeyBytes(uuid.MustParse(defaultUUID))
+		requirer.NoError(err, "getting public key bytes failed")
+		pubkey = fmt.Sprintf("%x", pubBytes)
+	}
+
 	lastChainSig := defaultLastSig
 	//test the random input
 	for i := 0; i < numberOfTests; i++ {
@@ -267,7 +277,7 @@ func TestSignHash_RandomInput(t *testing.T) {
 
 		//Check created Signed UPP
 		expectedPayloadString := hex.EncodeToString(inputHash[:])
-		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub)
+		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, pubkey)
 		asserter.NoError(err, "UPP check failed for Signed type UPP with input hash %v", hex.EncodeToString(inputHash))
 
 		//Create multiple chained UPPs
@@ -280,7 +290,7 @@ func TestSignHash_RandomInput(t *testing.T) {
 		}
 
 		//Check the created UPPs
-		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, defaultPub)
+		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, pubkey)
 		asserter.NoError(err, "UPP check failed for Chained type UPPs with input hash %v", hex.EncodeToString(inputHash))
 
 		//save the last Signature of chain for check in next round TODO: get this using a library function when available, remove sig length magic number
@@ -437,6 +447,15 @@ func TestSignData_DataInputLength(t *testing.T) {
 			//Create new protocol context
 			protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+			// on CP5 HSM simulators, because of no setKey(), a new keypair is generated instead of defaultPriv, thus we
+			// must get the actual matching pubkey manually for this test
+			pubkey := defaultPub
+			if *pkcs11CryptoTests && *pkcs11CP5HSM {
+				t.Log("warning: pkcs11CP5HSM flag set, getting pubkey generated as workaround from HSM")
+				pubBytes, err := protocol.GetPublicKeyBytes(uuid.MustParse(defaultUUID))
+				requirer.NoError(err, "getting public key bytes failed")
+				pubkey = fmt.Sprintf("%x", pubBytes)
+			}
 
 			//Call SignData() to create UPP
 			createdSignedUpp, err := protocol.SignData(uuid.MustParse(defaultUUID), dataBytes, Signed)
@@ -444,7 +463,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 
 			//Check created UPP
 			expectedPayloadString := hex.EncodeToString(expectedDataHash[:])
-			asserter.NoError(checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub))
+			asserter.NoError(checkSignedUPP(t, createdSignedUpp, expectedPayloadString, pubkey))
 
 			//Remove keys from HSM again if this is a pkcs 11 test
 			if *pkcs11CryptoTests {
@@ -463,6 +482,15 @@ func TestSignData_DataInputLength(t *testing.T) {
 			//Create new protocol context
 			protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 			requirer.NoError(err, "Can't continue with test: Creating protocol context failed")
+			// on CP5 HSM simulators, because of no setKey(), a new keypair is generated instead of defaultPriv, thus we
+			// must get the actual matching pubkey manually for this test
+			pubkey := defaultPub
+			if *pkcs11CryptoTests && *pkcs11CP5HSM {
+				t.Log("warning: pkcs11CP5HSM flag set, getting pubkey generated as workaround from HSM")
+				pubBytes, err := protocol.GetPublicKeyBytes(uuid.MustParse(defaultUUID))
+				requirer.NoError(err, "getting public key bytes failed")
+				pubkey = fmt.Sprintf("%x", pubBytes)
+			}
 
 			//Call SignData() to create multiple chained UPPs
 			createdChainedUpps := make([][]byte, nrOfChainedUpps)
@@ -474,7 +502,7 @@ func TestSignData_DataInputLength(t *testing.T) {
 			}
 
 			//Check the created UPPs
-			asserter.NoError(checkChainedUPPs(t, createdChainedUpps, expectedPayloads, defaultLastSig, defaultPub))
+			asserter.NoError(checkChainedUPPs(t, createdChainedUpps, expectedPayloads, defaultLastSig, pubkey))
 
 			//Remove keys from HSM again if this is a pkcs 11 test
 			if *pkcs11CryptoTests {
@@ -508,6 +536,15 @@ func TestSignData_RandomInput(t *testing.T) {
 	//Create new protocol context, we use this context for all created UPPs without resetting it
 	protocol, err := newProtocolContextSigner(defaultUUID, defaultPriv, defaultLastSig)
 	requirer.NoError(err, "Creating protocol context failed")
+	// on CP5 HSM simulators, because of no setKey(), a new keypair is generated instead of defaultPriv, thus we
+	// must get the actual matching pubkey manually for this test
+	pubkey := defaultPub
+	if *pkcs11CryptoTests && *pkcs11CP5HSM {
+		t.Log("warning: pkcs11CP5HSM flag set, getting pubkey generated as workaround from HSM")
+		pubBytes, err := protocol.GetPublicKeyBytes(uuid.MustParse(defaultUUID))
+		requirer.NoError(err, "getting public key bytes failed")
+		pubkey = fmt.Sprintf("%x", pubBytes)
+	}
 
 	lastChainSig := defaultLastSig
 	//test the random input
@@ -524,7 +561,7 @@ func TestSignData_RandomInput(t *testing.T) {
 
 		//Check created Signed UPP
 		expectedPayloadString := hex.EncodeToString(inputDataHash[:])
-		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, defaultPub)
+		err = checkSignedUPP(t, createdSignedUpp, expectedPayloadString, pubkey)
 		asserter.NoError(err, "UPP check failed for Signed type UPP with input data %v", hex.EncodeToString(inputData))
 
 		//Create multiple chained UPPs
@@ -537,7 +574,7 @@ func TestSignData_RandomInput(t *testing.T) {
 		}
 
 		//Check the created UPPs
-		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, defaultPub)
+		err = checkChainedUPPs(t, createdChainedUpps, expectedPayloads, lastChainSig, pubkey)
 		asserter.NoError(err, "UPP check failed for Chained type UPPs with input data %v", hex.EncodeToString(inputData))
 
 		//save the last Signature of chain for check in next round TODO: get this using a library function when available, remove sig length magic number
@@ -587,12 +624,24 @@ func TestSignData_SignedType(t *testing.T) {
 	//Iterate over all tests
 	for _, currTest := range tests {
 		t.Run(currTest.testName, func(t *testing.T) {
+			if *pkcs11CryptoTests && *pkcs11CP5HSM && currTest.privateKey != defaultPriv {
+				t.Skip("pkcs11CP5HSM mode: can't use setKey() to set specific private keys, skipping test")
+			}
+
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
 			//Create new protocol context
 			protocol, err := newProtocolContextSigner(currTest.deviceUUID, currTest.privateKey, defaultLastSig)
 			requirer.NoError(err, "Creating protocol context failed")
+			// on CP5 HSM simulators, because of no setKey(), a new keypair is generated instead of defaultPriv, thus we
+			// must get the actual matching pubkey manually for this test
+			if *pkcs11CryptoTests && *pkcs11CP5HSM && currTest.privateKey == defaultPriv {
+				t.Log("warning: pkcs11CP5HSM flag set, getting pubkey generated as workaround from HSM")
+				pubBytes, err := protocol.GetPublicKeyBytes(uuid.MustParse(defaultUUID))
+				requirer.NoError(err, "getting public key bytes failed")
+				currTest.publicKey = fmt.Sprintf("%x", pubBytes)
+			}
 
 			//Create 'Signed' type UPP with user data
 			userDataBytes, err := hex.DecodeString(currTest.userData)
@@ -679,12 +728,23 @@ func TestSignData_ChainedType(t *testing.T) {
 	//Iterate over all tests
 	for _, currTest := range tests {
 		t.Run(currTest.testName, func(t *testing.T) {
+			if *pkcs11CryptoTests && *pkcs11CP5HSM && currTest.privateKey != defaultPriv {
+				t.Skip("pkcs11CP5HSM mode: can't use setKey() to set specific private keys, skipping test")
+			}
 			asserter := assert.New(t)
 			requirer := require.New(t)
 
 			//Create new protocol context
 			protocol, err := newProtocolContextSigner(currTest.deviceUUID, currTest.privateKey, currTest.lastSignature)
 			requirer.NoError(err, "Creating protocol context failed")
+			// on CP5 HSM simulators, because of no setKey(), a new keypair is generated instead of defaultPriv, thus we
+			// must get the actual matching pubkey manually for this test
+			if *pkcs11CryptoTests && *pkcs11CP5HSM && currTest.privateKey == defaultPriv {
+				t.Log("warning: pkcs11CP5HSM flag set, getting pubkey generated as workaround from HSM")
+				pubBytes, err := protocol.GetPublicKeyBytes(uuid.MustParse(defaultUUID))
+				requirer.NoError(err, "getting public key bytes failed")
+				currTest.publicKey = fmt.Sprintf("%x", pubBytes)
+			}
 
 			requirer.Equal(len(currTest.UserDataInputs), len(currTest.expectedChainedUpps), "Number of input data sets does not match number of expected UPPs")
 
@@ -1080,6 +1140,12 @@ func TestProtocol_SignDataVerifyDecodeLoop(t *testing.T) {
 		_, err := rand.Read(privBytes)
 		requirer.NoError(err, "Could not generate random data for private key")
 		currPriv = hex.EncodeToString(privBytes)
+		// on CP5 HSM hardware we cant set privkeys, thus we use the default, which will internally generate a new
+		// keypair in newProtocolContextSigner/setProtocolContext as CP5 workaround
+		if *pkcs11CryptoTests && *pkcs11CP5HSM {
+			t.Log("warning: pkcs11CP5HSM flag set, can't set privkey, using defaultPriv instead")
+			currPriv = defaultPriv
+		}
 		//Last Signature
 		_, err = rand.Read(lastSigBytes)
 		requirer.NoError(err, "Could not generate random data for last signature")

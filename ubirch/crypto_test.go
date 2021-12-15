@@ -284,6 +284,9 @@ func TestCryptoContext_GenerateKey(t *testing.T) {
 	//Generate Key with valid uuid
 	id := uuid.MustParse(defaultUUID)
 	asserter.Nilf(p.GenerateKey(id), "Generating key failed")
+	if *pkcs11CryptoTests && *pkcs11CP5HSM { //activate new key on CP5 HSM simulators
+		requirer.NoError(pkcs11CP5HSMInitAndAuthorizeKey(context, id))
+	}
 	pubKeyBytes, err := p.GetPublicKeyBytes(id)
 	asserter.NoErrorf(err, "Getting Public key failed")
 	asserter.NotNilf(pubKeyBytes, "Public Key for existing Key empty")
@@ -408,6 +411,9 @@ func TestCryptoContext_GetCSR(t *testing.T) {
 
 	// generate a keypair
 	requirer.NoError(context.GenerateKey(id))
+	if *pkcs11CryptoTests && *pkcs11CP5HSM { //activate new key on CP5 HSM simulators
+		requirer.NoError(pkcs11CP5HSMInitAndAuthorizeKey(context, id))
+	}
 	if *pkcs11CryptoTests { // defer removal of keys again for pkcs#11 tests
 		defer func() { // we need this as else the parameters (=deleteKeyPair) is evaluated (=run) immediately
 			deleteErr := pkcs11DeleteKeypair(context, id)
@@ -468,7 +474,17 @@ func TestCryptoContext_Sign(t *testing.T) {
 			hashBytes, err := hex.DecodeString(currTest.hashForSign)
 			requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
 			//Set the PrivateKey and check, that it is set correct
-			requirer.NoErrorf(context.SetKey(id, privBytes), "Setting the Private Key failed")
+			if *pkcs11CryptoTests && *pkcs11CP5HSM { //on CP5 HSM simulators, use workaround
+				if currTest.privateKey == defaultPriv { // test with default key
+					t.Log("warning: pkcs11CP5HSM flag set, can't use SetKey(defaultPriv), generating new keypair as workaround")
+					requirer.NoError(context.GenerateKey(id))                      //generate key
+					requirer.NoError(pkcs11CP5HSMInitAndAuthorizeKey(context, id)) //activate key
+				} else { // tests wants specific key, we can't do that
+					t.Skipf("warning: pkcs11CP5HSM flag set, can't use SetKey(%s), skipping test", currTest.privateKey)
+				}
+			} else { //for 'normal' tests, set the key
+				requirer.NoErrorf(context.SetKey(id, privBytes), "Setting the Private Key failed")
+			}
 
 			//Call Sign() and assert error
 			signature, err := context.Sign(id, hashBytes)
@@ -534,8 +550,19 @@ func TestCryptoContext_SignFails(t *testing.T) {
 			hashBytes, err := hex.DecodeString(currTest.hashForSign)
 			//fmt.Printf("HASH: %v", hashBytes)
 			requirer.NoErrorf(err, "Test configuration string (hashForSign) can't be decoded.\nString was: %v", currTest.hashForSign)
-			// Set the PrivateKey and checkt, that it was set correctly
-			requirer.NoErrorf(context.SetKey(currTest.UUIDforKey, privBytes), "Setting the Private Key failed")
+
+			// Set the PrivateKey and check, that it was set correctly
+			if *pkcs11CryptoTests && *pkcs11CP5HSM { //on CP5 HSM simulators, use workaround
+				if currTest.privateKey == defaultPriv { // test with default key
+					t.Log("warning: pkcs11CP5HSM flag set, can't use SetKey(defaultPriv), generating new keypair as workaround")
+					requirer.NoError(context.GenerateKey(currTest.UUIDforKey))                      //generate key
+					requirer.NoError(pkcs11CP5HSMInitAndAuthorizeKey(context, currTest.UUIDforKey)) //activate key
+				} else { // tests wants specific key, we can't do that
+					t.Skipf("warning: pkcs11CP5HSM flag set, can't use SetKey(%s), skipping test", currTest.privateKey)
+				}
+			} else { //for 'normal' tests, set the key
+				requirer.NoErrorf(context.SetKey(currTest.UUIDforKey, privBytes), "Setting the Private Key failed")
+			}
 
 			//Call Sign() and assert error
 			signature, err := context.Sign(currTest.UUID, hashBytes)
@@ -771,6 +798,9 @@ func TestCryptoContext_SignWithGoroutines(t *testing.T) {
 	// create new key for test
 	id := uuid.MustParse(defaultUUID)
 	asserter.NoError(context.GenerateKey(id), "Generating key for test failed")
+	if *pkcs11CryptoTests && *pkcs11CP5HSM { //activate new key on CP5 HSM simulators
+		requirer.NoError(pkcs11CP5HSMInitAndAuthorizeKey(context, id))
+	}
 	if *pkcs11CryptoTests { // defer removal of keys later for pkcs#11 tests
 		defer func() { // we need this as else the parameters (=deleteKeyPair) is evaluated (=run) immediately
 			deleteErr := pkcs11DeleteKeypair(context, id)
@@ -823,8 +853,8 @@ func TestCP5HSMCheckSimTestingSetup(t *testing.T) {
 			asserter.NoError(deleteErr)
 		}()
 	}
-	asserter.NoError(pkcs11CP5HSMInitAndAuthorizeKey(context, id, t)) //init and authorize new key
-	signature, err := context.Sign(id, []byte("Hello World!"))        // test signing
+	asserter.NoError(pkcs11CP5HSMInitAndAuthorizeKey(context, id)) //init and authorize new key
+	signature, err := context.Sign(id, []byte("Hello World!"))     // test signing
 	asserter.NoError(err)
 	asserter.NotNil(signature)
 	//t.Log(signature)
