@@ -711,7 +711,8 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11HandleGenericErrors(pkcs11Error pkcs11.
 		fallthrough                                                  //we also want to re-establish the session (via the next block)
 
 	// 're-establish session' errors
-	case pkcs11.CKR_OPERATION_ACTIVE,
+	case pkcs11.CKR_GENERAL_ERROR,
+		pkcs11.CKR_OPERATION_ACTIVE,
 		pkcs11.CKR_OPERATION_NOT_INITIALIZED,
 		pkcs11.CKR_SESSION_CLOSED,
 		pkcs11.CKR_SESSION_HANDLE_INVALID,
@@ -732,8 +733,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11HandleGenericErrors(pkcs11Error pkcs11.
 		return nil
 
 	//'unfixable' errors
-	case pkcs11.CKR_GENERAL_ERROR,
-		pkcs11.CKR_ARGUMENTS_BAD,
+	case pkcs11.CKR_ARGUMENTS_BAD,
 		pkcs11.CKR_SLOT_ID_INVALID,
 		pkcs11.CKR_NO_EVENT,
 		pkcs11.CKR_NEED_TO_CREATE_THREADS,
