@@ -67,15 +67,9 @@ func (E *ECDSAPKCS11CryptoContext) Close() error {
 	//acquire mutex for pkcs#11 interface related operations
 	E.cryptoInterfaceMtx.Lock()
 	defer E.cryptoInterfaceMtx.Unlock()
+	defer E.pkcs11Ctx.Destroy()
 
-	err := E.pkcs11TeardownSession()
-	if err != nil {
-		return err
-	}
-
-	E.pkcs11Ctx.Destroy()
-
-	return nil
+	return E.pkcs11TeardownSession()
 }
 
 // SetupSession sets up a session including initialization and login. (Mutex wrapper)
