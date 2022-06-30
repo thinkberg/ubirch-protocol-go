@@ -11,13 +11,13 @@ type SignedKeyDeletion struct {
 	Signature string `json:"signature"`
 }
 
-func (p *Protocol) GetSignedKeyDeletion(uid uuid.UUID) ([]byte, error) {
-	pubKeyBytes, err := p.Crypto.GetPublicKeyBytes(uid)
+func GetSignedKeyDeletion(c Crypto, uid uuid.UUID) ([]byte, error) {
+	pubKeyBytes, err := c.GetPublicKeyBytes(uid)
 	if err != nil {
 		return nil, err
 	}
 
-	signature, err := p.Crypto.Sign(uid, pubKeyBytes)
+	signature, err := c.Sign(uid, pubKeyBytes)
 	if err != nil {
 		return nil, err
 	}
