@@ -434,10 +434,8 @@ func (E *ECDSAPKCS11CryptoContext) GetCSR(id uuid.UUID, subjectCountry string, s
 	return csr, nil
 }
 
-// GetSignedKeyRegistration creates a self-signed JSON key certificate
-// to be sent to the UBIRCH identity service for public key registration
-func (c *ECDSAPKCS11CryptoContext) GetSignedKeyRegistration(uid uuid.UUID) ([]byte, error) {
-	return getSignedKeyRegistration(c, uid)
+func (E *ECDSAPKCS11CryptoContext) AlgorithmId() string {
+	return nistp256AlgorithmIdentifier
 }
 
 func (E *ECDSAPKCS11CryptoContext) SignatureLength() int {
