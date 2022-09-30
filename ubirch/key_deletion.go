@@ -11,7 +11,7 @@ type SignedKeyDeletion struct {
 	Signature string `json:"signature"`
 }
 
-func getSignedKeyDeletion(c Crypto, uid uuid.UUID) ([]byte, error) {
+func GetSignedKeyDeletion(c Crypto, uid uuid.UUID) ([]byte, error) {
 	pubKeyBytes, err := c.GetPublicKeyBytes(uid)
 	if err != nil {
 		return nil, err
