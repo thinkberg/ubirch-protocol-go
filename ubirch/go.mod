@@ -7,8 +7,8 @@ require (
 	github.com/miekg/pkcs11 v1.1.1
 	github.com/stretchr/testify v1.5.1
 	github.com/ubirch/go.crypto v0.1.2
-	github.com/ugorji/go/codec v1.2.7
-	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
+	github.com/ugorji/go/codec v1.2.8
+	golang.org/x/crypto v0.5.0
 )
 
 require (
