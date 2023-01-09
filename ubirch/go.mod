@@ -6,7 +6,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.5.1
 	github.com/ubirch/go.crypto v0.1.2
-	github.com/ugorji/go/codec v1.2.7
+	github.com/ugorji/go/codec v1.2.8
 )
 
 require (
