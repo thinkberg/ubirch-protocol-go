@@ -236,7 +236,7 @@ func (E *ECDSAPKCS11CryptoContext) SetPublicKeyPEM(id uuid.UUID, pubKeyPEM []byt
 	return E.SetPublicKeyBytes(id, pubKeyBytes)
 }
 
-//PrivateKeyExists checks if key exists in HSM. (Mutex wrapper)
+// PrivateKeyExists checks if key exists in HSM. (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) PrivateKeyExists(id uuid.UUID) (bool, error) {
 	//acquire mutex for pkcs#11 interface related operations
 	E.cryptoInterfaceMtx.Lock()
@@ -260,7 +260,7 @@ func (E *ECDSAPKCS11CryptoContext) privateKeyExists(id uuid.UUID) (bool, error) 
 	}
 }
 
-//PublicKeyExists checks if key exists in HSM. (Mutex wrapper)
+// PublicKeyExists checks if key exists in HSM. (Mutex wrapper)
 func (E *ECDSAPKCS11CryptoContext) PublicKeyExists(id uuid.UUID) (bool, error) {
 	//acquire mutex for pkcs#11 interface
 	E.cryptoInterfaceMtx.Lock()
@@ -434,18 +434,16 @@ func (E *ECDSAPKCS11CryptoContext) GetCSR(id uuid.UUID, subjectCountry string, s
 	return csr, nil
 }
 
-// GetSignedKeyRegistration creates a self-signed JSON key certificate
-// to be sent to the UBIRCH identity service for public key registration
-func (c *ECDSAPKCS11CryptoContext) GetSignedKeyRegistration(uid uuid.UUID) ([]byte, error) {
-	return getSignedKeyRegistration(c, uid)
-}
-
 func (E *ECDSAPKCS11CryptoContext) SignatureLength() int {
 	return nistp256SignatureLength
 }
 
 func (E *ECDSAPKCS11CryptoContext) HashLength() int {
 	return sha256Length
+}
+
+func (c *ECDSAPKCS11CryptoContext) AlgorithmId() string {
+	return nistp256AlgorithmIdentifier
 }
 
 // Sign creates the signature for arbitrary data using the private key of the given UUID
@@ -648,8 +646,8 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11GetObjects(pkcs11id []byte, class uint,
 	return objects, nil
 }
 
-//pkcs11GetHandle gets the handle to a single object belonging to a certain UUID and of a certain pkcs#11 class,
-//errors if zero or more than one object is found
+// pkcs11GetHandle gets the handle to a single object belonging to a certain UUID and of a certain pkcs#11 class,
+// errors if zero or more than one object is found
 func (E *ECDSAPKCS11CryptoContext) pkcs11GetHandle(id uuid.UUID, class uint) (pkcs11.ObjectHandle, error) {
 	objects, err := E.pkcs11GetObjects(id[:], class, 2)
 	if err != nil {
@@ -799,7 +797,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11HandleGenericErrors(pkcs11Error pkcs11.
 	}
 }
 
-//pkcs11Retry is a helper function that retries a pkcs#11 function a defined number of times with an optional sleep delay.
+// pkcs11Retry is a helper function that retries a pkcs#11 function a defined number of times with an optional sleep delay.
 // The passed-in function must return a pkcs11.Error, as its error is passed to pkcs11HandleGenericErrors. Thus this should
 // only be used with E.pkcs11Ctx.(...) functions. Setting maxRetries to 0 will disable retrying and the generic error handler and
 // pass any occurring errors directly back to the caller.
@@ -832,7 +830,7 @@ func (E *ECDSAPKCS11CryptoContext) pkcs11Retry(maxRetries int, sleep time.Durati
 	}
 }
 
-//pkcs11SetupSession sets up a session including initialization and login.
+// pkcs11SetupSession sets up a session including initialization and login.
 func (E *ECDSAPKCS11CryptoContext) pkcs11SetupSession() error {
 	// Warning: we can't use the retry handler in here, as the retry handler calls pkcs11SetupSession via the generic error handler
 	// and this will lead to a recursion.
