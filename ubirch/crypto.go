@@ -33,6 +33,8 @@ import (
 )
 
 const (
+	nistp256AlgorithmIdentifier = "ecdsa-p256v1"
+
 	//constants for number of bytes used for parameters of NIST P-256 curve
 	nistp256PrivkeyLength   = 32                                //Bytes
 	nistp256XLength         = 32                                //Bytes
@@ -47,6 +49,10 @@ const (
 // ECDSACryptoContext contains the key store
 type ECDSACryptoContext struct {
 	Keystore Keystorer
+}
+
+func (c *ECDSACryptoContext) AlgorithmId() string {
+	return nistp256AlgorithmIdentifier
 }
 
 func (c *ECDSACryptoContext) SignatureLength() int {
@@ -165,7 +171,7 @@ func (c *ECDSACryptoContext) SetPublicKeyPEM(id uuid.UUID, pubKeyPEM []byte) err
 	return c.SetPublicKeyBytes(id, pubKeyBytes)
 }
 
-//SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
+// SetKey takes a private key (32 bytes), calculates the public key and sets both private and public key
 func (c *ECDSACryptoContext) SetKey(id uuid.UUID, privKeyBytes []byte) error {
 	if id == uuid.Nil {
 		return fmt.Errorf("UUID \"Nil\"-value")
@@ -196,12 +202,6 @@ func (c *ECDSACryptoContext) GetCSR(id uuid.UUID, subjectCountry string, subject
 	}
 
 	return x509.CreateCertificateRequest(rand.Reader, template, priv)
-}
-
-// GetSignedKeyRegistration creates a self-signed JSON key certificate
-// to be sent to the UBIRCH identity service for public key registration
-func (c *ECDSACryptoContext) GetSignedKeyRegistration(uid uuid.UUID) ([]byte, error) {
-	return getSignedKeyRegistration(c, uid)
 }
 
 // GetPublicKeyBytes gets the public key bytes for the given name.

@@ -22,7 +22,7 @@ type SignedKeyRegistration struct {
 	Signature  string          `json:"signature"`
 }
 
-func getSignedKeyRegistration(c Crypto, uid uuid.UUID) ([]byte, error) {
+func GetSignedKeyRegistration(c Crypto, uid uuid.UUID) ([]byte, error) {
 	const timeFormat = "2006-01-02T15:04:05.000Z"
 
 	pubKeyBytes, err := c.GetPublicKeyBytes(uid)
@@ -33,7 +33,7 @@ func getSignedKeyRegistration(c Crypto, uid uuid.UUID) ([]byte, error) {
 	// put it all together
 	now := time.Now().UTC()
 	keyRegistration := KeyRegistration{
-		Algorithm:      "ecdsa-p256v1",
+		Algorithm:      c.AlgorithmId(),
 		Created:        now.Format(timeFormat),
 		HwDeviceId:     uid.String(),
 		PubKey:         base64.StdEncoding.EncodeToString(pubKeyBytes),

@@ -62,6 +62,7 @@ type Crypto interface {
 	GetCSR(id uuid.UUID, subjectCountry string, subjectOrganization string) ([]byte, error)
 	GetSignedKeyRegistration(uid uuid.UUID) ([]byte, error)
 
+	AlgorithmId() string
 	SignatureLength() int
 	HashLength() int
 
